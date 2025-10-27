@@ -1,5 +1,5 @@
 import { getAuth } from "@clerk/nextjs/server";
-import { clerkClient } from "@clerk/clerk-sdk-node"; // ✅ Cliente correcto para Node runtime
+import { clerkClient } from "@clerk/nextjs/server"; // ✅ Actualizado
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 

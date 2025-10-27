@@ -417,9 +417,6 @@ export default function GlobalNavbar() {
           </button>
 
           {/* 👤 Usuario */}
-          {/*
-         -------------------------------------------- Temporalmente deshabilitado--------------------------------------------------------
-          
           {isLoaded ? (
             user ? (
               <>
@@ -461,7 +458,6 @@ export default function GlobalNavbar() {
           ) : (
             <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
           )}
-          */}
         </div>
       </div>
     </motion.nav>

@@ -1,7 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
 
-// ✅ Rutas API públicas (sin autenticación)
+// ✅ Rutas API públicas (sin sesión)
 const isPublicApiRoute = createRouteMatcher([
   "/api/webhooks/:path*",
   "/api/upload-photo",
@@ -16,42 +15,60 @@ const isPublicApiRoute = createRouteMatcher([
   "/api/jobs/delete",
 ]);
 
-// ✅ Rutas protegidas (solo para usuarios con sesión)
-const isProtectedRoute = createRouteMatcher([
-  "/(protected)(.*)",
-  "/dashboard(.*)",
-  "/admin(.*)",
-  "/jobs(.*)",
-  "/profile(.*)",
-  "/settings(.*)",
-]);
+// ✅ Páginas protegidas (requieren sesión)
+const isProtectedPage = createRouteMatcher(["/(protected)(.*)"]);
 
 // ✅ Rutas de autenticación
 const isAuthRoute = createRouteMatcher(["/sign-in", "/sign-up"]);
 
 export default clerkMiddleware((auth, req) => {
-  const { userId } = auth();
+  const { userId, sessionClaims } = auth();
+  const url = req.nextUrl.clone();
 
   // 🟢 Permitir rutas API públicas sin sesión
-  if (isPublicApiRoute(req)) return NextResponse.next();
+  if (isPublicApiRoute(req)) {
+    console.log("🟢 Public API route allowed:", req.url);
+    return;
+  }
 
-  // 🔒 Proteger rutas internas
-  if (isProtectedRoute(req)) {
+  // 🔒 Proteger automáticamente las rutas /protected/*
+  if (isProtectedPage(req)) {
+    // ⚡ Activa la sesión de Clerk (importante para useAuth/useUser)
     auth().protect();
-    return NextResponse.next();
   }
 
-  // 🚫 Redirigir sign-in / sign-up al home (temporalmente)
-  if (isAuthRoute(req)) {
-    console.log("🚫 Sign-in / Sign-up temporalmente deshabilitado");
-    return NextResponse.redirect(new URL("/", req.url));
+  // 🔁 Evitar acceso a sign-in / sign-up si ya está autenticado
+  if (isAuthRoute(req) && userId) {
+    const role = sessionClaims?.metadata?.role || "client";
+    switch (role) {
+      case "admin":
+        return Response.redirect(new URL("/admin", req.url));
+      case "staff":
+        return Response.redirect(new URL("/staff-dashboard", req.url));
+      default:
+        return Response.redirect(new URL("/dashboard", req.url));
+    }
   }
 
-  // 🏡 Todo lo demás (landing, servicios, contacto, etc.) es público
-  return NextResponse.next();
+  // 🏠 Redirigir raíz "/" al dashboard según rol
+  if (url.pathname === "/" && userId) {
+    const role = sessionClaims?.metadata?.role || "client";
+    switch (role) {
+      case "admin":
+        url.pathname = "/admin";
+        break;
+      case "staff":
+        url.pathname = "/staff-dashboard";
+        break;
+      default:
+        url.pathname = "/dashboard";
+    }
+    return Response.redirect(url);
+  }
+
+  return; // permitir continuar
 });
 
 export const config = {
-  // ⚙️ Ignorar archivos estáticos y rutas internas
-  matcher: ["/((?!_next|.*\\..*|favicon.ico).*)"],
+  matcher: ["/((?!_next|.*\\..*|favicon.ico|sign-in|sign-up).*)"],
 };
