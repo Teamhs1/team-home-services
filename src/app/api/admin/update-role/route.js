@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { clerkClient } from "@clerk/clerk-sdk-node"; // ✅ estable y soportado
+import { clerkClient } from "@clerk/nextjs/server"; // ✅ Nueva versión moderna
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
