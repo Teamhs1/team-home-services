@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===========================================================
+   🩵 Team Home Services Theme Utilities
+   =========================================================== */
+
+@layer components {
+  /* 🔹 Colores corporativos */
+  .text-brand {
+    color: hsl(var(--primary));
+  }
+  .bg-brand {
+    background-color: hsl(var(--primary));
+  }
+  .border-brand {
+    border-color: hsl(var(--primary));
+  }
+
+  .hover\:bg-brand:hover {
+    background-color: hsl(var(--primary) / 0.9);
+  }
+
+  /* 🔹 Variantes suaves (ideal para fondos ligeros o badges) */
+  .bg-brand-soft {
+    background-color: hsl(var(--primary) / 0.1);
+  }
+  .text-brand-soft {
+    color: hsl(var(--primary) / 0.8);
+  }
+
+  /* 🔹 Botones personalizados */
+  .btn-brand {
+    @apply inline-flex items-center justify-center rounded-lg font-medium text-white 
+           bg-brand transition-all duration-200 shadow-sm px-4 py-2;
+  }
+
+  .btn-brand:hover {
+    background-color: hsl(var(--primary) / 0.85);
+  }
+
+  .btn-brand-outline {
+    @apply inline-flex items-center justify-center rounded-lg font-medium border 
+           border-brand text-brand hover:bg-brand hover:text-white 
+           transition-all duration-200 px-4 py-2;
+  }
+
+  /* 🔹 Badges para estados */
+  .badge {
+    @apply text-xs font-medium px-2 py-1 rounded-full;
+  }
+  .badge-pending {
+    @apply badge bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400;
+  }
+  .badge-progress {
+    @apply badge bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400;
+  }
+  .badge-complete {
+    @apply badge bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400;
+  }
+
+  /* 🔹 Cards y contenedores */
+  .card {
+    @apply rounded-xl border border-border bg-card text-card-foreground 
+           shadow-sm p-6 transition-all duration-300;
+  }
+
+  .card-hover {
+    @apply hover:shadow-md hover:-translate-y-0.5;
+  }
+
+  /* 🔹 Tipografía y títulos */
+  .heading {
+    @apply font-bold text-2xl tracking-tight text-brand;
+  }
+  .subheading {
+    @apply text-gray-500 dark:text-gray-400 text-sm;
+  }
+
+  /* 🔹 Layout helpers */
+  .container-page {
+    @apply max-w-6xl mx-auto px-6 py-10;
+  }
+}

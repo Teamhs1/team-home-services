@@ -1,0 +1,60 @@
+// Autitoria *********************************************
+
+
+Script para Auditoria
+
+-- ============================================================
+-- 🔒 SUPABASE SECURITY AUDIT REPORT (Fixed Version)
+--   Audita tablas y vistas del esquema public
+-- ============================================================
+
+WITH table_rls AS (
+  SELECT
+    n.nspname AS schema_name,
+    c.relname AS entity_name,
+    'TABLE' AS entity_type,
+    c.relrowsecurity AS rls_enabled,
+    c.relforcerowsecurity AS rls_forced,
+    COUNT(p.policyname)::int AS policy_count,
+    CASE
+      WHEN c.relrowsecurity AND COUNT(p.policyname) > 0 THEN '✅ Secure (RLS active & policies defined)'
+      WHEN c.relrowsecurity AND COUNT(p.policyname) = 0 THEN '⚠️ RLS enabled but no policies (no access)'
+      ELSE '❌ Insecure (RLS disabled)'
+    END AS security_summary
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  LEFT JOIN pg_policies p ON p.tablename = c.relname
+  WHERE c.relkind = 'r'  -- only tables
+    AND n.nspname = 'public'
+  GROUP BY n.nspname, c.relname, c.relrowsecurity, c.relforcerowsecurity
+),
+view_security AS (
+  SELECT
+    n.nspname AS schema_name,
+    c.relname AS entity_name,
+    'VIEW' AS entity_type,
+    TRUE AS rls_enabled,
+    FALSE AS rls_forced,
+    0::int AS policy_count,  -- 👈 tipo fijo para evitar error
+    CASE
+      WHEN pg_get_viewdef(c.oid, true) ILIKE '%SECURITY DEFINER%' THEN '⚠️ SECURITY DEFINER DETECTED'
+      ELSE '✅ Safe (Invoker / normal view)'
+    END AS security_summary
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE c.relkind = 'v'
+    AND n.nspname = 'public'
+)
+SELECT
+  schema_name,
+  entity_type,
+  entity_name,
+  CASE WHEN rls_enabled THEN '✅ Enabled' ELSE '❌ Disabled' END AS rls_status,
+  policy_count,
+  security_summary
+FROM (
+  SELECT * FROM table_rls
+  UNION ALL
+  SELECT * FROM view_security
+) audit
+ORDER BY entity_type, entity_name;
