@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { UserButton, useUser } from "@clerk/nextjs";
+import { UserButton, useUser, useAuth } from "@clerk/nextjs"; // ✅ agregado useAuth
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
 import { useSidebar } from "@/components/SidebarContext";
@@ -11,16 +11,12 @@ import { Bell, Sun, Moon } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { formatDistanceToNow } from "date-fns";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
 export default function GlobalNavbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isSidebarOpen } = useSidebar?.() || {};
   const { user, isLoaded } = useUser();
+  const { getToken } = useAuth(); // ✅ Clerk token
 
   const [navBg, setNavBg] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -32,7 +28,19 @@ export default function GlobalNavbar() {
 
   const role = isLoaded ? user?.publicMetadata?.role || "user" : "user";
 
-  // 🩹 Refrescar sesión para evitar estado inválido de Clerk
+  // ✅ Crear cliente autenticado con Clerk
+  async function getSupabaseClient() {
+    const token = await getToken({ template: "supabase" });
+    return createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      }
+    );
+  }
+
+  // 🩹 Refrescar sesión Clerk
   useEffect(() => {
     if (!isLoaded) return;
     try {
@@ -42,7 +50,7 @@ export default function GlobalNavbar() {
     }
   }, [isLoaded]);
 
-  // 🧭 Detectar scroll solo en la landing
+  // 🧭 Scroll transparente en landing
   useEffect(() => {
     if (pathname !== "/") return;
     const handleScroll = () => setNavBg(window.scrollY > 100);
@@ -79,22 +87,25 @@ export default function GlobalNavbar() {
   // 🧩 Admin: cargar solicitudes pendientes
   async function fetchStaffApplications() {
     if (role !== "admin") return;
+    const supabase = await getSupabaseClient(); // ✅ token Clerk
     const { data, count, error } = await supabase
       .from("staff_applications")
       .select("*", { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(5)
-      .eq("status", "pending");
+      .limit(5);
 
     if (!error) {
       setPendingCount(count || 0);
       setRecentApps(data || []);
+    } else {
+      console.error("❌ Error fetching staff apps:", error.message);
     }
   }
 
   // 👷 Staff: cargar jobs pendientes asignados a sí mismo
   async function fetchPendingJobs() {
     if (role !== "staff") return;
+    const supabase = await getSupabaseClient(); // ✅ token Clerk
     const { data, count, error } = await supabase
       .from("cleaning_jobs")
       .select("*", { count: "exact" })
@@ -106,6 +117,28 @@ export default function GlobalNavbar() {
     if (!error) {
       setPendingCount(count || 0);
       setRecentJobs(data || []);
+    } else {
+      console.error("❌ Error fetching staff jobs:", error.message);
+    }
+  }
+
+  // 👤 Client: cargar sus propios trabajos pendientes
+  async function fetchClientPendingJobs() {
+    if (role !== "client") return;
+    const supabase = await getSupabaseClient(); // ✅ token Clerk
+    const { data, count, error } = await supabase
+      .from("cleaning_jobs")
+      .select("*", { count: "exact" })
+      .eq("created_by", user?.id)
+      .eq("status", "pending")
+      .order("scheduled_date", { ascending: true })
+      .limit(5);
+
+    if (!error) {
+      setPendingCount(count || 0);
+      setRecentJobs(data || []);
+    } else {
+      console.error("❌ Error fetching client jobs:", error.message);
     }
   }
 
@@ -113,40 +146,46 @@ export default function GlobalNavbar() {
   useEffect(() => {
     if (role !== "admin") return;
     fetchStaffApplications();
-    const channel = supabase
-      .channel("staff_applications_navbar")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "staff_applications" },
-        () => fetchStaffApplications()
-      )
-      .subscribe();
-    return () => supabase.removeChannel(channel);
+    getSupabaseClient().then((supabase) => {
+      const channel = supabase
+        .channel("staff_applications_navbar")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "staff_applications" },
+          () => fetchStaffApplications()
+        )
+        .subscribe();
+      return () => supabase.removeChannel(channel);
+    });
   }, [role]);
 
-  // 🔄 Escucha en tiempo real de cleaning_jobs (staff + admin)
+  // 🔄 Escucha realtime de cleaning_jobs (admin + staff + client)
   useEffect(() => {
-    if (role !== "admin" && role !== "staff") return;
+    if (!["admin", "staff", "client"].includes(role)) return;
 
+    if (role === "admin") fetchStaffApplications();
     if (role === "staff") fetchPendingJobs();
+    if (role === "client") fetchClientPendingJobs();
 
-    const channel = supabase
-      .channel("navbar-jobs-updates")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "cleaning_jobs" },
-        (payload) => {
-          console.log("🧩 Job change detected:", payload);
-
-          if (role === "admin") fetchStaffApplications();
-          if (role === "staff" && payload.new?.assigned_to === user?.id) {
-            fetchPendingJobs();
+    getSupabaseClient().then((supabase) => {
+      const channel = supabase
+        .channel("navbar-jobs-updates")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "cleaning_jobs" },
+          (payload) => {
+            console.log("🧩 Job change detected:", payload);
+            if (role === "admin") fetchStaffApplications();
+            if (role === "staff" && payload.new?.assigned_to === user?.id)
+              fetchPendingJobs();
+            if (role === "client" && payload.new?.created_by === user?.id)
+              fetchClientPendingJobs();
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
 
-    return () => supabase.removeChannel(channel);
+      return () => supabase.removeChannel(channel);
+    });
   }, [role, user]);
 
   // 🔹 Config visual
@@ -204,7 +243,7 @@ export default function GlobalNavbar() {
           </Link>
         )}
 
-        {/* 🔹 CENTRO: Links principales */}
+        {/* 🔹 CENTRO */}
         <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 text-sm font-medium">
           <a href="/#about" className="hover:text-blue-600 transition-colors">
             About
@@ -220,13 +259,13 @@ export default function GlobalNavbar() {
           </a>
         </div>
 
-        {/* 🔹 DERECHA: Controles */}
+        {/* 🔹 DERECHA */}
         <div
           className="flex items-center gap-4 ml-auto justify-end"
           ref={dropdownRef}
         >
-          {/* 🔔 Notificaciones admin/staff */}
-          {(role === "admin" || role === "staff") && (
+          {/* 🔔 Notificaciones para todos los roles */}
+          {(role === "admin" || role === "staff" || role === "client") && (
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -257,164 +296,53 @@ export default function GlobalNavbar() {
                     transition={{ duration: 0.25 }}
                     className="absolute right-0 mt-3 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden z-[999]"
                   >
-                    {role === "admin" ? (
-                      <>
-                        <div className="p-4 border-b bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
-                          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                            Staff Applications
-                          </h3>
-                          <span className="text-xs text-gray-500">
-                            {pendingCount} pending
-                          </span>
-                        </div>
-                        <div className="max-h-80 overflow-y-auto">
-                          {recentApps.length > 0 ? (
-                            recentApps.map((app) => (
-                              <div
-                                key={app.id}
-                                className="px-4 py-3 border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-sm"
-                              >
-                                <p className="font-medium text-gray-800 dark:text-gray-100">
-                                  {job.property_address ||
-                                    job.property_name ||
-                                    "No address available"}
-                                </p>
-                                <p className="text-xs text-gray-500 capitalize">
-                                  {job.status === "pending"
-                                    ? "Awaiting completion"
-                                    : job.status === "in_progress"
-                                    ? "In progress"
-                                    : job.status === "completed"
-                                    ? "Completed"
-                                    : "Unknown status"}
-                                </p>
-
-                                <p className="text-xs text-gray-500">
-                                  {formatDistanceToNow(
-                                    new Date(app.created_at),
-                                    {
-                                      addSuffix: true,
-                                    }
-                                  )}
-                                </p>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-center text-gray-500 text-sm py-6">
-                              No pending applications
-                            </p>
-                          )}
-                        </div>
-                        <div className="p-3 border-t bg-gray-50 dark:bg-gray-800 text-center">
-                          <Link
-                            href="/admin/staff-applications"
-                            className="text-sm font-medium text-blue-600 hover:underline"
-                            onClick={() => setDropdownOpen(false)}
-                          >
-                            View All Applications
-                          </Link>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="p-4 border-b bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
-                          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                            Assigned Jobs
-                          </h3>
-                          <span className="text-xs text-gray-500">
-                            {pendingCount} pending
-                          </span>
-                        </div>
-                        <div className="max-h-80 overflow-y-auto">
-                          {recentJobs.length > 0 ? (
-                            recentJobs.map((job) => {
-                              const getStatusIcon = (status) => {
-                                switch (status) {
-                                  case "pending":
-                                    return (
-                                      <span className="inline-block w-2.5 h-2.5 bg-yellow-400 rounded-full mr-2"></span>
-                                    );
-                                  case "in_progress":
-                                    return (
-                                      <span className="inline-block w-2.5 h-2.5 bg-blue-500 rounded-full mr-2"></span>
-                                    );
-                                  case "completed":
-                                    return (
-                                      <span className="inline-block w-2.5 h-2.5 bg-green-500 rounded-full mr-2"></span>
-                                    );
-                                  default:
-                                    return (
-                                      <span className="inline-block w-2.5 h-2.5 bg-gray-400 rounded-full mr-2"></span>
-                                    );
-                                }
-                              };
-
-                              const formattedStatus =
-                                job.status === "pending"
-                                  ? "Awaiting confirmation"
-                                  : job.status === "in_progress"
-                                  ? "In progress"
-                                  : job.status === "completed"
-                                  ? "Completed"
-                                  : "Unknown status";
-
-                              return (
-                                <div
-                                  key={job.id}
-                                  className="px-4 py-3 border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-sm"
-                                >
-                                  {/* 🏠 Línea principal: título o dirección */}
-                                  <p className="font-medium text-gray-800 dark:text-gray-100 flex items-center">
-                                    {getStatusIcon(job.status)}
-                                    {job.title ||
-                                      job.property_address ||
-                                      "Untitled Job"}
-                                  </p>
-
-                                  {/* 📅 Línea secundaria: estado + fecha */}
-                                  <p className="text-xs text-gray-500 capitalize ml-4">
-                                    {formattedStatus}{" "}
-                                    {job.scheduled_date && (
-                                      <>
-                                        {" • "}
-                                        {formatDistanceToNow(
-                                          new Date(job.scheduled_date),
-                                          {
-                                            addSuffix: true,
-                                          }
-                                        )}
-                                      </>
-                                    )}
-                                  </p>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <p className="text-center text-gray-500 text-sm py-6">
-                              No pending jobs
-                            </p>
-                          )}
-                        </div>
-                      </>
-                    )}
+                    {/* 🧩 Notificaciones */}
+                    <div className="p-4 border-b bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
+                      <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        {role === "admin"
+                          ? "Staff Applications"
+                          : role === "staff"
+                          ? "Assigned Jobs"
+                          : "Your Pending Jobs"}
+                      </h3>
+                      <span className="text-xs text-gray-500">
+                        {pendingCount} pending
+                      </span>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {recentJobs.length > 0 || recentApps.length > 0 ? (
+                        (role === "admin" ? recentApps : recentJobs).map(
+                          (item) => (
+                            <div
+                              key={item.id}
+                              className="px-4 py-3 border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-sm"
+                            >
+                              <p className="font-medium text-gray-800 dark:text-gray-100">
+                                {item.title ||
+                                  item.property_address ||
+                                  item.full_name ||
+                                  "Unnamed"}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {formatDistanceToNow(
+                                  new Date(item.created_at),
+                                  { addSuffix: true }
+                                )}
+                              </p>
+                            </div>
+                          )
+                        )
+                      ) : (
+                        <p className="text-center text-gray-500 text-sm py-6">
+                          No pending items
+                        </p>
+                      )}
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
           )}
-
-          {/* 🌗 Modo oscuro */}
-          <button
-            onClick={toggleDarkMode}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-            title={darkMode ? "Light Mode" : "Dark Mode"}
-          >
-            {darkMode ? (
-              <Sun size={20} className="text-yellow-400" />
-            ) : (
-              <Moon size={20} className="text-gray-700 dark:text-gray-300" />
-            )}
-          </button>
 
           {/* 👤 Usuario */}
           {isLoaded ? (
@@ -422,11 +350,7 @@ export default function GlobalNavbar() {
               <>
                 {!isPrivatePage && (
                   <button
-                    onClick={() => {
-                      if (role === "admin" || role === "staff")
-                        router.push("/dashboard");
-                      else router.push("/dashboard");
-                    }}
+                    onClick={() => router.push("/dashboard")}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
                   >
                     Go to Dashboard

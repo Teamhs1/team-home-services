@@ -109,6 +109,23 @@ export default function GlobalNavbar() {
     }
   }
 
+  // 👤 Client: cargar sus propios trabajos pendientes
+  async function fetchClientPendingJobs() {
+    if (role !== "client") return;
+    const { data, count, error } = await supabase
+      .from("cleaning_jobs")
+      .select("*", { count: "exact" })
+      .eq("created_by", user?.id)
+      .eq("status", "pending")
+      .order("scheduled_date", { ascending: true })
+      .limit(5);
+
+    if (!error) {
+      setPendingCount(count || 0);
+      setRecentJobs(data || []);
+    }
+  }
+
   // 🔄 Escucha en tiempo real de staff_applications (admin)
   useEffect(() => {
     if (role !== "admin") return;
@@ -225,8 +242,8 @@ export default function GlobalNavbar() {
           className="flex items-center gap-4 ml-auto justify-end"
           ref={dropdownRef}
         >
-          {/* 🔔 Notificaciones admin/staff */}
-          {(role === "admin" || role === "staff") && (
+          {/* 🔔 Notificaciones para todos los roles */}
+          {(role === "admin" || role === "staff" || role === "client") && (
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -403,7 +420,7 @@ export default function GlobalNavbar() {
             </div>
           )}
 
-          {/* 🌗 Modo oscuro */}
+          {/* 🌗 Modo oscuro 
           <button
             onClick={toggleDarkMode}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
@@ -414,7 +431,7 @@ export default function GlobalNavbar() {
             ) : (
               <Moon size={20} className="text-gray-700 dark:text-gray-300" />
             )}
-          </button>
+          </button>*/}
 
           {/* 👤 Usuario */}
           {isLoaded ? (

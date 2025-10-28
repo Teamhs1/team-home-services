@@ -27,6 +27,7 @@ export default function DashboardNavbar() {
       { label: "All Jobs", href: "/jobs" },
       { label: "Completed", href: "/jobs/completed" },
       { label: "Pending", href: "/jobs/pending" },
+      { label: "In Progress", href: "/jobs/in-progress" },
     ],
     settings: [
       { label: "Account", href: "/settings" },

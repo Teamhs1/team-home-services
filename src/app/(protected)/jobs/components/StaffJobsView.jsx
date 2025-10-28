@@ -23,22 +23,6 @@ export default function StaffJobsView({
         <h1 className="text-3xl font-bold flex items-center gap-2">
           🧽 My Jobs
         </h1>
-        <div className="flex gap-2">
-          <Button
-            variant={viewMode === "grid" ? "default" : "outline"}
-            size="icon"
-            onClick={() => setViewMode("grid")}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </Button>
-          <Button
-            variant={viewMode === "list" ? "default" : "outline"}
-            size="icon"
-            onClick={() => setViewMode("list")}
-          >
-            <List className="w-4 h-4" />
-          </Button>
-        </div>
       </div>
 
       {/* 👁️ Vista dinámica según viewMode */}

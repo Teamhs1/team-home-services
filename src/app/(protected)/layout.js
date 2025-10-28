@@ -1,6 +1,7 @@
 import "../globals.css";
 import Sidebar from "@/components/Sidebar";
 import GlobalNavbar from "@/components/GlobalNavbar";
+import DashboardNavbar from "@/components/DashboardNavbar"; // 👈 nuevo import
 import ProtectedLayoutClient from "./ProtectedLayoutClient";
 
 export const metadata = {
@@ -11,12 +12,18 @@ export const metadata = {
 export default function ProtectedLayout({ children }) {
   return (
     <div className="min-h-screen bg-muted/10 flex">
-      {/* Sidebar fijo */}
+      {/* 🧭 Sidebar fijo */}
       <Sidebar />
 
-      {/* Cliente: maneja empuje dinámico */}
+      {/* ⚙️ Contenido principal con navbar y subnavbar */}
       <ProtectedLayoutClient>
+        {/* 🔝 Navbar global superior */}
         <GlobalNavbar />
+
+        {/* 🔹 Subnavbar contextual (Jobs, Admin, Settings...) */}
+        <DashboardNavbar />
+
+        {/* 📦 Contenido del dashboard */}
         <main className="p-4 md:p-6 lg:p-8">{children}</main>
       </ProtectedLayoutClient>
     </div>

@@ -71,7 +71,6 @@ export default function AdminUsersPage() {
       setSyncingAll(true);
       toast.info("⏳ Starting full synchronization...");
 
-      // 1️⃣ Ejecutar Backfill primero
       const backfillRes = await fetch("/api/admin/backfill-clerk-users", {
         method: "POST",
       });
@@ -82,7 +81,6 @@ export default function AdminUsersPage() {
 
       toast.success("✅ Step 1: Clerk users backfilled successfully.");
 
-      // 2️⃣ Ejecutar Sync Roles después
       const syncRes = await fetch("/api/admin/sync-roles", {
         method: "POST",
         credentials: "include",
@@ -156,7 +154,7 @@ export default function AdminUsersPage() {
   }, [users, search, roleFilter, statusFilter]);
 
   return (
-    <div className="p-6">
+    <div className="pt-24 p-6">
       {/* 🔹 Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -265,14 +263,24 @@ export default function AdminUsersPage() {
                       className="rounded-full object-cover"
                     />
                   </td>
-                  <td className="px-4 py-2 text-blue-600 hover:underline">
+
+                  <td
+                    className="px-4 py-2 text-blue-600 hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.location.href = `/admin/profiles/${user.id}`;
+                    }}
+                  >
                     {user.full_name || "—"}
                   </td>
+
                   <td className="px-4 py-2">{user.email || "—"}</td>
+
                   <td className="px-4 py-2 capitalize">
                     {currentRole === "admin" ? (
                       <select
                         value={user.role || "client"}
+                        onClick={(e) => e.stopPropagation()} // ✅ evita redirección
                         onChange={(e) =>
                           handleRoleChange(user.clerk_id, e.target.value)
                         }
@@ -287,6 +295,7 @@ export default function AdminUsersPage() {
                       user.role
                     )}
                   </td>
+
                   <td className="px-4 py-2">
                     <span
                       className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -298,6 +307,7 @@ export default function AdminUsersPage() {
                       {user.status || "unknown"}
                     </span>
                   </td>
+
                   <td className="px-4 py-2 text-sm text-gray-500">
                     {new Date(user.created_at).toLocaleDateString()}
                   </td>

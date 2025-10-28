@@ -39,6 +39,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const role = user?.publicMetadata?.role || "user";
+  const clerkId = user?.id;
 
   // ✅ Crear cliente Supabase con token de Clerk
   const createSupabaseClient = useCallback(async () => {
@@ -79,8 +80,8 @@ export default function AdminDashboard() {
   // 💬 Cargar mensajes de contacto
   const fetchMessages = useCallback(async () => {
     try {
-      setLoadingMessages(true);
-      const token = await getToken({ template: "supabase" });
+      setLoadingMessages(true); // ✅ solo activa el loading de mensajes
+      const token = await getToken({ template: "supabase" }); // 🔑 usa el JWT de Clerk
       const supabaseAuth = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -100,7 +101,7 @@ export default function AdminDashboard() {
       console.error("❌ Error fetching messages:", err.message);
       toast.error("Failed to load messages");
     } finally {
-      setLoadingMessages(false);
+      setLoadingMessages(false); // ✅ desactiva el loading de mensajes
     }
   }, [getToken]);
 
@@ -108,11 +109,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (role === "admin" && isLoaded) {
       fetchJobs();
-      fetchMessages();
+      fetchMessages(); // 👈 agrega esta línea
     }
   }, [isLoaded, role, fetchJobs, fetchMessages]);
 
-  // 📊 Estadísticas
+  // 📊 Estadísticas de trabajos
   const stats = useMemo(() => {
     const total = jobs.length;
     const pending = jobs.filter((j) => j.status === "pending").length;
@@ -121,7 +122,7 @@ export default function AdminDashboard() {
     return { total, pending, inProgress, completed };
   }, [jobs]);
 
-  // 📈 Datos para gráfico semanal
+  // 📈 Datos para el gráfico semanal
   const weeklyData = useMemo(() => {
     const map = {};
     jobs.forEach((job) => {
@@ -233,39 +234,22 @@ export default function AdminDashboard() {
         </CardHeader>
         <CardContent>
           {messages.length === 0 ? (
-            <div className="text-center py-6 space-y-4">
-              <p className="text-gray-500">No contact messages yet.</p>
-              <Link href="/admin/messages">
-                <Button className="bg-primary text-white hover:bg-primary/90 flex items-center gap-2">
-                  View All Messages <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-            </div>
+            <p className="text-gray-500 text-center py-4">
+              No contact messages yet.
+            </p>
           ) : (
-            <>
-              <ul className="divide-y">
-                {messages.slice(0, 5).map((msg) => (
-                  <li key={msg.id} className="py-4">
-                    <p className="font-semibold text-gray-900">{msg.name}</p>
-                    <p className="text-sm text-gray-600">{msg.email}</p>
-                    <p className="mt-2 text-gray-700 line-clamp-2">
-                      {msg.message}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(msg.created_at).toLocaleString()}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="flex justify-center pt-6">
-                <Link href="/admin/messages">
-                  <Button className="bg-primary text-white hover:bg-primary/90 flex items-center gap-2">
-                    View All Messages <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
-              </div>
-            </>
+            <ul className="divide-y">
+              {messages.map((msg) => (
+                <li key={msg.id} className="py-4">
+                  <p className="font-semibold text-gray-900">{msg.name}</p>
+                  <p className="text-sm text-gray-600">{msg.email}</p>
+                  <p className="mt-2 text-gray-700">{msg.message}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {new Date(msg.created_at).toLocaleString()}
+                  </p>
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>
@@ -317,6 +301,7 @@ export default function AdminDashboard() {
             </ul>
           )}
 
+          {/* 🔹 Botón Ver todos los trabajos */}
           <div className="flex justify-center pt-6">
             <Link href="/jobs">
               <Button

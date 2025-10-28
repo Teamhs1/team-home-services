@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   Card,
   CardHeader,
@@ -10,10 +10,10 @@ import {
 } from "@/components/ui/card";
 import {
   Loader2,
-  LayoutGrid,
-  List,
   ClipboardList,
   CalendarDays,
+  List,
+  LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -28,17 +28,9 @@ export default function ClientJobsView({
   fetchCustomerJobs,
   clerkId,
   getToken, // ✅ se pasa desde JobsPage
+  viewMode, // ✅ ahora viene desde el padre
+  setViewMode, // ✅ para poder cambiar el modo desde aquí
 }) {
-  const [viewMode, setViewMode] = useState(
-    typeof window !== "undefined"
-      ? localStorage.getItem("viewMode") || "list"
-      : "list"
-  );
-
-  useEffect(() => {
-    localStorage.setItem("viewMode", viewMode);
-  }, [viewMode]);
-
   // ✅ Suscripción Realtime autenticada
   useEffect(() => {
     if (!clerkId) return;
@@ -50,7 +42,6 @@ export default function ClientJobsView({
         return;
       }
 
-      // Inyectar token al cliente global
       await supabase.auth.setSession({ access_token: token });
 
       console.log("👀 Subscribing to realtime for client:", clerkId);
@@ -121,23 +112,6 @@ export default function ClientJobsView({
         <h1 className="text-3xl font-bold flex items-center gap-2">
           🧽 My Cleaning Requests
         </h1>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant={viewMode === "grid" ? "default" : "outline"}
-            size="icon"
-            onClick={() => setViewMode("grid")}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </Button>
-          <Button
-            variant={viewMode === "list" ? "default" : "outline"}
-            size="icon"
-            onClick={() => setViewMode("list")}
-          >
-            <List className="w-4 h-4" />
-          </Button>
-        </div>
       </div>
 
       {/* Formulario */}
@@ -205,7 +179,25 @@ export default function ClientJobsView({
 
       {/* Lista o Grid */}
       <div>
-        <h2 className="text-xl font-semibold mb-3">My Requests</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl font-semibold">My Requests</h2>
+
+          {/* 🔘 Botón de cambio de vista */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+            className="flex items-center gap-2"
+            title={`Switch to ${viewMode === "grid" ? "List" : "Grid"} View`}
+          >
+            {viewMode === "grid" ? (
+              <List className="w-4 h-4" />
+            ) : (
+              <LayoutGrid className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+
         {customerLoading ? (
           <div className="flex justify-center py-10">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />

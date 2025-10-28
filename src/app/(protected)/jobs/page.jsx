@@ -2,7 +2,7 @@
 
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, LayoutGrid, List } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
@@ -12,6 +12,7 @@ import { useStaff } from "./hooks/useStaff";
 import AdminJobsView from "./components/AdminJobsView";
 import StaffJobsView from "./components/StaffJobsView";
 import ClientJobsView from "./components/ClientJobsView";
+import { Button } from "@/components/ui/button";
 
 export default function JobsPage() {
   const { isLoaded: userLoaded, user } = useUser();
@@ -39,7 +40,6 @@ export default function JobsPage() {
   const [customerLoading, setCustomerLoading] = useState(false);
   const [viewMode, setViewMode] = useState("list");
 
-  // 🧭 Cargar datos iniciales
   useEffect(() => {
     if (!ready || !clerkId) return;
     (async () => {
@@ -51,15 +51,11 @@ export default function JobsPage() {
 
   const filteredJobs = useMemo(() => jobs || [], [jobs]);
 
-  // 🔹 Obtener trabajos del cliente autenticado
   async function fetchCustomerJobs() {
     if (role !== "client") return;
     setCustomerLoading(true);
-
     try {
       const token = await getToken({ template: "supabase" });
-      if (!token) throw new Error("Missing Clerk token");
-
       const supabaseAuth = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -67,7 +63,6 @@ export default function JobsPage() {
           global: { headers: { Authorization: `Bearer ${token}` } },
         }
       );
-
       const { data, error } = await supabaseAuth
         .from("cleaning_jobs")
         .select("*")
@@ -76,14 +71,12 @@ export default function JobsPage() {
       if (error) throw error;
       setCustomerJobs(data || []);
     } catch (err) {
-      console.error("❌ Error fetching jobs:", err.message);
       toast.error("Error loading jobs: " + err.message);
     } finally {
       setCustomerLoading(false);
     }
   }
 
-  // 🔹 Crear solicitud del cliente
   async function createCustomerJob() {
     if (!form.title || !form.service_type || !form.scheduled_date) {
       toast.error("Please fill all required fields.");
@@ -93,8 +86,6 @@ export default function JobsPage() {
     try {
       setCustomerLoading(true);
       const token = await getToken({ template: "supabase" });
-      if (!token) throw new Error("Missing Clerk token");
-
       const supabaseAuth = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -118,10 +109,7 @@ export default function JobsPage() {
         .select("*");
 
       if (error) throw error;
-
-      if (data && data.length > 0) {
-        setCustomerJobs((prev) => [data[0], ...prev]);
-      }
+      if (data?.length) setCustomerJobs((prev) => [data[0], ...prev]);
 
       toast.success("✅ Request sent successfully!");
       setForm({
@@ -144,40 +132,62 @@ export default function JobsPage() {
       </div>
     );
 
-  if (role === "admin")
-    return (
-      <AdminJobsView
-        jobs={filteredJobs}
-        staffList={staffList}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        fetchJobs={fetchJobs}
-        getToken={getToken}
-        updateStatus={updateStatus}
-        deleteJob={deleteJob}
-      />
-    );
-
-  if (role === "staff")
-    return (
-      <StaffJobsView
-        jobs={filteredJobs}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        updateStatus={updateStatus}
-      />
-    );
+  // 🔳 Botón global de cambio de vista
+  const ViewToggleButton = () => (
+    <div className="flex justify-end mb-4 px-4">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+        className="flex items-center gap-2"
+        title={`Switch to ${viewMode === "grid" ? "List" : "Grid"} View`}
+      >
+        {viewMode === "grid" ? (
+          <List className="w-4 h-4" />
+        ) : (
+          <LayoutGrid className="w-4 h-4" />
+        )}
+      </Button>
+    </div>
+  );
 
   return (
-    <ClientJobsView
-      customerJobs={customerJobs}
-      customerLoading={customerLoading}
-      form={form}
-      setForm={setForm}
-      createCustomerJob={createCustomerJob}
-      updateStatus={updateStatus}
-      clerkId={clerkId}
-      getToken={getToken}
-    />
+    <div className="pt-24 px-4 md:px-6 lg:px-8">
+      {/* 🔹 Mostrar el botón arriba solo si NO es client */}
+      {role !== "client" && <ViewToggleButton />}
+
+      {role === "admin" ? (
+        <AdminJobsView
+          jobs={filteredJobs}
+          staffList={staffList}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          fetchJobs={fetchJobs}
+          getToken={getToken}
+          updateStatus={updateStatus}
+          deleteJob={deleteJob}
+        />
+      ) : role === "staff" ? (
+        <StaffJobsView
+          jobs={filteredJobs}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          updateStatus={updateStatus}
+        />
+      ) : (
+        <ClientJobsView
+          customerJobs={customerJobs}
+          customerLoading={customerLoading}
+          form={form}
+          setForm={setForm}
+          createCustomerJob={createCustomerJob}
+          updateStatus={updateStatus}
+          clerkId={clerkId}
+          getToken={getToken}
+          viewMode={viewMode}
+          setViewMode={setViewMode} // ✅ <-- agrega esta línea
+        />
+      )}
+    </div>
   );
 }

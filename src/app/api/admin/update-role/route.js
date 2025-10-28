@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server"; // ✅ Nueva versión moderna
+import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClerkClient } from "@clerk/backend"; // ✅ nueva API correcta
 
+// ✅ Inicializa Clerk client de forma explícita
+const clerkClient = createClerkClient({
+  secretKey: process.env.CLERK_SECRET_KEY,
+});
+
+// ✅ Cliente Supabase (clave de servicio)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -15,18 +22,35 @@ export async function POST(req) {
       return NextResponse.json({ message: "Missing fields" }, { status: 400 });
     }
 
-    console.log("🔄 Updating role for:", userId, "→", newRole);
+    // 🧩 Obtener usuario autenticado actual
+    const { userId: adminId } = await auth();
 
-    // ✅ 1. Actualiza el rol en Clerk
+    if (!adminId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    // ✅ Obtener el usuario admin desde Clerk
+    const adminUser = await clerkClient.users.getUser(adminId);
+    const adminRole = adminUser?.publicMetadata?.role;
+
+    console.log("🔍 Authenticated admin:", adminId, "role:", adminRole);
+
+    if (adminRole !== "admin") {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    console.log(`🔄 Updating role for user ${userId} → ${newRole}`);
+
+    // ✅ 1. Actualizar rol en Clerk
     await clerkClient.users.updateUser(userId, {
       publicMetadata: { role: newRole },
     });
 
-    // ✅ 2. Verifica los datos actualizados desde Clerk
-    const clerkUser = await clerkClient.users.getUser(userId);
-    console.log("🧠 Clerk metadata now:", clerkUser.publicMetadata);
+    // ✅ 2. Confirmar cambio
+    const updatedUser = await clerkClient.users.getUser(userId);
+    console.log("🧠 Clerk metadata now:", updatedUser.publicMetadata);
 
-    // ✅ 3. Actualiza también en Supabase
+    // ✅ 3. Sincronizar en Supabase
     const { data, error } = await supabase
       .from("profiles")
       .update({ role: newRole })
@@ -40,9 +64,9 @@ export async function POST(req) {
     return NextResponse.json(
       {
         message: "Role updated successfully",
-        newRole,
         userId,
-        clerk: clerkUser.publicMetadata,
+        newRole,
+        clerk: updatedUser.publicMetadata,
         supabase: data?.[0],
       },
       { status: 200 }
