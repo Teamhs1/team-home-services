@@ -52,8 +52,8 @@ export default function DashboardNavbar() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
       className="fixed top-[4.5rem] right-0 flex items-center gap-6 
-                 border-b border-gray-200 bg-white/80 backdrop-blur-md
-                 px-6 md:px-10 py-3 shadow-sm z-[60] transition-all duration-300"
+           border-b border-gray-200 bg-white/80 backdrop-blur-md
+           px-6 md:px-10 py-3 shadow-sm z-[30] transition-all duration-300"
       style={{
         left: isSidebarOpen ? "16rem" : "5rem",
       }}

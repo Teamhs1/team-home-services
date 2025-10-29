@@ -190,7 +190,8 @@ export default function GlobalNavbar() {
 
   // 🔹 Config visual
   const baseClasses =
-    "fixed top-0 left-0 z-[40] w-full flex items-center justify-between transition-all duration-500 border-b";
+    "fixed top-0 left-0 z-[70] w-full flex items-center justify-between transition-all duration-500 border-b";
+
   const bgClass =
     pathname === "/"
       ? navBg
