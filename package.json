@@ -30,6 +30,7 @@
     "pdf-lib": "^1.17.1",
     "pdfkit": "^0.17.2",
     "react": "19.1.0",
+    "react-compare-image": "^3.5.10",
     "react-dom": "19.1.0",
     "react-swipeable": "^7.0.2",
     "recharts": "^3.2.1",

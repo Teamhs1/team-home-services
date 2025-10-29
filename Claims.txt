@@ -1,0 +1,28 @@
+Old
+-----------------------------------
+
+{
+	"https://choice-liger-25.supabase.co/jwt/claims": {
+		"role": "{{user.public_metadata.role}}",
+		"email": "{{user.primary_email_address}}",
+		"sub_id": "{{user.id}}"
+	}
+}
+
+
+-----------------------------------
+
+
+
+
+
+{
+  "https://kgwpkqtidepwmdmmmsvg.supabase.co/jwt/claims": {
+    "sub_id": "{{user.id}}",
+    "role": "{{user.public_metadata.role}}",
+    "email": "{{user.primary_email_address}}"
+  }
+}
+
+
+

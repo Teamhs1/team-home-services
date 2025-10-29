@@ -14,8 +14,7 @@ export default function Slider({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  const images =
-    imageList?.filter((img) => img?.url || typeof img === "string") || [];
+  const images = imageList || [];
 
   const next = () => {
     if (index < images.length - 1) setIndex((prev) => prev + 1);
@@ -25,10 +24,20 @@ export default function Slider({
     if (index > 0) setIndex((prev) => prev - 1);
   };
 
+  // 🚫 Evita que el swipe se dispare dentro del comparador
   const handlers = useSwipeable({
-    onSwipedLeft: next,
-    onSwipedRight: prev,
+    onSwipedLeft: (eventData) => {
+      const target = eventData.event.target;
+      if (target.closest(".no-swipe")) return; // ignora el swipe si viene del comparador
+      next();
+    },
+    onSwipedRight: (eventData) => {
+      const target = eventData.event.target;
+      if (target.closest(".no-swipe")) return;
+      prev();
+    },
     trackMouse: true,
+    preventScrollOnSwipe: true,
   });
 
   useEffect(() => {
@@ -56,21 +65,50 @@ export default function Slider({
       >
         <AnimatePresence mode="wait">
           <motion.div
-            key={images[index]?.url || index}
+            key={index}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
             className="absolute inset-0"
           >
-            <Image
-              src={images[index]?.url || images[index]}
-              alt={`slide-${index}`}
-              fill
-              className="object-cover rounded-2xl"
-              sizes="(max-width: 768px) 100vw, 50vw"
-              priority
-            />
+            {/* ✅ Soporte robusto: imágenes o JSX */}
+            {(() => {
+              const current = images[index];
+              const src =
+                typeof current === "object" && current?.url
+                  ? current.url
+                  : typeof current === "string"
+                  ? current
+                  : null;
+
+              if (src && typeof src === "string" && src.trim() !== "") {
+                return (
+                  <Image
+                    src={src}
+                    alt={`slide-${index}`}
+                    fill
+                    className="object-cover rounded-2xl"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    priority={false}
+                  />
+                );
+              }
+
+              if (React.isValidElement(current)) {
+                return (
+                  <div className="w-full h-full flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-2xl overflow-hidden">
+                    {current}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="flex items-center justify-center h-full text-sm text-gray-400">
+                  No valid content
+                </div>
+              );
+            })()}
           </motion.div>
         </AnimatePresence>
 
@@ -84,7 +122,7 @@ export default function Slider({
                   opacity: hovered ? 1 : 0,
                   x: hovered ? 0 : -15,
                 }}
-                transition={{ duration: 0.3, delay: hovered ? 0 : 0 }} // sin delay
+                transition={{ duration: 0.3 }}
                 onClick={prev}
                 className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full backdrop-blur-sm bg-white/70 shadow-sm p-1.5 text-gray-700 hover:bg-white hover:shadow-md transition"
               >
@@ -98,7 +136,7 @@ export default function Slider({
                   opacity: hovered ? 1 : 0,
                   x: hovered ? 0 : 15,
                 }}
-                transition={{ duration: 0.3, delay: hovered ? 0 : 0 }} // sin delay
+                transition={{ duration: 0.3 }}
                 onClick={next}
                 className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full backdrop-blur-sm bg-white/70 shadow-sm p-1.5 text-gray-700 hover:bg-white hover:shadow-md transition"
               >
@@ -113,7 +151,7 @@ export default function Slider({
           {index + 1} / {images.length}
         </div>
 
-        {/* ⛶ Botón fullscreen con delay de entrada */}
+        {/* ⛶ Botón fullscreen */}
         {!disableFullscreen && (
           <motion.button
             initial={{ opacity: 0, y: -10 }}
@@ -123,7 +161,7 @@ export default function Slider({
             }}
             transition={{
               duration: 0.35,
-              delay: hovered ? 0.25 : 0, // 👈 aparece 0.25s después de las flechas
+              delay: hovered ? 0.25 : 0,
             }}
             onClick={() => setIsFullscreen(true)}
             className="absolute right-2 top-2 rounded-full backdrop-blur-sm bg-white/60 shadow-sm p-1.5 text-gray-600 hover:bg-white/80 hover:text-gray-800 transition"
@@ -132,7 +170,7 @@ export default function Slider({
           </motion.button>
         )}
 
-        {/* Indicadores pequeños */}
+        {/* 🔘 Indicadores */}
         {images.length > 1 && (
           <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
             {images.map((_, i) => (
@@ -148,21 +186,42 @@ export default function Slider({
         )}
       </div>
 
-      {/* 🪟 Modo pantalla completa */}
+      {/* 🪟 Pantalla completa */}
       {isFullscreen && (
         <div
           onClick={() => setIsFullscreen(false)}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
         >
           <div className="relative w-[90vw] h-[80vh]">
-            <Image
-              src={images[index]?.url || images[index]}
-              alt={`fullscreen-${index}`}
-              fill
-              className="object-contain"
-              sizes="100vw"
-              priority
-            />
+            {(() => {
+              const current = images[index];
+              const src =
+                typeof current === "object" && current?.url
+                  ? current.url
+                  : typeof current === "string"
+                  ? current
+                  : null;
+
+              if (src && typeof src === "string" && src.trim() !== "") {
+                return (
+                  <Image
+                    src={src}
+                    alt={`fullscreen-${index}`}
+                    fill
+                    className="object-contain"
+                    sizes="100vw"
+                  />
+                );
+              }
+
+              if (React.isValidElement(current)) return current;
+
+              return (
+                <div className="flex items-center justify-center h-full text-white/70 text-sm">
+                  No valid content
+                </div>
+              );
+            })()}
             {images.length > 1 && (
               <>
                 {index > 0 && (

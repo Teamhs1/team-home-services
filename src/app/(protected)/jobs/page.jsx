@@ -173,6 +173,7 @@ export default function JobsPage() {
           viewMode={viewMode}
           setViewMode={setViewMode}
           updateStatus={updateStatus}
+          getToken={getToken} // ✅ importante
         />
       ) : (
         <ClientJobsView
