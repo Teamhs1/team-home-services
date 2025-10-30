@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/utils/supabase/client"; // ✅ Reutiliza la instancia global
+import Link from "next/link";
 
 export default function ClientJobsView({
   customerJobs,
@@ -219,7 +220,8 @@ export default function ClientJobsView({
                 {customerJobs.map((job) => (
                   <tr
                     key={job.id}
-                    className="border-t hover:bg-gray-50 transition-colors"
+                    className="border-t hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => (window.location.href = `/jobs/${job.id}`)}
                   >
                     <td className="px-4 py-2 font-medium">{job.title}</td>
                     <td className="px-4 py-2">
@@ -249,34 +251,37 @@ export default function ClientJobsView({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {customerJobs.map((job) => (
-              <Card
+              <Link
                 key={job.id}
-                className="hover:shadow-lg border border-border/50 relative"
+                href={`/jobs/${job.id}`}
+                className="block group"
               >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <ClipboardList className="w-5 h-5 text-primary" />
-                    {job.title}
-                  </CardTitle>
-                  <CardDescription className="text-sm text-muted-foreground">
-                    <CalendarDays className="w-4 h-4 inline mr-1" />
-                    {job.scheduled_date} • {job.service_type}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <span
-                    className={`px-2 py-1 text-xs rounded-full font-semibold ${
-                      job.status === "completed"
-                        ? "bg-green-100 text-green-700"
-                        : job.status === "in_progress"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {job.status}
-                  </span>
-                </CardContent>
-              </Card>
+                <Card className="hover:shadow-lg border border-border/50 transition-transform hover:scale-[1.02]">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <ClipboardList className="w-5 h-5 text-primary" />
+                      {job.title}
+                    </CardTitle>
+                    <CardDescription className="text-sm text-muted-foreground">
+                      <CalendarDays className="w-4 h-4 inline mr-1" />
+                      {job.scheduled_date} • {job.service_type}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <span
+                      className={`px-2 py-1 text-xs rounded-full font-semibold ${
+                        job.status === "completed"
+                          ? "bg-green-100 text-green-700"
+                          : job.status === "in_progress"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      {job.status.replace("_", " ")}
+                    </span>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         )}

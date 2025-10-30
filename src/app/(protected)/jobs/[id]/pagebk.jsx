@@ -4,10 +4,12 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Image from "next/image";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, CalendarDays, ClipboardList } from "lucide-react";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
+import { useUser } from "@clerk/nextjs";
+import Slider from "@/components/Slider";
 
 const ReactCompareImage = dynamic(() => import("react-compare-image"), {
   ssr: false,
@@ -16,31 +18,47 @@ const ReactCompareImage = dynamic(() => import("react-compare-image"), {
 export default function JobPhotosPage() {
   const { id } = useParams(); // job_id
   const router = useRouter();
+  const { user } = useUser();
+
   const [photos, setPhotos] = useState([]);
+  const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+  // 🔹 Fetch job info + photos
   useEffect(() => {
     if (!id) return;
-    fetchJobPhotos(id);
+    fetchJobDetails(id);
   }, [id]);
 
-  async function fetchJobPhotos(jobId) {
+  async function fetchJobDetails(jobId) {
     try {
       setLoading(true);
       const supabase = createClient(supabaseUrl, supabaseAnon);
 
-      const { data, error } = await supabase
+      // ✅ Obtener información del trabajo
+      const { data: jobData, error: jobError } = await supabase
+        .from("cleaning_jobs")
+        .select("id, title, service_type, scheduled_date, status")
+        .eq("id", jobId)
+        .maybeSingle();
+
+      if (jobError) throw jobError;
+      setJob(jobData);
+
+      // 🔹 Obtener fotos relacionadas
+      const { data: photoData, error: photoError } = await supabase
         .from("job_photos")
         .select("*")
         .eq("job_id", jobId)
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
-      setPhotos(data || []);
+      if (photoError) throw photoError;
+      setPhotos(photoData || []);
     } catch (err) {
-      console.error("❌ Error fetching photos:", err.message);
+      console.error("❌ Error fetching job/photos:", err.message);
     } finally {
       setLoading(false);
     }
@@ -59,16 +77,22 @@ export default function JobPhotosPage() {
   const publicUrl = (path) =>
     `${supabaseUrl}/storage/v1/object/public/job-photos/${path}`;
 
-  const mainBefore = beforePhotos[0];
-  const mainAfter = afterPhotos[0];
+  // 🔙 Texto dinámico del botón "Volver"
+  const role = user?.publicMetadata?.role || "user";
+  const backLabel =
+    role === "admin"
+      ? "Volver al Dashboard"
+      : role === "staff"
+      ? "Volver a Mis Trabajos"
+      : "Volver";
 
   return (
     <div className="px-6 py-10 max-w-6xl mx-auto space-y-10">
-      {/* 🔙 Botón Volver */}
+      {/* 🔙 Botón Volver + Detalles del trabajo */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between mb-4"
+        className="flex items-center justify-between mb-4 flex-wrap gap-3"
       >
         <Button
           variant="outline"
@@ -76,35 +100,87 @@ export default function JobPhotosPage() {
           className="flex items-center gap-2 text-sm"
         >
           <ArrowLeft className="w-4 h-4" />
-          Volver
+          {backLabel}
         </Button>
 
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          📸 Job Gallery
-        </h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 text-gray-700 dark:text-gray-200">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 text-primary" />
+            {job?.title || "Untitled Job"}
+          </h1>
+          {job && (
+            <div className="text-sm flex items-center gap-2 text-muted-foreground">
+              <CalendarDays className="w-4 h-4" />
+              {new Date(job.scheduled_date).toLocaleDateString()} •{" "}
+              <span className="capitalize">{job.service_type}</span> •{" "}
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  job.status === "pending"
+                    ? "bg-yellow-100 text-yellow-700"
+                    : job.status === "in_progress"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-green-100 text-green-700"
+                }`}
+              >
+                {job.status.replace("_", " ")}
+              </span>
+            </div>
+          )}
+        </div>
       </motion.div>
 
-      {/* 🔹 Slider comparativo Before/After */}
-      {mainBefore && mainAfter ? (
+      {/* 🔹 Slider de comparaciones por categoría */}
+      {beforePhotos.length && afterPhotos.length ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200"
+          className="relative w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200"
         >
-          <ReactCompareImage
-            leftImage={publicUrl(mainBefore.image_url)}
-            rightImage={publicUrl(mainAfter.image_url)}
-            leftImageLabel="Before"
-            rightImageLabel="After"
-            sliderLineColor="#2563eb"
-            handle={
-              <div className="bg-blue-500 w-1 h-32 rounded-full shadow-md" />
-            }
+          <Slider
+            imageList={Array.from(new Set(beforePhotos.map((p) => p.category)))
+              .map((category) => {
+                const before = beforePhotos.find(
+                  (b) => b.category === category
+                );
+                const after = afterPhotos.find((a) => a.category === category);
+                if (!before || !after) return null;
+
+                return (
+                  <div
+                    key={category}
+                    className="no-swipe relative w-full h-full"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* 🏷️ Nombre de la categoría arriba */}
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white text-sm px-3 py-1 rounded-full capitalize">
+                      {category.replace("_", " ")}
+                    </div>
+
+                    {/* 🖼️ Comparador before/after */}
+                    <ReactCompareImage
+                      leftImage={publicUrl(before.image_url)}
+                      rightImage={publicUrl(after.image_url)}
+                      leftImageLabel="Before"
+                      rightImageLabel="After"
+                      sliderLineColor="#2563eb"
+                      handle={
+                        <div className="bg-blue-500 w-1 h-32 rounded-full shadow-md" />
+                      }
+                    />
+                  </div>
+                );
+              })
+              .filter(Boolean)}
+            mini={false}
+            disableFullscreen={true}
           />
         </motion.div>
       ) : (
         <p className="text-gray-500 italic text-sm">
-          No paired before/after images yet.
+          No paired before/after comparisons yet.
         </p>
       )}
 

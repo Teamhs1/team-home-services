@@ -4,7 +4,13 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react"; // ✅ unificado
 import { createClient } from "@supabase/supabase-js";
 import Image from "next/image";
-import { Loader2, ArrowLeft, CalendarDays, ClipboardList } from "lucide-react";
+import {
+  Loader2,
+  ArrowLeft,
+  CalendarDays,
+  ClipboardList,
+  CheckCircle,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
@@ -24,6 +30,8 @@ export default function JobPhotosPage() {
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedImage, setExpandedImage] = useState(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedImages, setSelectedImages] = useState([]);
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -62,11 +70,14 @@ export default function JobPhotosPage() {
   // 🔹 Escape para cerrar fullscreen
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === "Escape") setExpandedImage(null);
+      if (e.key === "Escape") {
+        if (expandedImage) setExpandedImage(null);
+        else if (selectMode) setSelectMode(false);
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [expandedImage, selectMode]);
 
   // 🔹 Categorías de fotos
   const beforePhotos = photos.filter((p) => p.type === "before");
@@ -85,9 +96,7 @@ export default function JobPhotosPage() {
   // ✅ Evitamos el error de orden de hooks
   useEffect(() => {
     const handleKey = (e) => {
-      // siempre se ejecuta, pero ignora si no hay imagen expandida
       if (!expandedImage) return;
-
       const index = allImages.indexOf(expandedImage);
       if (e.key === "ArrowRight" && index < allImages.length - 1) {
         setExpandedImage(allImages[index + 1]);
@@ -97,7 +106,6 @@ export default function JobPhotosPage() {
         setExpandedImage(null);
       }
     };
-
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [expandedImage, allImages]);
@@ -118,6 +126,12 @@ export default function JobPhotosPage() {
       ? "Volver a Mis Trabajos"
       : "Volver";
 
+  const toggleSelect = (url) => {
+    setSelectedImages((prev) =>
+      prev.includes(url) ? prev.filter((i) => i !== url) : [...prev, url]
+    );
+  };
+
   return (
     <div className="px-6 py-10 max-w-6xl mx-auto space-y-10">
       {/* 🔙 Header */}
@@ -126,39 +140,32 @@ export default function JobPhotosPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between mb-4 flex-wrap gap-3"
       >
-        <Button
-          variant="outline"
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-sm"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          {backLabel}
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {backLabel}
+          </Button>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 text-gray-700 dark:text-gray-200">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ClipboardList className="w-5 h-5 text-primary" />
-            {job?.title || "Untitled Job"}
-          </h1>
-          {job && (
-            <div className="text-sm flex items-center gap-2 text-muted-foreground">
-              <CalendarDays className="w-4 h-4" />
-              {new Date(job.scheduled_date).toLocaleDateString()} •{" "}
-              <span className="capitalize">{job.service_type}</span> •{" "}
-              <span
-                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                  job.status === "pending"
-                    ? "bg-yellow-100 text-yellow-700"
-                    : job.status === "in_progress"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                {job.status.replace("_", " ")}
-              </span>
-            </div>
-          )}
+          <Button
+            variant={selectMode ? "default" : "outline"}
+            onClick={() => {
+              setSelectMode(!selectMode);
+              if (selectMode) setSelectedImages([]);
+            }}
+            className="flex items-center gap-2 text-sm"
+          >
+            <CheckCircle className="w-4 h-4" />
+            {selectMode ? "Cancelar selección" : "Seleccionar fotos"}
+          </Button>
         </div>
+
+        {selectMode && selectedImages.length > 0 && (
+          <ToolbarActions selectedImages={selectedImages} />
+        )}
       </motion.div>
 
       {/* 🔹 Slider comparativo */}
@@ -226,7 +233,6 @@ export default function JobPhotosPage() {
                 if (e.target === e.currentTarget) setExpandedImage(null);
               }}
             >
-              {/* 🔘 Cerrar */}
               <button
                 onClick={() => setExpandedImage(null)}
                 className="absolute top-6 left-6 z-[10000] rounded-full bg-black/40 hover:bg-black/60 text-white p-2 transition"
@@ -235,10 +241,9 @@ export default function JobPhotosPage() {
                 ✕
               </button>
 
-              {/* 🧭 Toolbar */}
               <ToolbarActions expandedImage={expandedImage} />
 
-              {/* ⬅️ / ➡️ navegación */}
+              {/* Navegación */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -275,7 +280,6 @@ export default function JobPhotosPage() {
                 </svg>
               </button>
 
-              {/* 🖼 Imagen fullscreen con fade suave */}
               <motion.img
                 key={expandedImage}
                 src={expandedImage}
@@ -302,28 +306,40 @@ export default function JobPhotosPage() {
               <h2 className={`text-xl font-semibold mb-3 ${color}`}>{title}</h2>
               {list.length ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {list.map((p) => (
-                    <motion.div
-                      key={p.id}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="rounded-lg overflow-hidden shadow-md hover:shadow-xl transition cursor-zoom-in"
-                      onClick={() => setExpandedImage(publicUrl(p.image_url))}
-                    >
-                      <Image
-                        src={publicUrl(p.image_url)}
-                        alt={p.category || type}
-                        width={400}
-                        height={400}
-                        className="object-cover w-full h-48"
-                      />
-                      {p.category && (
-                        <div className="text-center text-sm py-2 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 capitalize">
-                          {p.category.replace("_", " ")}
-                        </div>
-                      )}
-                    </motion.div>
-                  ))}
+                  {list.map((p) => {
+                    const url = publicUrl(p.image_url);
+                    const selected = selectedImages.includes(url);
+                    return (
+                      <motion.div
+                        key={p.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className={`relative rounded-lg overflow-hidden shadow-md transition cursor-pointer ${
+                          selected ? "ring-4 ring-blue-500" : "hover:shadow-xl"
+                        }`}
+                        onClick={() =>
+                          selectMode ? toggleSelect(url) : setExpandedImage(url)
+                        }
+                      >
+                        <Image
+                          src={url}
+                          alt={p.category || type}
+                          width={400}
+                          height={400}
+                          className="object-cover w-full h-48"
+                        />
+                        {selectMode && (
+                          <div className="absolute top-2 right-2 bg-black/60 rounded-full p-1">
+                            {selected ? (
+                              <CheckCircle className="text-green-400 w-4 h-4" />
+                            ) : (
+                              <Clipboard className="text-white w-4 h-4" />
+                            )}
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-gray-500 text-sm">
@@ -338,22 +354,24 @@ export default function JobPhotosPage() {
   );
 }
 
-/* ✅ Toolbar con compartir — versión profesional UI/UX */
+/* ✅ ToolbarActions con compartir múltiple */
 import {
   Facebook,
   MessageCircle,
   Clipboard,
   Check,
-  Share2,
   PhoneCall,
 } from "lucide-react";
 
-function ToolbarActions({ expandedImage }) {
+function ToolbarActions({ expandedImage, selectedImages = [] }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async (e) => {
     e.stopPropagation();
-    await navigator.clipboard.writeText(expandedImage);
+    const content = selectedImages.length
+      ? selectedImages.join("\n")
+      : expandedImage;
+    await navigator.clipboard.writeText(content);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -362,6 +380,10 @@ function ToolbarActions({ expandedImage }) {
     window.open(url, "_blank", "width=600,height=600");
   };
 
+  const shareText = encodeURIComponent(
+    selectedImages.length ? selectedImages.join("\n") : expandedImage
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -15 }}
@@ -369,10 +391,9 @@ function ToolbarActions({ expandedImage }) {
       transition={{ duration: 0.25 }}
       className="absolute top-6 right-6 flex items-center gap-2 z-[10000] bg-black/40 backdrop-blur-md px-4 py-2 rounded-full shadow-2xl border border-white/10"
     >
-      {/* 📋 Copiar */}
       <button
         onClick={handleCopy}
-        title="Copiar enlace"
+        title="Copiar enlaces"
         className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium shadow transition-all duration-200 ${
           copied
             ? "bg-green-600 text-white"
@@ -390,30 +411,25 @@ function ToolbarActions({ expandedImage }) {
         )}
       </button>
 
-      {/* 🌐 Facebook */}
       <button
         title="Compartir en Facebook"
         onClick={(e) => {
           e.stopPropagation();
-          const shareUrl = `https://www.facebook.com/dialog/share?app_id=9706242499500551&href=${encodeURIComponent(
-            expandedImage
-          )}&display=popup`;
-          openPopup(shareUrl);
+          const url = `https://www.facebook.com/dialog/share?app_id=9706242499500551&href=${shareText}&display=popup`;
+          openPopup(url);
         }}
         className="p-2.5 rounded-full bg-[#1877F2] hover:bg-[#145dbf] text-white shadow-md transition-transform hover:scale-110"
       >
         <Facebook size={18} />
       </button>
 
-      {/* 💬 Messenger */}
       <button
         title="Enviar por Messenger"
         onClick={(e) => {
           e.stopPropagation();
-          const appId = "9706242499500551";
-          const link = encodeURIComponent(expandedImage);
-          const redirectUri = encodeURIComponent(window.location.href);
-          const messengerUrl = `https://www.facebook.com/dialog/send?app_id=${appId}&link=${link}&redirect_uri=${redirectUri}`;
+          const messengerUrl = `https://www.facebook.com/dialog/send?app_id=9706242499500551&link=${shareText}&redirect_uri=${encodeURIComponent(
+            window.location.href
+          )}`;
           openPopup(messengerUrl);
         }}
         className="p-2.5 rounded-full bg-[#0099FF] hover:bg-[#007bdb] text-white shadow-md transition-transform hover:scale-110"
@@ -421,15 +437,12 @@ function ToolbarActions({ expandedImage }) {
         <MessageCircle size={18} />
       </button>
 
-      {/* 🟢 WhatsApp */}
       <button
         title="Compartir en WhatsApp"
         onClick={(e) => {
           e.stopPropagation();
-          const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-            expandedImage
-          )}`;
-          openPopup(whatsappUrl);
+          const url = `https://api.whatsapp.com/send?text=${shareText}`;
+          openPopup(url);
         }}
         className="p-2.5 rounded-full bg-[#25D366] hover:bg-[#1DA851] text-white shadow-md transition-transform hover:scale-110"
       >
