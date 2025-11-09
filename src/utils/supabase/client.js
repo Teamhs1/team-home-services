@@ -1,22 +1,25 @@
-"use client";
-import { createClient } from "@supabase/supabase-js";
+import { useSupabaseWithClerk } from "@/utils/supabase/useSupabaseWithClerk";
 
-/**
- * Cliente Supabase global, sin sesión persistente.
- * Usado para operaciones públicas, Realtime y Broadcast (funciona junto con Clerk).
- */
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  {
-    auth: {
-      persistSession: false, // evita conflictos con Clerk
-      autoRefreshToken: false, // no se renuevan tokens públicos
-    },
-    realtime: {
-      params: {
-        eventsPerSecond: 10, // mejora el rendimiento de canales broadcast
-      },
-    },
-  }
-);
+export default function JobPhotos({ jobId }) {
+  const { getClientWithToken } = useSupabaseWithClerk();
+
+  const handleUpload = async (file) => {
+    try {
+      const supabaseAuth = await getClientWithToken();
+      const filePath = `${jobId}/${Date.now()}_${file.name}`;
+
+      const { data, error } = await supabaseAuth.storage
+        .from("job-photos")
+        .upload(filePath, file);
+
+      if (error) throw error;
+      console.log("✅ Uploaded:", data);
+    } catch (err) {
+      console.error("❌ Upload error:", err.message);
+    }
+  };
+
+  return (
+    <input type="file" onChange={(e) => handleUpload(e.target.files[0])} />
+  );
+}

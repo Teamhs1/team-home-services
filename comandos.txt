@@ -1,3 +1,49 @@
 git add .
 git commit -m "Update Clerk imports to modern API"     
 git push
+
+
+{
+	"https://crucial-teal-42.clerk.accounts.dev/jwt/claims": {
+		"sub": "{{user.id}}",
+		"role": "{{user.public_metadata.role}}",
+		"email": "{{user.primary_email_address.email_address}}"
+	}
+}
+
+{
+	"https://choice-liger-25.clerk.accounts.dev/jwt/claims": {
+		"sub_id": "{{user.id}}",
+		"role": "{{user.public_metadata.role}}",
+		"email": "{{user.primary_email_address.email_address}}"
+	}
+}
+
+-----------------------------------------------------------------------------
+SELECT
+  policyname,
+  permissive,
+  cmd AS command,
+  roles,
+  qual AS using_expression,
+  with_check AS with_check_expression
+FROM pg_policies
+WHERE tablename = 'cleaning_jobs'
+ORDER BY cmd, policyname;
+-------------------------------------------------------------------------------------------------
+Sleccionar todas las politicas: 
+
+SELECT 
+  schemaname AS schema,
+  tablename AS table,
+  policyname AS policy_name,
+  cmd AS command,
+  permissive AS mode,
+  roles,
+  qual AS using_expression,
+  with_check AS with_check_expression
+FROM pg_policies
+ORDER BY schemaname, tablename, policyname;
+-----------------------------------------------------------------------------
+Desactivar politicas temporalmente
+ALTER TABLE cleaning_jobs DISABLE ROW LEVEL SECURITY;

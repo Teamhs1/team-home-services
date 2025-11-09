@@ -7,7 +7,6 @@ import { toast } from "sonner";
  * Hook central de Jobs autenticado con Clerk
  * - Compatible con políticas RLS
  * - Incluye Realtime y Broadcast
- * - Ahora trae fotos relacionadas desde job_photos
  */
 export function useJobs({ clerkId, role, getToken }) {
   const [jobs, setJobs] = useState([]);
@@ -29,11 +28,7 @@ export function useJobs({ clerkId, role, getToken }) {
         }
       );
 
-      // ✅ Incluye fotos relacionadas
-      let query = supabaseAuth
-        .from("cleaning_jobs")
-        .select(`*, photos:job_photos(image_url)`);
-
+      let query = supabaseAuth.from("cleaning_jobs").select("*");
       if (role !== "admin") {
         query = query.or(`created_by.eq.${clerkId},assigned_to.eq.${clerkId}`);
       }
@@ -41,26 +36,8 @@ export function useJobs({ clerkId, role, getToken }) {
       const { data, error } = await query.order("created_at", {
         ascending: false,
       });
-
       if (error) throw error;
-
-      // ✅ Normalizar URLs relativas a públicas
-      const normalizeUrl = (url) => {
-        if (!url) return null;
-        if (url.startsWith("http")) return url;
-        const clean = url.replace(/^\/?job-photos\//, "").trim();
-        return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/job-photos/${clean}`;
-      };
-
-      const normalizedData = (data || []).map((job) => ({
-        ...job,
-        photos: (job.photos || []).map((p) => ({
-          ...p,
-          image_url: normalizeUrl(p.image_url),
-        })),
-      }));
-
-      setJobs(normalizedData);
+      setJobs(data || []);
     } catch (err) {
       console.error("❌ Error loading jobs:", err.message);
       toast.error("Error loading jobs: " + err.message);
@@ -82,6 +59,7 @@ export function useJobs({ clerkId, role, getToken }) {
 
         const channel = supabaseRealtime.channel(channelName);
 
+        // 🔸 Escucha cambios en la tabla (INSERT/UPDATE/DELETE)
         channel.on(
           "postgres_changes",
           {
@@ -107,6 +85,7 @@ export function useJobs({ clerkId, role, getToken }) {
               } else if (payload.eventType === "DELETE") {
                 updated = updated.filter((j) => j.id !== payload.old.id);
               }
+              // elimina duplicados por id
               return Array.from(
                 new Map(updated.map((j) => [j.id, j])).values()
               );
@@ -114,61 +93,16 @@ export function useJobs({ clerkId, role, getToken }) {
           }
         );
 
+        // 🔸 Solo admin escucha broadcasts globales
         if (role === "admin") {
-          channel.on(
-            "broadcast",
-            { event: "job_created" },
-            async ({ payload }) => {
-              console.log("📢 Broadcast recibido:", payload);
-
-              // ✅ Detectar rol y título dinámicamente
-              const jobRole =
-                payload?.role ||
-                payload?.created_by_role ||
-                payload?.created_byRole ||
-                "unknown";
-
-              const jobTitle = payload?.title || "Untitled Job";
-
-              // 🎨 Mapas de color y emojis
-              const colorMap = {
-                admin: "text-blue-600 bg-blue-50 border-blue-200",
-                staff: "text-green-600 bg-green-50 border-green-200",
-                client: "text-gray-600 bg-gray-50 border-gray-200",
-                unknown: "text-gray-400 bg-gray-100 border-gray-100",
-              };
-
-              const iconMap = {
-                admin: "🔵",
-                staff: "🟢",
-                client: "⚫",
-                unknown: "❔",
-              };
-
-              const message = `${iconMap[jobRole]} New job created by ${jobRole}`;
-
-              // ✅ Toast visual dinámico
-              toast.custom(
-                (t) => (
-                  <div
-                    className={`flex items-center gap-2 px-4 py-3 rounded-md border ${colorMap[jobRole]} shadow-sm text-sm font-medium`}
-                  >
-                    <span className="text-lg">{iconMap[jobRole]}</span>
-                    <span>{message}</span>
-                    <span className="ml-auto italic text-gray-500">
-                      ({jobTitle})
-                    </span>
-                  </div>
-                ),
-                { duration: 4000 }
-              );
-
-              // 🔁 Refrescar lista
-              await fetchJobs();
-            }
-          );
+          channel.on("broadcast", { event: "job_created" }, async (payload) => {
+            console.log("📢 Broadcast recibido:", payload);
+            toast.info("🧾 New job created by client");
+            await fetchJobs(); // 🔁 Refresca lista
+          });
         }
 
+        // ✅ Suscribirse correctamente
         channel.subscribe((status) => {
           console.log(`📶 Realtime status [${role}]:`, status);
         });
@@ -211,6 +145,7 @@ export function useJobs({ clerkId, role, getToken }) {
       channel = await subscribeToRealtime(supabaseRealtime);
     })();
 
+    // 🧹 Cleanup seguro
     return () => {
       console.log("🧹 Cleaning up realtime channels...");
       try {
@@ -226,6 +161,7 @@ export function useJobs({ clerkId, role, getToken }) {
     if (updatingId) return;
     setUpdatingId(id);
 
+    // actualización optimista
     setJobs((prev) =>
       prev.map((j) => (j.id === id ? { ...j, status: newStatus } : j))
     );

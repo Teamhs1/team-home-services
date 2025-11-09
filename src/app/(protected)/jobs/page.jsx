@@ -38,11 +38,30 @@ export default function JobsPage() {
     scheduled_date: "",
   });
   const [customerLoading, setCustomerLoading] = useState(false);
-  const [viewMode, setViewMode] = useState("list");
+  const [viewMode, setViewMode] = useState(() => "list");
 
+  // ✅ Forzar vista "list" si el usuario es admin o staff
+  useEffect(() => {
+    if (role === "admin" || role === "staff") {
+      setViewMode("list");
+    }
+  }, [role]);
+
+  // ✅ Cargar datos iniciales
   useEffect(() => {
     if (!ready || !clerkId) return;
+
     (async () => {
+      try {
+        const token = await getToken({ template: "supabase" });
+        if (token) {
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          console.log("🪶 Clerk JWT payload:", payload);
+        }
+      } catch (err) {
+        console.error("Error mostrando token:", err);
+      }
+
       await fetchJobs();
       if (role === "admin") await fetchStaff();
       if (role === "client") await fetchCustomerJobs();
@@ -51,6 +70,7 @@ export default function JobsPage() {
 
   const filteredJobs = useMemo(() => jobs || [], [jobs]);
 
+  // 🧩 Cargar trabajos del cliente
   async function fetchCustomerJobs() {
     if (role !== "client") return;
     setCustomerLoading(true);
@@ -77,6 +97,7 @@ export default function JobsPage() {
     }
   }
 
+  // 🧾 Crear trabajo del cliente
   async function createCustomerJob() {
     if (!form.title || !form.service_type || !form.scheduled_date) {
       toast.error("Please fill all required fields.");
@@ -125,6 +146,7 @@ export default function JobsPage() {
     }
   }
 
+  // 🕐 Spinner de carga inicial
   if (!ready || loading)
     return (
       <div className="flex items-center justify-center h-screen">
@@ -132,29 +154,14 @@ export default function JobsPage() {
       </div>
     );
 
-  // 🔳 Botón global de cambio de vista
-  const ViewToggleButton = () => (
-    <div className="flex justify-end mb-4 px-4">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
-        className="flex items-center gap-2"
-        title={`Switch to ${viewMode === "grid" ? "List" : "Grid"} View`}
-      >
-        {viewMode === "grid" ? (
-          <List className="w-4 h-4" />
-        ) : (
-          <LayoutGrid className="w-4 h-4" />
-        )}
-      </Button>
-    </div>
-  );
-
+  // ✅ Render principal
   return (
     <div className="pt-24 px-4 md:px-6 lg:px-8">
-      {/* 🔹 Mostrar el botón arriba solo si NO es client */}
-      {role !== "client" && <ViewToggleButton />}
+      {filteredJobs.length === 0 && role !== "client" && (
+        <p className="text-center text-gray-500 italic mb-6">
+          No jobs available yet.
+        </p>
+      )}
 
       {role === "admin" ? (
         <AdminJobsView
@@ -163,7 +170,6 @@ export default function JobsPage() {
           viewMode={viewMode}
           setViewMode={setViewMode}
           fetchJobs={fetchJobs}
-          getToken={getToken}
           updateStatus={updateStatus}
           deleteJob={deleteJob}
         />
@@ -173,7 +179,7 @@ export default function JobsPage() {
           viewMode={viewMode}
           setViewMode={setViewMode}
           updateStatus={updateStatus}
-          getToken={getToken} // ✅ importante
+          fetchJobs={fetchJobs} // ✅ así refresca la lista luego del update
         />
       ) : (
         <ClientJobsView
@@ -184,9 +190,9 @@ export default function JobsPage() {
           createCustomerJob={createCustomerJob}
           updateStatus={updateStatus}
           clerkId={clerkId}
-          getToken={getToken}
           viewMode={viewMode}
-          setViewMode={setViewMode} // ✅ <-- agrega esta línea
+          setViewMode={setViewMode}
+          getToken={getToken}
         />
       )}
     </div>

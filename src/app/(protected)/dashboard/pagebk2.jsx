@@ -8,7 +8,6 @@ import CustomerView from "./CustomerView";
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
-import TestSupabaseButton from "./TestSupabaseButton";
 
 export default function DashboardPage() {
   const { isLoaded, user } = useUser();
@@ -26,7 +25,6 @@ export default function DashboardPage() {
     if (!token) {
       console.warn("⚠️ No se encontró token Clerk. Usando cliente anónimo.");
     }
-
     return createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -36,7 +34,7 @@ export default function DashboardPage() {
     );
   }, [getToken]);
 
-  // ✅ Cargar trabajos según rol
+  // ✅ Cargar trabajos del usuario (staff o cliente)
   const fetchCustomerJobs = useCallback(async () => {
     try {
       setLoading(true);
@@ -96,14 +94,14 @@ export default function DashboardPage() {
     [createSupabaseClient, clerkId, fetchCustomerJobs]
   );
 
-  // 🧩 Esperar a que Clerk esté listo antes de cargar datos
+  // 🧩 Esperar a que Clerk esté cargado
   useEffect(() => {
     if (isLoaded && user) {
       fetchCustomerJobs();
     }
   }, [isLoaded, user, fetchCustomerJobs]);
 
-  // 🚀 Pantalla de carga inicial
+  // 🚀 Mostrar según rol
   if (!isLoaded)
     return (
       <div className="flex items-center justify-center h-screen">
@@ -111,27 +109,19 @@ export default function DashboardPage() {
       </div>
     );
 
-  // 🧭 Vista para admin con botón de prueba integrado
   if (role === "admin") {
     return (
       <main className="px-6 md:px-12 lg:px-16 xl:px-20 py-10 max-w-[1600px] mx-auto space-y-10">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          {/* 🔍 Botón de prueba Supabase */}
-          <TestSupabaseButton />
-        </div>
-
         <AdminDashboard />
       </main>
     );
   }
 
-  // 🧭 Vista para staff
   if (role === "staff") {
     return <StaffView />;
   }
 
-  // 🧭 Vista para clientes
+  // 👇 Vista para clientes
   return (
     <CustomerView
       jobs={jobs}

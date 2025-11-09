@@ -72,9 +72,22 @@ export default function JobPhotosPage() {
   const beforePhotos = photos.filter((p) => p.type === "before");
   const afterPhotos = photos.filter((p) => p.type === "after");
 
-  // 🔹 URLs públicas
-  const publicUrl = (path) =>
-    `${supabaseUrl}/storage/v1/object/public/job-photos/${path}`;
+  // ✅ URLs públicas seguras (sin errores 400)
+  const publicUrl = (path) => {
+    if (!path) return "";
+
+    // Limpia el prefijo "job-photos/" si viene repetido
+    const cleanPath = path.replace(/^\/?job-photos\//, "").trim();
+
+    // Codifica cada segmento del path
+    const encodedPath = cleanPath
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+
+    // Devuelve la URL final válida
+    return `${supabaseUrl}/storage/v1/object/public/job-photos/${encodedPath}`;
+  };
 
   // ✅ useMemo antes de cualquier return
   const allImages = useMemo(

@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { supabase } from "@/utils/supabase/client"; // ✅ Reutiliza la instancia global
+import { createClient } from "@supabase/supabase-js"; // ✅ importamos el factory
 import Link from "next/link";
 
 export default function ClientJobsView({
@@ -28,87 +28,100 @@ export default function ClientJobsView({
   createCustomerJob,
   fetchCustomerJobs,
   clerkId,
-  getToken, // ✅ se pasa desde JobsPage
-  viewMode, // ✅ ahora viene desde el padre
-  setViewMode, // ✅ para poder cambiar el modo desde aquí
+  getToken, // ✅ viene desde JobsPage
+  viewMode,
+  setViewMode,
 }) {
-  // ✅ Suscripción Realtime autenticada
+  // ✅ Suscripción Realtime autenticada y segura
   useEffect(() => {
     if (!clerkId) return;
 
     const initRealtime = async () => {
-      const token = await getToken({ template: "supabase" });
-      if (!token) {
-        console.warn("⚠️ No se pudo obtener token de Clerk para Realtime.");
-        return;
-      }
+      try {
+        const token = await getToken({ template: "supabase" });
+        if (!token) {
+          console.warn("⚠️ No Clerk token available for realtime.");
+          return;
+        }
 
-      await supabase.auth.setSession({ access_token: token });
+        // 🔐 Crear cliente local (evita error con .auth)
+        const supabaseRealtime = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        );
 
-      console.log("👀 Subscribing to realtime for client:", clerkId);
+        // ✅ Configurar sesión Clerk → Supabase
+        await supabaseRealtime.auth.setSession({ access_token: token });
 
-      const channel = supabase
-        .channel(`client_jobs_${clerkId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "cleaning_jobs",
-            filter: `created_by=eq.${clerkId}`,
-          },
-          async (payload) => {
-            console.log("📡 Evento realtime:", payload.eventType, payload.new);
-            await fetchCustomerJobs?.();
+        console.log("👀 Subscribing to realtime for client:", clerkId);
 
-            const job = payload.new;
+        const channel = supabaseRealtime
+          .channel(`client_jobs_${clerkId}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "cleaning_jobs",
+              filter: `created_by=eq.${clerkId}`,
+            },
+            async (payload) => {
+              console.log("📡 Realtime event:", payload.eventType, payload.new);
+              await fetchCustomerJobs?.();
 
-            switch (payload.eventType) {
-              case "INSERT":
-                toast.info("🧾 New cleaning scheduled!", {
-                  description: job?.title || "Your cleaning request was added.",
-                });
-                break;
-              case "UPDATE":
-                if (job.status === "in_progress") {
-                  toast.info("🧽 Your cleaning has started!", {
+              const job = payload.new;
+
+              switch (payload.eventType) {
+                case "INSERT":
+                  toast.info("🧾 New cleaning scheduled!", {
                     description:
-                      job?.title || "A cleaner has started your job.",
+                      job?.title || "Your cleaning request was added.",
                   });
-                } else if (job.status === "completed") {
-                  toast.success("✨ Cleaning completed!", {
-                    description: job?.title || "Your cleaning job is done!",
+                  break;
+                case "UPDATE":
+                  if (job.status === "in_progress") {
+                    toast.info("🧽 Your cleaning has started!", {
+                      description:
+                        job?.title || "A cleaner has started your job.",
+                    });
+                  } else if (job.status === "completed") {
+                    toast.success("✨ Cleaning completed!", {
+                      description: job?.title || "Your cleaning job is done!",
+                    });
+                  } else {
+                    toast.message("🔔 Job updated", {
+                      description: `${job.title} is now ${job.status}`,
+                    });
+                  }
+                  break;
+                case "DELETE":
+                  toast.warning("🗑️ A job was removed.", {
+                    description: job?.title || "One of your jobs was deleted.",
                   });
-                } else {
-                  toast.message("🔔 Job updated", {
-                    description: `${job.title} is now ${job.status}`,
-                  });
-                }
-                break;
-              case "DELETE":
-                toast.warning("🗑️ A job was removed.", {
-                  description: job?.title || "One of your jobs was deleted.",
-                });
-                break;
+                  break;
+              }
             }
-          }
-        )
-        .subscribe((status) => {
-          console.log("📶 Realtime status:", status);
-        });
+          )
+          .subscribe((status) => {
+            console.log("📶 Realtime status:", status);
+          });
 
-      return () => {
-        console.log("❌ Unsubscribed from realtime");
-        supabase.removeChannel(channel);
-      };
+        // ✅ Cleanup seguro
+        return () => {
+          console.log("❌ Unsubscribed from realtime");
+          supabaseRealtime.removeChannel(channel);
+        };
+      } catch (err) {
+        console.error("❌ Error in Realtime setup:", err.message);
+      }
     };
 
     initRealtime();
-  }, [clerkId]);
+  }, [clerkId, getToken, fetchCustomerJobs]);
 
+  // 🧹 Render principal (sin cambios)
   return (
     <main className="px-6 md:px-12 lg:px-16 xl:px-20 py-10 max-w-[1600px] mx-auto space-y-10">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           🧽 My Cleaning Requests
@@ -182,8 +195,6 @@ export default function ClientJobsView({
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-semibold">My Requests</h2>
-
-          {/* 🔘 Botón de cambio de vista */}
           <Button
             variant="outline"
             size="sm"

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   Card,
   CardHeader,
@@ -8,11 +9,11 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LayoutGrid, List, ClipboardList, CalendarDays } from "lucide-react";
-import JobForm from "./JobForm";
-import JobPhotos from "./JobPhotos";
-import PhotoLogTable from "./PhotoLogTable";
 import { toast } from "sonner";
+import { useSupabaseWithClerk } from "@/utils/supabase/useSupabaseWithClerk";
+import { CalendarDays, User, Trash2, LayoutGrid, List } from "lucide-react";
+import JobForm from "./JobForm";
+import Slider from "@/components/Slider"; // ✅ Tu slider completo
 
 export default function AdminJobsView({
   jobs,
@@ -20,30 +21,26 @@ export default function AdminJobsView({
   viewMode,
   setViewMode,
   fetchJobs,
-  getToken,
   updateStatus,
   deleteJob,
 }) {
+  const { getClientWithToken } = useSupabaseWithClerk();
+
   // 🔹 Asignar staff a un trabajo
   const assignToStaff = async (jobId, assigned_to) => {
     try {
-      const token = await getToken({ template: "supabase" });
+      const supabase = await getClientWithToken();
+      const cleanValue = assigned_to?.trim() ? assigned_to : null;
 
-      const res = await fetch("/api/jobs/update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ id: jobId, assigned_to }),
-      });
+      const { error } = await supabase
+        .from("cleaning_jobs")
+        .update({ assigned_to: cleanValue })
+        .eq("id", jobId);
 
-      if (!res.ok) throw new Error("Failed to assign staff");
-
+      if (error) throw new Error(error.message);
       toast.success("✅ Job assigned successfully!");
-      // ⚡ No se necesita fetchJobs(); Realtime manejará la actualización
     } catch (err) {
-      console.error("❌ Error assigning staff:", err.message);
+      console.error("💥 Error assigning staff:", err);
       toast.error("Error assigning job: " + err.message);
     }
   };
@@ -55,6 +52,21 @@ export default function AdminJobsView({
         <h1 className="text-3xl font-bold flex items-center gap-2">
           🧽 Jobs Management
         </h1>
+
+        {/* 🔘 Botón de cambio de vista (list/grid) */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+          className="flex items-center gap-2"
+          title={`Switch to ${viewMode === "grid" ? "List" : "Grid"} View`}
+        >
+          {viewMode === "grid" ? (
+            <List className="w-4 h-4" />
+          ) : (
+            <LayoutGrid className="w-4 h-4" />
+          )}
+        </Button>
       </div>
 
       {/* 🧾 Crear nuevo trabajo */}
@@ -64,17 +76,12 @@ export default function AdminJobsView({
           <CardDescription>Add a new cleaning job.</CardDescription>
         </CardHeader>
         <CardContent>
-          <JobForm
-            staffList={staffList}
-            getToken={getToken}
-            fetchJobs={fetchJobs} // ✅ Agregamos la función que usa JobForm
-          />
+          <JobForm staffList={staffList} fetchJobs={fetchJobs} />
         </CardContent>
       </Card>
 
-      {/* 👁️ Render dinámico según viewMode */}
+      {/* 👁️ Vista list o grid */}
       {viewMode === "list" ? (
-        // 🔹 Vista en tabla
         <div className="overflow-x-auto bg-white shadow rounded-lg border border-gray-200">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
@@ -87,7 +94,6 @@ export default function AdminJobsView({
                 <th className="px-4 py-2 text-right">Actions</th>
               </tr>
             </thead>
-
             <tbody>
               {jobs.length === 0 ? (
                 <tr>
@@ -106,9 +112,7 @@ export default function AdminJobsView({
                   >
                     <td className="px-4 py-2 font-medium">{job.title}</td>
                     <td className="px-4 py-2">{job.scheduled_date}</td>
-                    <td className="px-4 py-2">{job.service_type}</td>
-
-                    {/* 🔹 Selector de staff */}
+                    <td className="px-4 py-2 capitalize">{job.service_type}</td>
                     <td className="px-4 py-2">
                       <select
                         className="border rounded-md p-1 text-sm"
@@ -125,8 +129,6 @@ export default function AdminJobsView({
                         ))}
                       </select>
                     </td>
-
-                    {/* 🔹 Estado con colores consistentes */}
                     <td className="px-4 py-2">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -140,13 +142,14 @@ export default function AdminJobsView({
                         {job.status.replace("_", " ")}
                       </span>
                     </td>
-
                     <td className="px-4 py-2 text-right">
                       <Button
                         size="sm"
                         variant="destructive"
                         onClick={() => deleteJob(job.id)}
+                        className="flex gap-1 items-center"
                       >
+                        <Trash2 className="w-4 h-4" />
                         Delete
                       </Button>
                     </td>
@@ -157,40 +160,48 @@ export default function AdminJobsView({
           </table>
         </div>
       ) : (
-        // 🔹 Vista en grid (tarjetas)
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        // 🌟 GRID VIEW con SLIDER clickable SOLO en el slider
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {jobs.length === 0 ? (
-            <p className="text-gray-500 italic">No jobs available.</p>
+            <p className="col-span-full text-center text-gray-500 italic">
+              No jobs available.
+            </p>
           ) : (
             jobs.map((job) => (
               <Card
                 key={job.id}
-                className="hover:shadow-lg border border-border/50 relative"
+                className="border shadow-sm hover:shadow-md transition-all overflow-hidden rounded-xl bg-white"
               >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <ClipboardList className="w-5 h-5 text-primary" />
+                {/* 🖼️ Slider clickable */}
+                <div
+                  className="cursor-pointer aspect-video bg-gray-100"
+                  onClick={() => (window.location.href = `/jobs/${job.id}`)}
+                >
+                  <Slider jobId={job.id} mini />
+                </div>
+
+                {/* 🧱 Info */}
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg font-semibold truncate">
                     {job.title}
                   </CardTitle>
-                  <CardDescription className="text-sm text-muted-foreground">
-                    <CalendarDays className="w-4 h-4 inline mr-1" />
-                    {job.scheduled_date} • {job.service_type}
+                  <CardDescription className="flex items-center gap-2 text-xs text-gray-500">
+                    <CalendarDays className="w-3 h-3" />
+                    {job.scheduled_date || "No date"}
                   </CardDescription>
                 </CardHeader>
 
-                <CardContent className="flex flex-col gap-3">
-                  {/* 📸 Fotos y logs */}
-                  <JobPhotos jobId={job.id} readOnly />
-                  <PhotoLogTable jobId={job.id} />
+                <CardContent className="space-y-3">
+                  <p className="text-sm capitalize text-gray-700">
+                    <strong>Type:</strong> {job.service_type || "standard"}
+                  </p>
 
-                  {/* 👷 Asignar staff */}
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Assigned To
-                    </label>
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <User className="w-4 h-4" />
                     <select
-                      className="w-full border rounded-md p-1 text-sm"
+                      className="border rounded-md p-1 text-xs flex-1"
                       value={job.assigned_to || ""}
+                      onClick={(e) => e.stopPropagation()} // evita que abra el enlace
                       onChange={(e) =>
                         assignToStaff(job.id, e.target.value || null)
                       }
@@ -204,24 +215,29 @@ export default function AdminJobsView({
                     </select>
                   </div>
 
-                  <div className="flex justify-between items-center mt-3">
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full font-semibold ${
-                        job.status === "pending"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : job.status === "in_progress"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {job.status.replace("_", " ")}
-                    </span>
+                  <span
+                    className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                      job.status === "pending"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : job.status === "in_progress"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-green-100 text-green-700"
+                    }`}
+                  >
+                    {job.status.replace("_", " ")}
+                  </span>
 
+                  <div className="flex justify-end">
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => deleteJob(job.id)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // evita navegar
+                        deleteJob(job.id);
+                      }}
+                      className="flex gap-1 items-center"
                     >
+                      <Trash2 className="w-4 h-4" />
                       Delete
                     </Button>
                   </div>

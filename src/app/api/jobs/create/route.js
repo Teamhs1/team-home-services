@@ -1,133 +1,84 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { importJWK, jwtVerify } from "jose";
 
-// ✅ URL del JWKS público de tu instancia actual de Clerk
-const JWKS_URL =
-  "https://choice-liger-25.clerk.accounts.dev/.well-known/jwks.json";
-
-// Cache para JWKS
-let cachedKeys = null;
-async function getClerkJWKS() {
-  if (cachedKeys) return cachedKeys;
-  const res = await fetch(JWKS_URL);
-  if (!res.ok) throw new Error("Unable to fetch Clerk JWKS");
-  cachedKeys = await res.json();
-  return cachedKeys;
-}
-
-// ✅ Verificación flexible del JWT de Clerk
-async function verifyClerkJWT(token) {
-  const { keys } = await getClerkJWKS();
-  let lastError;
-  for (const jwk of keys) {
-    try {
-      const publicKey = await importJWK(jwk, jwk.alg || "RS256");
-      const { payload } = await jwtVerify(token, publicKey, {
-        issuer: undefined,
-        audience: undefined,
-      });
-      return payload;
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError || new Error("JWT verification failed");
-}
-
+/**
+ * 🚀 Crear Job (sin JWT, sin Clerk, sin RLS)
+ */
 export async function POST(req) {
   try {
-    // 🔹 Verificación del header de autorización
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      console.warn("❌ Missing Authorization header");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    console.log("🟢 /api/jobs/create called...");
 
-    const token = authHeader.split(" ")[1];
-    const session = await verifyClerkJWT(token);
-
-    const clerkId = session.sub; // 👈 Clerk ID del usuario autenticado
-    const role =
-      session?.public_metadata?.role || session?.metadata?.role || "client";
-
-    console.log(`🧠 Verified Clerk user ${clerkId} (${role})`);
-
-    // ⚙️ Leemos el cuerpo de la solicitud
-    const body = await req.json();
-    const { title, assigned_to, service_type, scheduled_date } = body;
-
-    // ⚠️ Validaciones básicas
-    if (!title || !scheduled_date) {
-      return NextResponse.json(
-        { error: "Missing required fields (title or scheduled_date)" },
-        { status: 400 }
-      );
-    }
-
-    // ✅ Cliente Supabase autenticado con el JWT del usuario Clerk
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-      }
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // 🚀 Construir objeto seguro
-    const newJob = {
-      title: title.trim(),
-      assigned_to: assigned_to ? assigned_to.trim() : null,
-      created_by: clerkId, // el creador siempre es quien hace la solicitud
-      service_type: service_type || "standard",
-      scheduled_date,
-      status: "pending",
-    };
-
-    // 🧠 Registro de depuración
-    console.log("📦 Creating job:");
-    console.table(newJob);
-
-    if (!assigned_to) {
-      console.warn("⚠️ Job created without assigned staff — unassigned job.");
-    } else {
-      console.log(`👤 Assigned to staff: ${assigned_to}`);
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    // 🚀 Insertar en Supabase (respetando RLS)
-    const { data, error, status } = await supabase
+    const { title, service_type, assigned_to, scheduled_date, created_by } =
+      body;
+
+    if (!title) {
+      return NextResponse.json({ error: "Missing title" }, { status: 400 });
+    }
+
+    // 🔍 Buscar el rol del usuario en profiles (si existe)
+    let created_by_role = "unknown";
+    if (created_by) {
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("clerk_id", created_by)
+        .single();
+
+      if (profileError) {
+        console.warn(
+          "⚠️ No se encontró perfil o error al consultar role:",
+          profileError.message
+        );
+      } else if (profile?.role) {
+        created_by_role = profile.role;
+      }
+    }
+
+    // 🧩 Insertar nuevo job
+    const { data, error } = await supabase
       .from("cleaning_jobs")
-      .insert(newJob)
+      .insert([
+        {
+          title,
+          service_type: service_type || "general",
+          assigned_to: assigned_to || null,
+          scheduled_date: scheduled_date || null,
+          status: "pending",
+          created_by: created_by || "system",
+        },
+      ])
       .select();
 
-    // ⚠️ Si Supabase responde 401
-    if (status === 401) {
-      return NextResponse.json(
-        {
-          error:
-            "Unauthorized: Clerk JWT not recognized by Supabase (check JWT template).",
-        },
-        { status: 401 }
-      );
-    }
-
     if (error) {
-      console.error("❌ Supabase insert error:", error.message);
+      console.error("❌ Supabase insert error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log("✅ Job created successfully:");
-    console.table(data);
+    console.log(
+      `✅ Job '${title}' created successfully by ${created_by} (${created_by_role})`
+    );
 
     return NextResponse.json({
-      message: "✅ Job created successfully",
-      data,
+      message: "Job created successfully",
+      data: [
+        {
+          ...data[0],
+          created_by_role, // ✅ incluimos el rol del creador
+        },
+      ],
     });
   } catch (err) {
-    console.error("💥 Error in /api/jobs/create:", err);
-    return NextResponse.json(
-      { error: err.message || "Internal server error" },
-      { status: 500 }
-    );
+    console.error("💥 Error creating job:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

@@ -1,32 +1,65 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { auth } from "@clerk/nextjs/server";
 
+// ✅ Cliente Supabase con Service Role Key (solo backend)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY, // 👈 clave de servicio
-  { auth: { persistSession: false } }
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function GET(req) {
+export async function POST(req) {
   try {
-    const { searchParams } = new URL(req.url);
-    const jobId = searchParams.get("jobId");
+    console.log("🟢 Upload request received...");
 
-    if (!jobId) {
-      return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
+    // ✅ Validar sesión con Clerk automáticamente
+    const { userId, sessionClaims } = auth();
+
+    if (!userId) {
+      console.warn("🚫 No user session found");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data, error } = await supabase
-      .from("job_photos")
-      .select("*")
-      .eq("job_id", jobId)
-      .order("created_at", { ascending: true });
+    const role = sessionClaims?.publicMetadata?.role || "client";
+    console.log(`🧠 Uploading photo as user: ${userId} (role: ${role})`);
 
-    if (error) throw error;
+    // ✅ Obtener archivo desde el FormData
+    const formData = await req.formData();
+    const file = formData.get("file");
+    const path = formData.get("path");
 
-    return NextResponse.json(data);
+    if (!file || !path) {
+      return NextResponse.json(
+        { error: "Missing file or path" },
+        { status: 400 }
+      );
+    }
+
+    // 🔐 Control de acceso por rol (puedes personalizarlo)
+    if (role === "client") {
+      return NextResponse.json(
+        { error: "Clients cannot upload job photos" },
+        { status: 403 }
+      );
+    }
+
+    // ✅ Subir archivo al bucket "job-photos"
+    const { data, error } = await supabase.storage
+      .from("job-photos")
+      .upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (error) {
+      console.error("❌ Supabase upload error:", error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    console.log("✅ File uploaded successfully:", data?.path);
+    return NextResponse.json({ success: true, path: data?.path });
   } catch (err) {
-    console.error("❌ Fetch photos API error:", err.message);
+    console.error("💥 Upload API error:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

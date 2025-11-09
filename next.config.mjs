@@ -20,11 +20,12 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "kgwpkqtidepwmdmmmsvg.supabase.co", // Supabase storage
+        hostname: "kgwpkqtidepwmdmmmsvg.supabase.co",
+        pathname: "/storage/v1/object/public/job-photos/**", // ✅ habilita imágenes del bucket
       },
       {
         protocol: "https",
-        hostname: "ui-avatars.com", // 👈 para nombres sin avatar (errores actuales)
+        hostname: "ui-avatars.com", // 👈 nombres sin avatar
       },
       {
         protocol: "https",

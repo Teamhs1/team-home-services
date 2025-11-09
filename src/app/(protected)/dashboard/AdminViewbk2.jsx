@@ -10,9 +10,7 @@ import {
   CalendarDays,
   ArrowRight,
   Mail,
-  Image as ImageIcon,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -32,8 +30,6 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Button } from "@/components/ui/button";
-import { getPublicUrl } from "@/utils/getPublicUrl"; // ✅ usa solo el helper externo
-import { motion, AnimatePresence } from "framer-motion";
 
 export default function AdminDashboard() {
   const { isLoaded, user } = useUser();
@@ -53,52 +49,25 @@ export default function AdminDashboard() {
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
-        global: { headers: { Authorization: `Bearer ${token}` } },
+        global: {
+          headers: { Authorization: `Bearer ${token}` },
+        },
       }
     );
   }, [getToken, isLoaded]);
 
-  // 🧾 Cargar trabajos (con imágenes incluidas)
+  // 🧾 Cargar trabajos
   const fetchJobs = useCallback(async () => {
     try {
       setLoading(true);
       const supabaseAuth = await createSupabaseClient();
       if (!supabaseAuth) return;
-
       const { data, error } = await supabaseAuth
         .from("cleaning_jobs")
-        .select(
-          `
-        *,
-        job_photos ( id, image_url )
-      `
-        )
+        .select("*")
         .order("scheduled_date", { ascending: false });
-
       if (error) throw error;
-
-      // ✅ Normalizar URLs
-      const normalizeUrl = (path) => {
-        if (!path) return null;
-        if (path.startsWith("http")) return path;
-        const clean = path
-          .replace(/^\/?job-photos\//, "")
-          .replace(/^storage\/v1\/object\/public\/job-photos\//, "")
-          .trim();
-        return `${
-          process.env.NEXT_PUBLIC_SUPABASE_URL
-        }/storage/v1/object/public/job-photos/${encodeURIComponent(clean)}`;
-      };
-
-      const jobsWithUrls = (data || []).map((job) => ({
-        ...job,
-        job_photos: (job.job_photos || []).map((photo) => ({
-          ...photo,
-          image_url: normalizeUrl(photo.image_url),
-        })),
-      }));
-
-      setJobs(jobsWithUrls);
+      setJobs(data || []);
     } catch (err) {
       console.error("❌ Error fetching jobs:", err.message);
       toast.error("Error loading jobs: " + err.message);
@@ -116,7 +85,9 @@ export default function AdminDashboard() {
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         {
-          global: { headers: { Authorization: `Bearer ${token}` } },
+          global: {
+            headers: { Authorization: `Bearer ${token}` },
+          },
         }
       );
       const { data, error } = await supabaseAuth
@@ -234,14 +205,72 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* 💬 Mensajes */}
-      <ContactMessages
-        messages={messages}
-        loading={loadingMessages}
-        fetchMessages={fetchMessages}
-      />
+      {/* 💬 Mensajes de contacto */}
+      <Card className="border border-border/50 shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Mail className="w-5 h-5 text-primary" /> Contact Messages
+            </CardTitle>
+            <CardDescription>
+              Messages received from your website form
+            </CardDescription>
+          </div>
+          <Button
+            onClick={fetchMessages}
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            disabled={loadingMessages}
+          >
+            {loadingMessages ? (
+              <>
+                <Loader2 className="animate-spin w-4 h-4 mr-2" /> Refreshing
+              </>
+            ) : (
+              "Refresh"
+            )}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {messages.length === 0 ? (
+            <div className="text-center py-6 space-y-4">
+              <p className="text-gray-500">No contact messages yet.</p>
+              <Link href="/admin/messages">
+                <Button className="bg-primary text-white hover:bg-primary/90 flex items-center gap-2">
+                  View All Messages <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <>
+              <ul className="divide-y">
+                {messages.slice(0, 5).map((msg) => (
+                  <li key={msg.id} className="py-4">
+                    <p className="font-semibold text-gray-900">{msg.name}</p>
+                    <p className="text-sm text-gray-600">{msg.email}</p>
+                    <p className="mt-2 text-gray-700 line-clamp-2">
+                      {msg.message}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(msg.created_at).toLocaleString()}
+                    </p>
+                  </li>
+                ))}
+              </ul>
 
-      {/* 🧾 Trabajos recientes */}
+              <div className="flex justify-center pt-6">
+                <Link href="/admin/messages">
+                  <Button className="bg-primary text-white hover:bg-primary/90 flex items-center gap-2">
+                    View All Messages <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 🧾 Listado de trabajos recientes */}
       <Card className="border border-border/50 shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -256,47 +285,35 @@ export default function AdminDashboard() {
             </p>
           ) : (
             <ul className="divide-y">
-              {jobs.slice(0, 10).map((job) => {
-                const photos = job.job_photos || [];
-                return (
-                  <li
-                    key={job.id}
-                    className="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm gap-3"
-                  >
-                    {/* 🖼️ Mini Slider */}
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="relative w-28 h-20 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">
-                        {photos.length > 0 ? (
-                          <MiniCarousel photos={photos} />
-                        ) : (
-                          <ImageIcon className="w-6 h-6 text-gray-400" />
-                        )}
-                      </div>
-
-                      <div>
-                        <p className="font-medium">{job.title || "Untitled"}</p>
-                        <p className="text-gray-500 text-xs">
-                          {job.scheduled_date
-                            ? new Date(job.scheduled_date).toLocaleDateString()
-                            : "No date set"}
-                        </p>
-                      </div>
+              {jobs.slice(0, 10).map((job) => (
+                <li
+                  key={job.id}
+                  className="py-3 flex items-center justify-between text-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <CalendarDays className="w-4 h-4 text-gray-500" />
+                    <div>
+                      <p className="font-medium">{job.title || "Untitled"}</p>
+                      <p className="text-gray-500 text-xs">
+                        {job.scheduled_date
+                          ? new Date(job.scheduled_date).toLocaleDateString()
+                          : "No date set"}
+                      </p>
                     </div>
-
-                    <span
-                      className={`self-end sm:self-auto px-2 py-1 rounded-full text-xs font-semibold ${
-                        job.status === "pending"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : job.status === "in_progress"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {job.status?.replace("_", " ") || "unknown"}
-                    </span>
-                  </li>
-                );
-              })}
+                  </div>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      job.status === "pending"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : job.status === "in_progress"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-green-100 text-green-700"
+                    }`}
+                  >
+                    {job.status?.replace("_", " ") || "unknown"}
+                  </span>
+                </li>
+              ))}
             </ul>
           )}
 
@@ -326,122 +343,6 @@ function StatCard({ title, value, desc, color }) {
       </CardHeader>
       <CardContent className={`text-3xl font-bold ${color || ""}`}>
         {value}
-      </CardContent>
-    </Card>
-  );
-}
-function MiniCarousel({ photos }) {
-  const [index, setIndex] = useState(0);
-
-  // ⏱️ Cambio automático cada 2.5 s
-  useEffect(() => {
-    if (!photos?.length || photos.length <= 1) return;
-    const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % photos.length);
-    }, 2500);
-    return () => clearInterval(timer);
-  }, [photos]);
-
-  return (
-    <div className="relative w-full h-full">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={photos[index]?.id || index}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.6 }}
-          className="absolute inset-0"
-        >
-          <Image
-            src={photos[index]?.image_url}
-            alt={`photo ${index + 1}`}
-            fill
-            className="object-cover"
-            sizes="112px"
-          />
-        </motion.div>
-      </AnimatePresence>
-
-      {photos.length > 1 && (
-        <div className="absolute bottom-1 right-1 flex gap-1">
-          {photos.map((_, i) => (
-            <span
-              key={i}
-              className={`w-1.5 h-1.5 rounded-full transition ${
-                i === index ? "bg-white/90" : "bg-white/40"
-              }`}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-/* 💬 Subcomponente de mensajes de contacto */
-function ContactMessages({ messages, loading, fetchMessages }) {
-  return (
-    <Card className="border border-border/50 shadow-md">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Mail className="w-5 h-5 text-primary" /> Contact Messages
-          </CardTitle>
-          <CardDescription>
-            Messages received from your website form
-          </CardDescription>
-        </div>
-        <Button
-          onClick={fetchMessages}
-          size="sm"
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-          disabled={loading}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="animate-spin w-4 h-4 mr-2" /> Refreshing
-            </>
-          ) : (
-            "Refresh"
-          )}
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {messages.length === 0 ? (
-          <div className="text-center py-6 space-y-4">
-            <p className="text-gray-500">No contact messages yet.</p>
-            <Link href="/admin/messages">
-              <Button className="bg-primary text-white hover:bg-primary/90 flex items-center gap-2">
-                View All Messages <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <>
-            <ul className="divide-y">
-              {messages.slice(0, 5).map((msg) => (
-                <li key={msg.id} className="py-4">
-                  <p className="font-semibold text-gray-900">{msg.name}</p>
-                  <p className="text-sm text-gray-600">{msg.email}</p>
-                  <p className="mt-2 text-gray-700 line-clamp-2">
-                    {msg.message}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {new Date(msg.created_at).toLocaleString()}
-                  </p>
-                </li>
-              ))}
-            </ul>
-
-            <div className="flex justify-center pt-6">
-              <Link href="/admin/messages">
-                <Button className="bg-primary text-white hover:bg-primary/90 flex items-center gap-2">
-                  View All Messages <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-            </div>
-          </>
-        )}
       </CardContent>
     </Card>
   );

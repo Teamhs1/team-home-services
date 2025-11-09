@@ -1,35 +1,20 @@
 import { auth } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
 export async function GET() {
+  const { userId, sessionId, getToken } = auth();
+
+  // Intentar recuperar token
+  let jwt = null;
   try {
-    const { userId, sessionId } = auth();
-
-    if (!userId) {
-      return new Response(
-        JSON.stringify({
-          error: "No user found (auth() returned undefined)",
-          hint: "You must be logged in and cookies must be sent with the request",
-        }),
-        { status: 401 }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({
-        message: "✅ Authenticated successfully",
-        userId,
-        sessionId,
-      }),
-      { status: 200 }
-    );
+    jwt = await getToken({ template: "supabase" });
   } catch (err) {
-    console.error("❌ Clerk auth() error:", err);
-    return new Response(
-      JSON.stringify({
-        error: err.message,
-        hint: "Check your Clerk setup and cookies",
-      }),
-      { status: 500 }
-    );
+    jwt = `❌ Error al obtener token: ${err.message}`;
   }
+
+  return NextResponse.json({
+    userId: userId || null,
+    sessionId: sessionId || null,
+    jwtSnippet: jwt ? jwt.slice(0, 50) + "..." : null,
+  });
 }
