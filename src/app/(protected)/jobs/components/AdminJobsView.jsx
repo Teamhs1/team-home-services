@@ -14,6 +14,7 @@ import { useSupabaseWithClerk } from "@/utils/supabase/useSupabaseWithClerk";
 import { CalendarDays, User, Trash2, LayoutGrid, List } from "lucide-react";
 import JobForm from "./JobForm";
 import Slider from "@/components/Slider"; // ✅ Tu slider completo
+import JobDuration from "./JobDuration";
 
 export default function AdminJobsView({
   jobs,
@@ -91,6 +92,7 @@ export default function AdminJobsView({
                 <th className="px-4 py-2 text-left">Type</th>
                 <th className="px-4 py-2 text-left">Assigned To</th>
                 <th className="px-4 py-2 text-left">Status</th>
+                <th className="px-4 py-2 text-left">Duration</th>
                 <th className="px-4 py-2 text-right">Actions</th>
               </tr>
             </thead>
@@ -98,7 +100,7 @@ export default function AdminJobsView({
               {jobs.length === 0 ? (
                 <tr>
                   <td
-                    colSpan="6"
+                    colSpan="7"
                     className="text-center py-6 text-gray-500 italic"
                   >
                     No jobs available.
@@ -141,6 +143,13 @@ export default function AdminJobsView({
                       >
                         {job.status.replace("_", " ")}
                       </span>
+                    </td>
+                    <td className="px-4 py-2">
+                      {job.status === "completed" ? (
+                        <JobDuration jobId={job.id} />
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="px-4 py-2 text-right">
                       <Button
@@ -228,6 +237,11 @@ export default function AdminJobsView({
                   </span>
 
                   <div className="flex justify-end">
+                    {job.status === "completed" && (
+                      <p className="text-xs text-gray-600">
+                        Duration: <JobDuration jobId={job.id} />
+                      </p>
+                    )}
                     <Button
                       size="sm"
                       variant="destructive"
