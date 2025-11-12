@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, LayoutGrid, List } from "lucide-react";
@@ -8,6 +8,7 @@ import { JobList } from "./JobList";
 import { JobUploadModal } from "./JobUploadModal";
 import JobTimer from "./JobTimer";
 import JobDuration from "./JobDuration";
+import { createClient } from "@supabase/supabase-js";
 
 export default function StaffJobsView({
   jobs: initialJobs,
@@ -41,6 +42,38 @@ export default function StaffJobsView({
       prev.map((j) => (j.id === jobId ? { ...j, ...updates } : j))
     );
   };
+
+  // ✅ Realtime: actualizaciones automáticas
+  useEffect(() => {
+    const supabaseRealtime = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+
+    const channel = supabaseRealtime
+      .channel("staff_jobs_updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "cleaning_jobs",
+        },
+        async (payload) => {
+          console.log("📡 Staff Realtime event:", payload.eventType);
+          await fetchJobs?.();
+          toast.info("🔄 Job list updated in real-time");
+        }
+      )
+      .subscribe((status) => {
+        console.log("📶 Staff Realtime channel status:", status);
+      });
+
+    return () => {
+      console.log("❌ Unsubscribed from staff realtime");
+      supabaseRealtime.removeChannel(channel);
+    };
+  }, [fetchJobs]);
 
   // 🔘 Botón de cambio de vista (grid / list)
   const ViewToggleButton = () => (

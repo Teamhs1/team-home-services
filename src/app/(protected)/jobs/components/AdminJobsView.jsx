@@ -13,8 +13,9 @@ import { toast } from "sonner";
 import { useSupabaseWithClerk } from "@/utils/supabase/useSupabaseWithClerk";
 import { CalendarDays, User, Trash2, LayoutGrid, List } from "lucide-react";
 import JobForm from "./JobForm";
-import Slider from "@/components/Slider"; // ✅ Tu slider completo
+import Slider from "@/components/Slider";
 import JobDuration from "./JobDuration";
+import Link from "next/link";
 
 export default function AdminJobsView({
   jobs,
@@ -83,6 +84,7 @@ export default function AdminJobsView({
 
       {/* 👁️ Vista list o grid */}
       {viewMode === "list" ? (
+        // 📋 LIST VIEW
         <div className="overflow-x-auto bg-white shadow rounded-lg border border-gray-200">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
@@ -110,7 +112,17 @@ export default function AdminJobsView({
                 jobs.map((job) => (
                   <tr
                     key={job.id}
-                    className="border-t hover:bg-gray-50 transition-colors"
+                    className="border-t hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={(e) => {
+                      const tag = e.target.tagName.toLowerCase();
+                      if (
+                        ["button", "select", "option", "svg", "path"].includes(
+                          tag
+                        )
+                      )
+                        return;
+                      window.location.href = `/jobs/${job.id}`;
+                    }}
                   >
                     <td className="px-4 py-2 font-medium">{job.title}</td>
                     <td className="px-4 py-2">{job.scheduled_date}</td>
@@ -119,6 +131,7 @@ export default function AdminJobsView({
                       <select
                         className="border rounded-md p-1 text-sm"
                         value={job.assigned_to || ""}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={(e) =>
                           assignToStaff(job.id, e.target.value || null)
                         }
@@ -155,7 +168,10 @@ export default function AdminJobsView({
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => deleteJob(job.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteJob(job.id);
+                        }}
                         className="flex gap-1 items-center"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -169,7 +185,7 @@ export default function AdminJobsView({
           </table>
         </div>
       ) : (
-        // 🌟 GRID VIEW con SLIDER clickable SOLO en el slider
+        // 🟦 GRID VIEW
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {jobs.length === 0 ? (
             <p className="col-span-full text-center text-gray-500 italic">
@@ -181,7 +197,6 @@ export default function AdminJobsView({
                 key={job.id}
                 className="border shadow-sm hover:shadow-md transition-all overflow-hidden rounded-xl bg-white"
               >
-                {/* 🖼️ Slider clickable */}
                 <div
                   className="cursor-pointer aspect-video bg-gray-100"
                   onClick={() => (window.location.href = `/jobs/${job.id}`)}
@@ -189,7 +204,6 @@ export default function AdminJobsView({
                   <Slider jobId={job.id} mini />
                 </div>
 
-                {/* 🧱 Info */}
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg font-semibold truncate">
                     {job.title}
@@ -210,7 +224,7 @@ export default function AdminJobsView({
                     <select
                       className="border rounded-md p-1 text-xs flex-1"
                       value={job.assigned_to || ""}
-                      onClick={(e) => e.stopPropagation()} // evita que abra el enlace
+                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) =>
                         assignToStaff(job.id, e.target.value || null)
                       }
@@ -236,17 +250,18 @@ export default function AdminJobsView({
                     {job.status.replace("_", " ")}
                   </span>
 
+                  {job.status === "completed" && (
+                    <div className="text-xs text-gray-600">
+                      <JobDuration jobId={job.id} />
+                    </div>
+                  )}
+
                   <div className="flex justify-end">
-                    {job.status === "completed" && (
-                      <p className="text-xs text-gray-600">
-                        Duration: <JobDuration jobId={job.id} />
-                      </p>
-                    )}
                     <Button
                       size="sm"
                       variant="destructive"
                       onClick={(e) => {
-                        e.stopPropagation(); // evita navegar
+                        e.stopPropagation();
                         deleteJob(job.id);
                       }}
                       className="flex gap-1 items-center"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState, useMemo } from "react"; // ✅ unificado
+import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Image from "next/image";
 import { Loader2, ArrowLeft, CalendarDays, ClipboardList } from "lucide-react";
@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@clerk/nextjs";
-import Slider from "@/components/Slider";
 
 const ReactCompareImage = dynamic(() => import("react-compare-image"), {
   ssr: false,
@@ -27,15 +26,17 @@ export default function JobPhotosPage() {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  // 🔹 Cargar trabajo y fotos
+  const [currentIndex, setCurrentIndex] = useState(0);
+  // 🔹 Cargar trabajo y fotos (usa el mismo endpoint del admin)
   useEffect(() => {
     if (!id) return;
+
     (async () => {
       try {
         setLoading(true);
         const supabase = createClient(supabaseUrl, supabaseAnon);
 
+        // 1️⃣ Obtener datos del trabajo
         const { data: jobData } = await supabase
           .from("cleaning_jobs")
           .select("id, title, service_type, scheduled_date, status")
@@ -44,13 +45,42 @@ export default function JobPhotosPage() {
 
         setJob(jobData || null);
 
-        const { data: photoData } = await supabase
-          .from("job_photos")
-          .select("*")
-          .eq("job_id", id)
-          .order("created_at", { ascending: true });
+        // 2️⃣ Obtener fotos desde la API sin RLS (Service Role)
+        const res = await fetch(`/api/job-photos/list?job_id=${id}`);
+        const result = await res.json();
 
-        setPhotos(photoData || []);
+        if (!res.ok) throw new Error(result.error || "Failed to fetch photos");
+
+        const grouped = result.data || { before: [], after: [], general: [] };
+
+        // 3️⃣ Normaliza el tipo según la ruta o categoría
+        const detectType = (p) => {
+          const url = p.image_url?.toLowerCase() || "";
+          if (url.includes("/before/") || p.category === "before")
+            return "before";
+          if (url.includes("/after/") || p.category === "after") return "after";
+          return "general";
+        };
+
+        const allPhotos = [
+          ...grouped.before.map((p) => ({ ...p, type: detectType(p) })),
+          ...grouped.after.map((p) => ({ ...p, type: detectType(p) })),
+          ...grouped.general.map((p) => ({ ...p, type: detectType(p) })),
+        ];
+
+        console.log(
+          "🖼️ Fotos cargadas vía /api/job-photos/list:",
+          allPhotos.length
+        );
+        console.table(
+          allPhotos.map((p) => ({
+            id: p.id,
+            category: p.category,
+            type: p.type,
+            image_url: p.image_url,
+          }))
+        );
+        setPhotos(allPhotos);
       } catch (err) {
         console.error("❌ Error fetching job/photos:", err.message);
       } finally {
@@ -68,39 +98,42 @@ export default function JobPhotosPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // 🔹 Categorías de fotos
-  const beforePhotos = photos.filter((p) => p.type === "before");
-  const afterPhotos = photos.filter((p) => p.type === "after");
+  // 🔹 Categorías de fotos con fallback
+  const beforePhotos = photos.filter(
+    (p) => p.type === "before" || p.category?.toLowerCase() === "before"
+  );
+  const afterPhotos = photos.filter(
+    (p) => p.type === "after" || p.category?.toLowerCase() === "after"
+  );
+  const generalPhotos = photos.filter(
+    (p) =>
+      p.type === "general" ||
+      (!p.type && !["before", "after"].includes(p.category?.toLowerCase()))
+  );
 
-  // ✅ URLs públicas seguras (sin errores 400)
+  // ✅ URLs públicas seguras (sin duplicar el dominio)
   const publicUrl = (path) => {
     if (!path) return "";
+    if (path.startsWith("http")) return path;
 
-    // Limpia el prefijo "job-photos/" si viene repetido
     const cleanPath = path.replace(/^\/?job-photos\//, "").trim();
-
-    // Codifica cada segmento del path
     const encodedPath = cleanPath
       .split("/")
       .map((segment) => encodeURIComponent(segment))
       .join("/");
 
-    // Devuelve la URL final válida
     return `${supabaseUrl}/storage/v1/object/public/job-photos/${encodedPath}`;
   };
 
-  // ✅ useMemo antes de cualquier return
   const allImages = useMemo(
     () => photos.map((p) => publicUrl(p.image_url)),
     [photos]
   );
 
-  // ✅ Evitamos el error de orden de hooks
+  // ⌨️ Navegación con teclado
   useEffect(() => {
     const handleKey = (e) => {
-      // siempre se ejecuta, pero ignora si no hay imagen expandida
       if (!expandedImage) return;
-
       const index = allImages.indexOf(expandedImage);
       if (e.key === "ArrowRight" && index < allImages.length - 1) {
         setExpandedImage(allImages[index + 1]);
@@ -110,12 +143,10 @@ export default function JobPhotosPage() {
         setExpandedImage(null);
       }
     };
-
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [expandedImage, allImages]);
 
-  // 🟢 Return condicional al final de todos los hooks
   if (loading)
     return (
       <div className="flex justify-center items-center h-[60vh]">
@@ -174,136 +205,158 @@ export default function JobPhotosPage() {
         </div>
       </motion.div>
 
-      {/* 🔹 Slider comparativo */}
-      {beforePhotos.length && afterPhotos.length ? (
+      {/* 🔹 Comparador Before/After (versión pro) */}
+      {beforePhotos.length > 0 && afterPhotos.length > 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200"
+          className="relative w-full max-w-4xl mx-auto rounded-3xl overflow-hidden bg-gradient-to-b from-white to-gray-50 shadow-xl border border-gray-200 p-6"
         >
-          <Slider
-            imageList={Array.from(new Set(beforePhotos.map((p) => p.category)))
-              .map((category) => {
-                const before = beforePhotos.find(
-                  (b) => b.category === category
-                );
-                const after = afterPhotos.find((a) => a.category === category);
-                if (!before || !after) return null;
+          {(() => {
+            const normalize = (val) =>
+              (val || "general").toString().trim().toLowerCase();
 
-                return (
-                  <div
-                    key={category}
-                    className="no-swipe relative w-full h-full"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
+            const pairs = [];
+
+            beforePhotos.forEach((before, i) => {
+              const beforeCat = normalize(before.category);
+              const after =
+                afterPhotos.find((a) => normalize(a.category) === beforeCat) ||
+                afterPhotos[i];
+              if (after)
+                pairs.push({
+                  key: beforeCat || `pair-${i}`,
+                  before,
+                  after,
+                });
+            });
+
+            if (pairs.length === 0) {
+              return (
+                <div className="flex items-center justify-center h-48 text-gray-500 italic">
+                  No paired before/after comparisons found.
+                </div>
+              );
+            }
+
+            const total = pairs.length;
+
+            const nextSlide = () =>
+              setCurrentIndex((prev) => (prev + 1) % total);
+            const prevSlide = () =>
+              setCurrentIndex((prev) => (prev - 1 + total) % total);
+
+            return (
+              <div className="relative flex flex-col items-center">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={pairs[currentIndex].key}
+                    initial={{ opacity: 0, x: 80 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -80 }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    className="w-full"
                   >
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white text-sm px-3 py-1 rounded-full capitalize">
-                      {category.replace("_", " ")}
+                    <div className="text-center text-sm font-medium bg-gray-900 text-white py-1.5 rounded-md mb-4 uppercase tracking-wide shadow-sm">
+                      {pairs[currentIndex].key.replace("_", " ")}
                     </div>
 
-                    <ReactCompareImage
-                      leftImage={publicUrl(before.image_url)}
-                      rightImage={publicUrl(after.image_url)}
-                      leftImageLabel="Before"
-                      rightImageLabel="After"
-                      sliderLineColor="#2563eb"
-                      handle={
-                        <div className="bg-blue-500 w-1 h-32 rounded-full shadow-md" />
-                      }
+                    <div className="relative aspect-video w-full max-w-5xl mx-auto overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] transition-shadow duration-300 ease-out bg-transparent rounded-none">
+                      <div className="absolute inset-0 flex items-center justify-center p-0 bg-transparent">
+                        <ReactCompareImage
+                          leftImage={publicUrl(
+                            pairs[currentIndex].before.image_url
+                          )}
+                          rightImage={publicUrl(
+                            pairs[currentIndex].after.image_url
+                          )}
+                          leftImageLabel="Before"
+                          rightImageLabel="After"
+                          sliderLineColor="#2563eb"
+                          handle={
+                            <div className="flex items-center justify-center">
+                              <div className="bg-blue-500 w-[3px] h-20 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.6)] ring-2 ring-white/30 backdrop-blur-sm" />
+                            </div>
+                          }
+                          leftImageCss={{
+                            objectFit: "cover",
+                            objectPosition: "center",
+                            backgroundColor: "transparent !important",
+                            borderRadius: "0 !important", // 🔹 elimina curvatura de las imágenes
+                          }}
+                          rightImageCss={{
+                            objectFit: "cover",
+                            objectPosition: "center",
+                            backgroundColor: "transparent !important",
+                            borderRadius: "0 !important",
+                          }}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            backgroundColor: "transparent !important",
+                            borderRadius: "0 !important", // 🔹 elimina curvatura del wrapper interno
+                          }}
+                        />
+                      </div>
+
+                      {/* 💡 Luz sutil superior opcional */}
+                      <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-black/5 to-transparent pointer-events-none" />
+
+                      {/* 🔧 CSS global para forzar sin borde */}
+                      <style jsx global>{`
+                        .__rc-slider,
+                        .__rc-image-container,
+                        .__rc-wrapper {
+                          background-color: transparent !important;
+                          border-radius: 0 !important;
+                        }
+                      `}</style>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* 🔹 Flechas tipo glass */}
+                <button
+                  onClick={prevSlide}
+                  className="absolute left-5 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white/90 backdrop-blur-md p-3 rounded-full shadow-lg transition-all hover:scale-110"
+                  aria-label="Previous"
+                >
+                  <ArrowLeft className="w-6 h-6 text-gray-700" />
+                </button>
+                <button
+                  onClick={nextSlide}
+                  className="absolute right-5 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white/90 backdrop-blur-md p-3 rounded-full shadow-lg transition-all hover:scale-110"
+                  aria-label="Next"
+                >
+                  <ArrowLeft className="rotate-180 w-6 h-6 text-gray-700" />
+                </button>
+
+                {/* 🔹 Indicadores premium */}
+                <div className="absolute bottom-4 flex justify-center gap-3">
+                  {pairs.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentIndex(idx)}
+                      className={`h-2.5 rounded-full transition-all duration-300 ${
+                        idx === currentIndex
+                          ? "bg-blue-600 w-6 shadow-md"
+                          : "bg-gray-300 w-2.5 hover:bg-gray-400"
+                      }`}
                     />
-                  </div>
-                );
-              })
-              .filter(Boolean)}
-            mini={false}
-            disableFullscreen={true}
-          />
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </motion.div>
       ) : (
-        <p className="text-gray-500 italic text-sm">
+        <p className="text-gray-500 italic text-sm text-center">
           No paired before/after comparisons yet.
         </p>
       )}
 
       {/* 🔹 Galería completa */}
       <div className="space-y-8">
-        <AnimatePresence>
-          {expandedImage && (
-            <motion.div
-              className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={(e) => {
-                if (e.target === e.currentTarget) setExpandedImage(null);
-              }}
-            >
-              {/* 🔘 Cerrar */}
-              <button
-                onClick={() => setExpandedImage(null)}
-                className="absolute top-6 left-6 z-[10000] rounded-full bg-black/40 hover:bg-black/60 text-white p-2 transition"
-                aria-label="Close"
-              >
-                ✕
-              </button>
-
-              {/* 🧭 Toolbar */}
-              <ToolbarActions expandedImage={expandedImage} />
-
-              {/* ⬅️ / ➡️ navegación */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const index = allImages.indexOf(expandedImage);
-                  if (index > 0) setExpandedImage(allImages[index - 1]);
-                }}
-                className="absolute left-6 text-white bg-black/40 hover:bg-black/60 p-3 rounded-full z-[10000] transition"
-              >
-                <ArrowLeft className="w-6 h-6" />
-              </button>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const index = allImages.indexOf(expandedImage);
-                  if (index < allImages.length - 1)
-                    setExpandedImage(allImages[index + 1]);
-                }}
-                className="absolute right-6 text-white bg-black/40 hover:bg-black/60 p-3 rounded-full z-[10000] transition"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth="2"
-                  stroke="currentColor"
-                  className="w-6 h-6"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                  />
-                </svg>
-              </button>
-
-              {/* 🖼 Imagen fullscreen con fade suave */}
-              <motion.img
-                key={expandedImage}
-                src={expandedImage}
-                alt="Expanded"
-                className="max-w-[92vw] max-h-[90vh] object-contain rounded-xl shadow-2xl border border-white/10"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Before / After */}
         {["before", "after"].map((type) => {
           const list = type === "before" ? beforePhotos : afterPhotos;
           const title = type === "before" ? "Before Photos" : "After Photos";
@@ -317,7 +370,7 @@ export default function JobPhotosPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {list.map((p) => (
                     <motion.div
-                      key={p.id}
+                      key={p.id || p.image_url}
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       className="rounded-lg overflow-hidden shadow-md hover:shadow-xl transition cursor-zoom-in"
@@ -346,18 +399,49 @@ export default function JobPhotosPage() {
             </section>
           );
         })}
+
+        {generalPhotos.length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold mb-3 text-blue-600">
+              General Photos
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {generalPhotos.map((p) => (
+                <motion.div
+                  key={p.id || p.image_url}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-lg overflow-hidden shadow-md hover:shadow-xl transition cursor-zoom-in"
+                  onClick={() => setExpandedImage(publicUrl(p.image_url))}
+                >
+                  <Image
+                    src={publicUrl(p.image_url)}
+                    alt={p.category || "photo"}
+                    width={400}
+                    height={400}
+                    className="object-cover w-full h-48"
+                  />
+                  {p.category && (
+                    <div className="text-center text-sm py-2 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 capitalize">
+                      {p.category.replace("_", " ")}
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
 }
 
-/* ✅ Toolbar con compartir — versión profesional UI/UX */
+/* ✅ Toolbar de compartir */
 import {
   Facebook,
   MessageCircle,
   Clipboard,
   Check,
-  Share2,
   PhoneCall,
 } from "lucide-react";
 
@@ -382,7 +466,6 @@ function ToolbarActions({ expandedImage }) {
       transition={{ duration: 0.25 }}
       className="absolute top-6 right-6 flex items-center gap-2 z-[10000] bg-black/40 backdrop-blur-md px-4 py-2 rounded-full shadow-2xl border border-white/10"
     >
-      {/* 📋 Copiar */}
       <button
         onClick={handleCopy}
         title="Copiar enlace"
@@ -403,7 +486,6 @@ function ToolbarActions({ expandedImage }) {
         )}
       </button>
 
-      {/* 🌐 Facebook */}
       <button
         title="Compartir en Facebook"
         onClick={(e) => {
@@ -418,7 +500,6 @@ function ToolbarActions({ expandedImage }) {
         <Facebook size={18} />
       </button>
 
-      {/* 💬 Messenger */}
       <button
         title="Enviar por Messenger"
         onClick={(e) => {
@@ -434,7 +515,6 @@ function ToolbarActions({ expandedImage }) {
         <MessageCircle size={18} />
       </button>
 
-      {/* 🟢 WhatsApp */}
       <button
         title="Compartir en WhatsApp"
         onClick={(e) => {

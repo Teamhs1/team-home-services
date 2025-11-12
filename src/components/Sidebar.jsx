@@ -17,7 +17,9 @@ import {
   FileSpreadsheet,
   FileClock,
   AlertCircle,
+  Mail,
 } from "lucide-react";
+
 import { useState, useEffect } from "react";
 import { UserButton, useUser, useClerk } from "@clerk/nextjs";
 import { useSidebar } from "@/components/SidebarContext";
@@ -98,8 +100,11 @@ export default function Sidebar() {
   // 🔹 Definir menú
   const menuItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Jobs", href: "/jobs", icon: ClipboardList },
+
     ...(role === "admin"
       ? [
+          { name: "Messages", href: "/admin/messages", icon: Mail },
           {
             name: "Edit Landing Content",
             href: "/admin/content",
@@ -118,7 +123,7 @@ export default function Sidebar() {
           },
         ]
       : []),
-    { name: "Jobs", href: "/jobs", icon: ClipboardList },
+
     { name: "Profile", href: "/profile", icon: User },
     { name: "Settings", href: "/settings", icon: Settings },
   ];

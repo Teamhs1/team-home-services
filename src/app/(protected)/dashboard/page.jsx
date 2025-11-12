@@ -8,7 +8,6 @@ import CustomerView from "./CustomerView";
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
-import TestSupabaseButton from "./TestSupabaseButton";
 
 export default function DashboardPage() {
   const { isLoaded, user } = useUser();
@@ -117,8 +116,6 @@ export default function DashboardPage() {
       <main className="px-6 md:px-12 lg:px-16 xl:px-20 py-10 max-w-[1600px] mx-auto space-y-10">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          {/* 🔍 Botón de prueba Supabase */}
-          <TestSupabaseButton />
         </div>
 
         <AdminDashboard />

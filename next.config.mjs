@@ -1,35 +1,36 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    unoptimized: true, // ✅ evita 400 Bad Request con Supabase URLs
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "img.clerk.com", // Clerk CDN
+        hostname: "img.clerk.com",
       },
       {
         protocol: "https",
-        hostname: "images.clerk.dev", // Clerk fallback
+        hostname: "images.clerk.dev",
       },
       {
         protocol: "https",
-        hostname: "avatars.githubusercontent.com", // GitHub login
+        hostname: "avatars.githubusercontent.com",
       },
       {
         protocol: "https",
-        hostname: "lh3.googleusercontent.com", // Google login avatars
+        hostname: "lh3.googleusercontent.com",
       },
       {
         protocol: "https",
         hostname: "kgwpkqtidepwmdmmmsvg.supabase.co",
-        pathname: "/storage/v1/object/public/job-photos/**", // ✅ habilita imágenes del bucket
+        pathname: "/storage/v1/object/public/job-photos/**",
       },
       {
         protocol: "https",
-        hostname: "ui-avatars.com", // 👈 nombres sin avatar
+        hostname: "ui-avatars.com",
       },
       {
         protocol: "https",
-        hostname: "images.unsplash.com", // 👈 fondos hero section
+        hostname: "images.unsplash.com",
       },
     ],
   },

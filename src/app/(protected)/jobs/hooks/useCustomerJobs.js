@@ -1,15 +1,16 @@
 "use client";
-import { useState, useCallback } from "react";
-import { supabase } from "@/utils/supabase/client"; // ✅ cliente global
+import { useState, useCallback, useRef } from "react";
+import { supabase } from "@/utils/supabase/client";
 import { toast } from "sonner";
 
 /**
- * Hook para manejar los jobs del cliente autenticado con Clerk.
+ * Hook optimizado para manejar los jobs del cliente autenticado con Clerk.
  * Usa el cliente global de Supabase (sin crear nuevas instancias).
  */
 export function useCustomerJobs({ getToken, clerkId }) {
   const [loading, setLoading] = useState(false);
   const [jobs, setJobs] = useState([]);
+  const fetchingRef = useRef(false); // ✅ evita race conditions
 
   // ✅ Función auxiliar para ejecutar queries autenticadas
   const runAuthQuery = useCallback(
@@ -19,37 +20,42 @@ export function useCustomerJobs({ getToken, clerkId }) {
         if (!token)
           throw new Error("Missing Supabase token — user not authenticated.");
 
-        // 👇 Inyecta token temporalmente para broadcast/realtime
+        // 👇 Inyectar token temporal para realtime/broadcast
         supabase.realtime.setAuth(token);
-        const headers = { Authorization: `Bearer ${token}` };
-
-        return await queryFn(headers);
+        return await queryFn(token);
       } catch (err) {
+        console.error("⚠️ Auth query failed:", err);
         throw err;
       }
     },
     [getToken]
   );
 
-  // 🔹 Obtener solicitudes del cliente
+  // 🔹 Obtener trabajos del cliente autenticado
   const fetchCustomerJobs = useCallback(async () => {
+    if (fetchingRef.current) return; // ⛔ evita llamadas simultáneas
+    fetchingRef.current = true;
     setLoading(true);
+
     try {
       const { data, error } = await runAuthQuery(async () => {
         return await supabase
           .from("cleaning_jobs")
           .select("*")
+          .eq("created_by", clerkId)
           .order("created_at", { ascending: false });
       });
 
       if (error) throw error;
       setJobs(data || []);
     } catch (err) {
+      console.error("❌ Error loading customer jobs:", err);
       toast.error("Error loading your requests: " + err.message);
     } finally {
+      fetchingRef.current = false;
       setLoading(false);
     }
-  }, [runAuthQuery]);
+  }, [runAuthQuery, clerkId]);
 
   // 🔹 Crear nueva solicitud (con broadcast global para admin)
   const createJobRequest = useCallback(
@@ -66,15 +72,15 @@ export function useCustomerJobs({ getToken, clerkId }) {
             {
               ...newJob,
               status: "pending",
+              created_by: clerkId, // ✅ vínculo con el cliente
             },
           ]);
         });
 
         if (error) throw error;
+        toast.success("✅ Cleaning request created successfully!");
 
-        toast.success("✅ Request sent successfully!");
-
-        // 📡 Enviar broadcast global para el admin
+        // 📡 Enviar broadcast global para admin dashboard
         const { error: broadcastError } = await supabase
           .channel("realtime_jobs_admin_global")
           .send({
@@ -90,15 +96,15 @@ export function useCustomerJobs({ getToken, clerkId }) {
           });
 
         if (broadcastError) {
-          console.error("❌ Broadcast error:", broadcastError);
+          console.warn("⚠️ Broadcast error:", broadcastError);
         } else {
           console.log(
             "📢 Broadcast enviado al canal realtime_jobs_admin_global"
           );
         }
 
-        // 🔁 Refrescar lista del cliente
-        fetchCustomerJobs();
+        // 🔁 Refrescar lista local sin duplicar llamadas
+        await fetchCustomerJobs();
       } catch (err) {
         console.error("❌ Supabase insert error:", err);
         toast.error("Error creating request: " + err.message);
@@ -109,5 +115,22 @@ export function useCustomerJobs({ getToken, clerkId }) {
     [runAuthQuery, fetchCustomerJobs, clerkId]
   );
 
-  return { jobs, loading, fetchCustomerJobs, createJobRequest };
+  // 🔄 Actualizar lista desde eventos Realtime (llamado externamente)
+  const handleRealtimeUpdate = useCallback(async (updatedJob) => {
+    setJobs((prev) => {
+      const exists = prev.find((j) => j.id === updatedJob.id);
+      if (exists) {
+        return prev.map((j) => (j.id === updatedJob.id ? updatedJob : j));
+      }
+      return [updatedJob, ...prev];
+    });
+  }, []);
+
+  return {
+    jobs,
+    loading,
+    fetchCustomerJobs,
+    createJobRequest,
+    handleRealtimeUpdate,
+  };
 }
