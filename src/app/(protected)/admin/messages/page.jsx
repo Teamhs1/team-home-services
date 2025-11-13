@@ -45,7 +45,7 @@ export default function MessagesPage() {
     );
 
   return (
-    <main className="max-w-4xl mx-auto p-6">
+    <main className="max-w-4xl mx-auto p-6 pt-36">
       <Card className="border border-border/50 shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -330,9 +330,6 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Mensajes */}
-      <ContactMessages messages={messages} loading={loadingMessages} />
-
       {/* Trabajos recientes */}
       <RecentJobs jobs={jobs} />
     </main>
