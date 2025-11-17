@@ -1,5 +1,5 @@
 "use client";
-
+import Slider from "@/components/Slider";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -190,6 +190,7 @@ export default function CustomerDashboard() {
           <CardTitle>Weekly Performance</CardTitle>
           <CardDescription>Completed vs Pending Jobs</CardDescription>
         </CardHeader>
+
         <CardContent>
           {weeklyData.length === 0 ? (
             <p className="text-gray-500 text-center py-10">
@@ -219,6 +220,7 @@ export default function CustomerDashboard() {
           </CardTitle>
           <CardDescription>Last 10 created jobs</CardDescription>
         </CardHeader>
+
         <CardContent>
           {jobs.length === 0 ? (
             <p className="text-gray-500 text-center py-6">
@@ -229,21 +231,30 @@ export default function CustomerDashboard() {
               {jobs.slice(0, 10).map((job) => (
                 <li
                   key={job.id}
-                  className="py-3 flex items-center justify-between text-sm"
+                  className="py-4 flex items-center justify-between gap-4 text-sm hover:bg-gray-50 rounded-lg px-2 transition"
                 >
-                  <div className="flex items-center gap-3">
-                    <CalendarDays className="w-4 h-4 text-gray-500" />
-                    <div>
-                      <p className="font-medium">
-                        {job.title || "Untitled Job"}
-                      </p>
-                      <p className="text-gray-500 text-xs">
-                        {job.created_at
-                          ? new Date(job.created_at).toLocaleDateString()
-                          : "No date set"}
-                      </p>
-                    </div>
+                  {/* 🔹 Slider MINI como Admin */}
+                  <div className="relative w-40 h-40 rounded-xl bg-gray-100 shadow-sm overflow-hidden flex-shrink-0">
+                    <Slider jobId={job.id} mini disableFullscreen />
                   </div>
+
+                  {/* 🔹 Info clickeable */}
+                  <div
+                    className="flex-1 cursor-pointer"
+                    onClick={() => (window.location.href = `/jobs/${job.id}`)}
+                  >
+                    <p className="font-semibold text-gray-900 truncate">
+                      {job.title || "Untitled Job"}
+                    </p>
+                    <p className="text-gray-500 text-xs flex items-center gap-1">
+                      <CalendarDays className="w-3 h-3" />
+                      {job.created_at
+                        ? new Date(job.created_at).toLocaleDateString()
+                        : "No date set"}
+                    </p>
+                  </div>
+
+                  {/* 🔹 Status */}
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-semibold ${
                       job.status === "completed"

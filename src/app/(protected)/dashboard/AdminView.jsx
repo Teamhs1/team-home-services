@@ -1,5 +1,6 @@
 "use client";
 
+import Slider from "@/components/Slider";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -420,12 +421,9 @@ function RecentJobs({ jobs }) {
                 >
                   <div className="flex items-center gap-3 flex-1">
                     <div className="relative w-28 h-20 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">
-                      {photos.length > 0 ? (
-                        <MiniCarousel photos={photos} />
-                      ) : (
-                        <ImageIcon className="w-6 h-6 text-gray-400" />
-                      )}
+                      <Slider jobId={job.id} mini />
                     </div>
+
                     <div>
                       <p className="font-medium">{job.title || "Untitled"}</p>
                       <p className="text-gray-500 text-xs">
