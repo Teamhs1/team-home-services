@@ -1,4 +1,5 @@
 "use client";
+import Slider from "@/components/Slider";
 
 import SafeClerkWrapper from "@/components/SafeClerkWrapper";
 import { useEffect, useState, useMemo, useRef } from "react";
@@ -310,6 +311,61 @@ function StaffDashboard({ user, role }) {
           )}
         </CardContent>
       </Card>
+      {/* 📌 Assigned Jobs — Preview estilo Admin */}
+      <div className="mt-10">
+        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+          <ClipboardList className="w-6 h-6 text-primary" />
+          My Assignments
+        </h2>
+
+        {jobs.length === 0 ? (
+          <p className="text-gray-500 text-sm">No jobs assigned yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {jobs.map((job) => (
+              <div
+                key={job.id}
+                onClick={() => (window.location.href = `/jobs/${job.id}`)}
+                className="cursor-pointer bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition overflow-hidden flex flex-col"
+              >
+                {/* 🖼️ Mini Slider */}
+                <div className="relative w-full h-40 bg-gray-100 overflow-hidden">
+                  <Slider jobId={job.id} mini />
+                </div>
+
+                {/* Info */}
+                <div className="p-4 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-semibold text-lg text-gray-900 leading-snug">
+                      {job.title || "Untitled Job"}
+                    </h3>
+
+                    <p className="text-sm text-gray-500 mt-1">
+                      {job.scheduled_date
+                        ? new Date(job.scheduled_date).toLocaleDateString()
+                        : "No date"}
+                    </p>
+
+                    {/* Status */}
+                    <span
+                      className={`mt-3 px-2 py-1 rounded-full text-xs font-semibold inline-block w-fit
+                  ${
+                    job.status === "pending"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : job.status === "in_progress"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-green-100 text-green-700"
+                  }`}
+                    >
+                      {job.status.replace("_", " ")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </main>
   );
 }

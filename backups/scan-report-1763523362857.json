@@ -1,0 +1,840 @@
+{
+  "timestamp": "2025-11-19T03:36:02.856Z",
+  "totalPhotos": 174,
+  "brokenCount": 146,
+  "fixableCount": 20,
+  "broken": [
+    {
+      "id": "5a45ae1f-0b7a-4eeb-820a-db21b0307eb6",
+      "image_url": "65f936c4-4908-4b36-adcd-ca0602c7482b/after/stove/1761706643691_2.jfif",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "867a0fed-8a38-45ae-a1b9-72728b67b65e",
+      "image_url": "65f936c4-4908-4b36-adcd-ca0602c7482b/after/oven/1761706647438_6.jfif",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "e001ffaa-c9fe-4a90-9951-c2041d6b4d44",
+      "image_url": "65f936c4-4908-4b36-adcd-ca0602c7482b/after/fridge/1761706650662_8.jfif",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "b4e1326a-ccfb-4f24-bde4-96da62d59157",
+      "image_url": "65f936c4-4908-4b36-adcd-ca0602c7482b/after/range_hood/1761706654058_9.jfif",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "089470a2-3b3d-4ad6-aab6-3bff2f150729",
+      "image_url": "65f936c4-4908-4b36-adcd-ca0602c7482b/after/sink/1761706657588_11.jfif",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "0bfebfaa-73e7-4efc-87f5-62c945857f84",
+      "image_url": "7b048755-f058-4746-befd-96e60c253a3f/before/stove/1761790567087_WhatsApp Image 2025-10-22 at 5.04.53 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "b21a2896-96c2-42bb-9ce2-8aadb5970253",
+      "image_url": "7b048755-f058-4746-befd-96e60c253a3f/before/oven/1761790574917_WhatsApp Image 2025-10-22 at 5.04.53 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "ad0ec50e-7fc1-4568-a783-e815943d5127",
+      "image_url": "7b048755-f058-4746-befd-96e60c253a3f/before/fridge/1761790580555_WhatsApp Image 2025-10-22 at 5.04.53 PM (1).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "63b6dbd0-6cfa-4caf-9166-af59afd391e7",
+      "image_url": "7b048755-f058-4746-befd-96e60c253a3f/before/range_hood/1761790584912_WhatsApp Image 2025-10-22 at 5.04.50 PM (1).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "da7b90ad-833a-45e0-a3e2-6e065aba5234",
+      "image_url": "7b048755-f058-4746-befd-96e60c253a3f/before/sink/1761790589522_WhatsApp Image 2025-10-22 at 5.04.53 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "3859616a-e6aa-424f-83b2-375b8e8c2e6b",
+      "image_url": "7b048755-f058-4746-befd-96e60c253a3f/after/stove/1761790627779_WhatsApp Image 2025-10-22 at 5.04.50 PM (1).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "ae541948-64ec-4cdf-a849-1737d7728268",
+      "image_url": "7b048755-f058-4746-befd-96e60c253a3f/after/oven/1761790636124_WhatsApp Image 2025-10-22 at 5.04.50 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "c01b92b9-fed9-42fd-a682-4f9de9499bff",
+      "image_url": "7b048755-f058-4746-befd-96e60c253a3f/after/fridge/1761790639930_WhatsApp Image 2025-10-22 at 5.04.54 PM (1).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "5f70ad5d-729d-4e9e-b2a2-861ddc931f99",
+      "image_url": "7b048755-f058-4746-befd-96e60c253a3f/after/range_hood/1761790643854_WhatsApp Image 2025-10-22 at 5.04.53 PM (3).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "1a970371-8933-4fa8-8799-4a8b5117a417",
+      "image_url": "7b048755-f058-4746-befd-96e60c253a3f/after/sink/1761790647623_WhatsApp Image 2025-10-22 at 5.04.53 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "c77e3b8d-3178-4c8e-a4fa-ab5acd00d820",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/stove/1762646706784_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "3dbf73f1-4358-4320-86fb-1a20ba98d1fa",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/stove/1762647044076_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "a8d7c321-55e6-4cc5-92b8-d41ed96f7a17",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/oven/1762647049438_WhatsApp Image 2025-11-03 at 4.09.19 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "5e213c51-403f-4d0b-b7dd-f89081e3ea99",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/fridge/1762647052594_WhatsApp Image 2025-11-03 at 4.09.20 PM (1).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "92112056-9cf1-439b-a5c0-e6b36efe630e",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/range_hood/1762647056021_20251103_123219.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "cfa121d0-2c94-47a9-9ee1-57e7fbb7a22f",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/sink/1762647059541_20251103_122021.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "40b986b7-00f8-4375-8d23-0282423ce15e",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/stove/1762647086288_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "f7febcc7-bdf4-4a70-889a-d98dfce9c3bd",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/oven/1762647089917_20251103_123129.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "6130e166-ca20-4d49-9577-f536c5c1763e",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/fridge/1762647094853_WhatsApp Image 2025-11-03 at 4.09.19 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "73d6d90d-3b97-4692-ac20-0de48dc1a5ae",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/range_hood/1762647097880_20251103_123020.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "e691f41e-ee33-4157-9e89-0b8e4ed2dcff",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/sink/1762647102240_20251103_123020.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "9bdd2716-8073-4de7-8e22-0e8898b09f86",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/stove/1762647297341_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "04ebfb69-7bc4-4c32-bd64-58c60f0b0459",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/oven/1762647300283_20251103_123129.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "21329527-217d-4841-b80b-139a2c2cf6c3",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/fridge/1762647303028_20251103_123020.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "ca5e0a73-3a8f-46c8-8776-bb302b81355d",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/range_hood/1762647305904_20251103_123020.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "af19dd27-0cbb-4dbb-8b22-232b6ea2a87f",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/sink/1762647309063_20251103_123015.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "938290b8-0d1d-4c99-b754-99f0775ec747",
+      "image_url": "c17ead90-07c4-460a-a5b0-ee82f188891a/before/stove/1762647329596_WhatsApp Image 2025-11-03 at 4.09.20 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "323c024f-4bd9-47e3-8062-bb7fbb9b61a5",
+      "image_url": "c17ead90-07c4-460a-a5b0-ee82f188891a/before/stove/1762647338131_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "19178f80-214c-47e1-93a7-b2fac519dfa5",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/stove/1762647593368_WhatsApp Image 2025-11-03 at 4.09.20 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "5bf075ce-9a0e-4427-812c-1a2987bde0f7",
+      "image_url": "c17ead90-07c4-460a-a5b0-ee82f188891a/before/stove/1762647607430_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "2ab16ea0-c480-4383-a0a3-e2b5a9ecf0d1",
+      "image_url": "c17ead90-07c4-460a-a5b0-ee82f188891a/before/stove/1762647697980_WhatsApp Image 2025-11-03 at 4.09.20 PM (1).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "649e9d66-7e66-4eb3-b239-f1d733abfa92",
+      "image_url": "77397a50-8a5a-4f67-8c8b-bb4dfdb3227e/before/range_hood/1762685583494_20250815_190232.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "92c228fd-2a4d-4eac-a739-700099b6547c",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/stove/1762647765086_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "058eb2ea-5ed4-46ff-ab3d-cedb2ff1d715",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/stove/1762647773858_WhatsApp Image 2025-11-03 at 4.09.20 PM (1).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "98794186-e753-44a6-bd32-f9e0c06b5c5a",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/before/stove/1762647891384_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "eb0225fc-90e5-412e-ad48-b8a42e945882",
+      "image_url": "41efc18a-c561-43a2-95f9-7ebe5bac98ba/before/fridge/1762647903981_WhatsApp Image 2025-11-03 at 4.09.20 PM (1).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "1f2afeee-fd5d-48d6-9dbe-012c3d0542f9",
+      "image_url": "c42df4d5-461d-4fff-bf94-325a2e4985fc/before/range_hood/1762647912768_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "f0a71629-76e9-40bd-86fa-ed15d2bef4cc",
+      "image_url": "54317ff2-d8fb-42af-bfb7-a156a05862a1/before/stove/1762648058860_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "08450a43-f254-4d23-b8a2-ed38190ffc00",
+      "image_url": "e484c5c5-d7b7-4fcd-8f9c-8e9443a510a1/before/stove/1762648067813_WhatsApp Image 2025-11-03 at 4.09.19 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "90c5cf19-6da0-4e96-b2cd-829a3eeb5d50",
+      "image_url": "c17ead90-07c4-460a-a5b0-ee82f188891a/before/stove/1762648157444_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "fb9d679c-76c7-4585-a3fc-905652e4782b",
+      "image_url": "e7f0fbfc-34af-4b9d-af8d-ad5f22feb403/after/stove/1762648174825_WhatsApp Image 2025-11-03 at 4.09.20 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "2ab67ba1-c9a3-4427-bfcf-f750b9ecfcb1",
+      "image_url": "e484c5c5-d7b7-4fcd-8f9c-8e9443a510a1/after/oven/1762648437331_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "042f1bce-2f12-4bf5-bdc9-ccf8aede4267",
+      "image_url": "9315474d-d442-4d96-b75a-a43a1816dcc8/after/fridge/1762648528443_WhatsApp Image 2025-11-03 at 4.09.20 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "a36e2506-3564-4c6e-888f-a129ab8d5ef0",
+      "image_url": "d0ad6e0c-b0a4-424e-a941-5456ce95b893/after/fridge/1762648551918_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "e8ad7c9c-d940-4a68-b823-86967580e5c2",
+      "image_url": "54317ff2-d8fb-42af-bfb7-a156a05862a1/after/fridge/1762648646443_WhatsApp Image 2025-11-03 at 4.09.19 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "5a8e911b-eb26-40b9-9cbf-94ecca6f02ef",
+      "image_url": "febd0c7c-2eb4-49e2-9968-e4f2198972ec/before/stove/1762649360339_20250815_184956.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "c5ade79b-addc-4c88-9f21-c3adf02bebf6",
+      "image_url": "99118c9f-c86e-4c58-92b9-d01d6eefcec5/before/range_hood/1762650208968_20250815_185726.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "76efb1c2-402d-4a1f-bb4b-a8f7334d33d7",
+      "image_url": "6cc51d2a-e0be-4e38-b482-95c846fb707f/before/stove/1762650611052_20250815_185219.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "ce1b5487-029b-49f5-9e1f-d8f396091079",
+      "image_url": "6f0af1d8-3f77-4b9b-8add-a9353cec768e/before/oven/1762650744664_20250815_185726.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "83192c5f-7211-4018-bd2d-dd1ab9021f23",
+      "image_url": "ba2f696d-3e53-42c6-bb81-bef17564dc3d/before/stove/1762651274936_20250815_185645.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "4ab44c3b-5396-444c-b863-ff6621d52fda",
+      "image_url": "69b6676c-aa7e-4dec-86ee-e4f8c688b5c5/before/stove/1762651641789_20250815_185219.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "b3747b13-02c7-465b-b777-ba82a1b8be0a",
+      "image_url": "ba2f696d-3e53-42c6-bb81-bef17564dc3d/after/oven/1762651667335_20250815_185240.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "c5076f90-ef93-416d-a5f4-27f8f44522f3",
+      "image_url": "6cc51d2a-e0be-4e38-b482-95c846fb707f/after/stove/1762651873065_20250815_185219.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "1d2e092c-d1f0-4689-8fdd-679c139d1b1f",
+      "image_url": "99118c9f-c86e-4c58-92b9-d01d6eefcec5/after/stove/1762652028526_20250815_185646.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "d631547a-6415-4d0f-b03a-8f0179dce01b",
+      "image_url": "69b6676c-aa7e-4dec-86ee-e4f8c688b5c5/after/oven/1762652237847_20250815_185742.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "e29ee7be-c27f-49d5-b6b4-d700090e5c3a",
+      "image_url": "b216469a-088b-4079-a4d1-a112ddc2ffe1/before/oven/1762652391630_20250815_185013.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "8267021a-1c82-431c-90f0-a3e54f0a31af",
+      "image_url": "b216469a-088b-4079-a4d1-a112ddc2ffe1/after/oven/1762652402591_20250815_185007.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "6d8d2360-0bdb-44c2-8686-9dfe344ba0c5",
+      "image_url": "6ec133ea-f688-476a-abad-2cb80357ed8a/before/oven/1762652549464_20250815_185219.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "4c1062e7-a6e0-4c63-9d2e-03d881f9d579",
+      "image_url": "6f0af1d8-3f77-4b9b-8add-a9353cec768e/after/oven/1762652568752_20250815_185240.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "7cf98b3c-4b9d-45c6-b69c-d3310200d296",
+      "image_url": "53f3f72b-4e3c-431a-addc-0b53065037ec/before/oven/1762652732250_20250815_185726.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "347ff1d5-31af-4586-8419-f368d391b829",
+      "image_url": "6ec133ea-f688-476a-abad-2cb80357ed8a/after/fridge/1762652755516_20250815_185742.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "29044484-31c7-47de-b2cb-accfd2a50fae",
+      "image_url": "53f3f72b-4e3c-431a-addc-0b53065037ec/after/fridge/1762652927680_20250815_185013.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "a4dc0937-7ad4-4a4d-ad72-3e13d4e1d629",
+      "image_url": "f964991f-f0f2-4016-a503-a45e1df569d1/before/oven/1762653054327_20250815_185742.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "cd432a31-1e18-4b26-b2fa-59a6b5583b18",
+      "image_url": "f964991f-f0f2-4016-a503-a45e1df569d1/after/oven/1762653077178_20250815_185219.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "0b919880-da67-4b39-afa2-c5c1d9ea171b",
+      "image_url": "85165eba-63ec-4b48-b8f5-14a6a1664121/before/stove/1762653165963_20250815_184959.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "d569fe57-9187-4047-91da-63d60368bbe0",
+      "image_url": "85165eba-63ec-4b48-b8f5-14a6a1664121/after/oven/1762653183829_20250815_185742.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "a600c9a2-038b-4843-84ac-51dec6616c4a",
+      "image_url": "9a0c7193-6154-4e00-9bc7-0e7b0e95467e/before/oven/1762653302451_20250815_185726.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "5032b764-212f-4ba1-99cf-a3434625511c",
+      "image_url": "9a0c7193-6154-4e00-9bc7-0e7b0e95467e/after/oven/1762653320788_20250815_185219.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "8d196263-f32a-4c47-9e5e-5c3abd51ada3",
+      "image_url": "41efc18a-c561-43a2-95f9-7ebe5bac98ba/after/range_hood/1762654362527_WhatsApp Image 2025-11-03 at 4.09.20 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "22fdcf82-7b58-4683-9c92-c99b446b036e",
+      "image_url": "41efc18a-c561-43a2-95f9-7ebe5bac98ba/after/oven/1762654384865_WhatsApp Image 2025-11-03 at 4.09.20 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "27334852-5945-4f5a-aefc-941a5f422635",
+      "image_url": "774c7f9b-4315-46d9-9f9c-3076298e14f5/before/stove/1762655085186_WhatsApp Image 2025-11-03 at 4.09.20 PM (2).jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "6838aa35-99c5-40f7-9fba-2023c0d01290",
+      "image_url": "774c7f9b-4315-46d9-9f9c-3076298e14f5/after/fridge/1762655098598_WhatsApp Image 2025-11-03 at 4.09.20 PM.jpeg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "947178af-c966-48a6-acba-7ad6e26a28b0",
+      "image_url": "04d3b679-0556-48c9-9f50-180191da806f/before/stove/1762655232326_20250815_184959.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "b182fc4b-2daa-4549-a857-a77ffa67edb1",
+      "image_url": "04d3b679-0556-48c9-9f50-180191da806f/after/oven/1762655468223_20250815_185236.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "a0ab02b8-b015-4192-a333-0b23b46ede2d",
+      "image_url": "77397a50-8a5a-4f67-8c8b-bb4dfdb3227e/before/stove/1762685576996_20250815_184956.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "03753ccb-bb39-447b-9816-5ab3a5d0dffa",
+      "image_url": "77397a50-8a5a-4f67-8c8b-bb4dfdb3227e/before/oven/1762685580443_20250815_190153.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "344fcf1f-8575-4e77-8d4b-161b2e04e72d",
+      "image_url": "77397a50-8a5a-4f67-8c8b-bb4dfdb3227e/before/fridge/1762685586580_20250815_185253.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "2be32343-4b46-4635-84be-a8b6a62f395b",
+      "image_url": "77397a50-8a5a-4f67-8c8b-bb4dfdb3227e/before/sink/1762685589787_20250815_185335.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "8f4e0a53-8dff-4604-82b8-bc9c2b466ebd",
+      "image_url": "11d4e29c-ec5b-4ad3-91b2-60f813bfcdef/before/stove/1762685974925_20250815_185742.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "2ffbb0c7-d1e0-40d5-b985-6b2e1cbed5a1",
+      "image_url": "11d4e29c-ec5b-4ad3-91b2-60f813bfcdef/before/oven/1762685978100_20250815_185742.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "ee993bf3-2f07-4f0b-b047-841533726746",
+      "image_url": "11d4e29c-ec5b-4ad3-91b2-60f813bfcdef/before/fridge/1762685981744_20250815_185246.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "88c13996-da93-4ade-9625-24d7ffffe75f",
+      "image_url": "11d4e29c-ec5b-4ad3-91b2-60f813bfcdef/before/range_hood/1762685984696_20250815_185104.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "9eb5b706-6fca-4e7a-b03e-139e27fa402b",
+      "image_url": "11d4e29c-ec5b-4ad3-91b2-60f813bfcdef/before/sink/1762685987536_20250815_185111.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "29b39f06-4a82-4aab-abe1-f73f9132b861",
+      "image_url": "baae7980-b9f7-49ff-98da-74b0a7e85541/before/stove/1762686390650_20250815_185219.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "71accb9f-2b42-47b1-938a-a094a568cfe4",
+      "image_url": "baae7980-b9f7-49ff-98da-74b0a7e85541/before/oven/1762686393703_20250815_185246.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "e3c38083-54d4-4e3d-8fb0-2d82cb9cc248",
+      "image_url": "baae7980-b9f7-49ff-98da-74b0a7e85541/before/fridge/1762686396651_20250815_185253.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "6e3b40bb-fb2b-4a0d-ba45-9ef8e8b12c00",
+      "image_url": "baae7980-b9f7-49ff-98da-74b0a7e85541/before/range_hood/1762686399239_20250815_185104.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "a68c759a-1f2d-47b1-9d73-58f947e64bcd",
+      "image_url": "baae7980-b9f7-49ff-98da-74b0a7e85541/before/sink/1762686402112_20250815_185335.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "95e7793a-3af6-4b01-bf2b-973c15fe8e8c",
+      "image_url": "77397a50-8a5a-4f67-8c8b-bb4dfdb3227e/after/stove/1762686920092_20250815_185742.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "5450c0e2-7fc1-4f36-aad8-98df1f3e0c86",
+      "image_url": "77397a50-8a5a-4f67-8c8b-bb4dfdb3227e/after/oven/1762686923303_20250815_190631.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "476763a6-5dfb-4f8d-868a-fd3480fb62e1",
+      "image_url": "77397a50-8a5a-4f67-8c8b-bb4dfdb3227e/after/fridge/1762686928063_20250815_185338.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "f078334c-0102-4597-aa67-e4ee201a2d63",
+      "image_url": "77397a50-8a5a-4f67-8c8b-bb4dfdb3227e/after/sink/1762686930525_20250815_190731.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "39f91683-d2aa-48d9-8991-a0c85756c043",
+      "image_url": "77397a50-8a5a-4f67-8c8b-bb4dfdb3227e/after/range_hood/1762686933344_20250815_184843.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "f1d3275c-7708-42cc-bffd-dfb50ee264ca",
+      "image_url": "5eebea84-ae21-4738-a940-71e8164c6374/before/stove/1762920660094_20250815_190731.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "c5c65039-7677-4828-aadb-2f4946a75cf6",
+      "image_url": "5eebea84-ae21-4738-a940-71e8164c6374/before/oven/1762920665337_20250815_190707.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "9ef5d531-279c-40b2-bffd-7f1cab87c66f",
+      "image_url": "5eebea84-ae21-4738-a940-71e8164c6374/before/fridge/1762920668228_20250815_190307.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "909261d3-980b-438d-a69f-dcf622cedf50",
+      "image_url": "5eebea84-ae21-4738-a940-71e8164c6374/before/range_hood/1762920671090_20250815_185257.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "39bdecc1-c80c-4e07-abf1-27ca74138044",
+      "image_url": "5eebea84-ae21-4738-a940-71e8164c6374/before/sink/1762920674734_20250815_190832.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "a0bcf363-0a77-4892-8b67-4d81aed1151d",
+      "image_url": "5eebea84-ae21-4738-a940-71e8164c6374/after/stove/1762920690703_20250815_185209.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "d0b96b31-851b-469e-8877-4313973c5d18",
+      "image_url": "5eebea84-ae21-4738-a940-71e8164c6374/after/oven/1762920694208_20250815_184959.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "f3b467bf-9ebf-47eb-882f-8bdc56f8be37",
+      "image_url": "5eebea84-ae21-4738-a940-71e8164c6374/after/fridge/1762920698724_20250815_185044.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "8565cea7-eec7-4b10-9de5-b6e3e3eaeb6b",
+      "image_url": "5eebea84-ae21-4738-a940-71e8164c6374/after/range_hood/1762920701668_20250815_185046.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "458b8915-b0d3-4277-a05a-288fece9ca11",
+      "image_url": "5eebea84-ae21-4738-a940-71e8164c6374/after/sink/1762920704539_20250815_184935.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "bdfbbd3d-7446-42c5-a376-9a0374ec9808",
+      "image_url": "6303b7b8-223b-4461-bd53-a17dc1b741ef/before/stove/1763374593705_20250815_185726.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "f3fc0307-cc95-41fd-97df-8a2e598dd8ff",
+      "image_url": "6303b7b8-223b-4461-bd53-a17dc1b741ef/after/stove/1763374633885_20250815_185742.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "ebb947cb-ad38-4a52-8e3f-b7e51b75ceb1",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/before/stove_back/1763471422054_1000200396.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "9910d31c-7cd9-4dfa-8e96-4399545227fa",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/before/fridge/1763471430786_1000200397.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "5cf5a615-1646-4736-b656-6f3c82deca08",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/before/fridge_back/1763471442265_1000200398.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "510465f7-56a7-43c2-a95d-89893b8ac170",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/before/stove/1763471452415_1000200395.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "501c9821-72fb-48b9-b7c9-0193b06de1c0",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/before/kitchen/1763471462282_1000200399.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "707fb11e-56b5-4451-bc52-c9e7b78c65cf",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/before/bathroom/1763471466426_1000200403.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "a494677e-3c4d-49ca-a71c-5039cea4d20e",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/before/bedroom/1763471474801_1000200402.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "0d3cf12d-0120-419a-b7ec-e7ed3d5dea11",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/before/living_room/1763471479744_1000200401.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "16e064c9-1d13-46ad-a242-82d95c4b684f",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/after/stove_back/1763496320199_1000200415.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "855687f3-aceb-445b-b201-7c9e62d04c6c",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/after/fridge/1763496327114_1000200452.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "c11a7303-b849-45a6-a692-4768e8c78e57",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/after/fridge_back/1763496337614_1000200414.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "7c24654a-bdd0-4d7b-87e8-b9e6dcd3e745",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/after/bathroom/1763496344533_1000200457.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "179455c5-4e96-41bc-95c5-313eb2ebb0d4",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/after/bedroom/1763496349865_1000200454.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "5c40ab74-994a-4201-9ace-19280d6adf17",
+      "image_url": "6c6ee0dd-115f-46af-8d79-5035941b856c/after/living_room/1763496443972_1000200461.heic",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "1cd6fd1a-f519-4a51-a1dc-7a96a9e34697",
+      "image_url": "a2a42e9e-06ce-4f2b-81ac-755c9ed80646/before/stove/1763516756209_20250815_185219.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "c17a6390-9be6-490c-9287-1e2d55e09483",
+      "image_url": "31d822ed-a02b-4b2a-ab64-8e680f53e28d/before/stove_back/1763517866974_20250815_190446.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "134ebe48-b748-497e-8291-9f1bf2c50417",
+      "image_url": "31d822ed-a02b-4b2a-ab64-8e680f53e28d/before/fridge_back/1763517871091_20250815_185246.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "ac11dd0a-7f92-4eff-ba6f-a8bb940df737",
+      "image_url": "31d822ed-a02b-4b2a-ab64-8e680f53e28d/before/living_room/1763517874801_20250815_185046.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "7c33887a-505a-409d-b8e4-e4f22c1cdaf1",
+      "image_url": "31d822ed-a02b-4b2a-ab64-8e680f53e28d/before/bathroom/1763517878199_20250815_185116.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "bce0be57-be04-4020-bcaa-90c5546c39a4",
+      "image_url": "31d822ed-a02b-4b2a-ab64-8e680f53e28d/before/bedroom/1763517883140_20250815_184935.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "71f99f8e-fa6c-4a99-ad5b-30397489b21c",
+      "image_url": "31d822ed-a02b-4b2a-ab64-8e680f53e28d/before/stove/1763517895066_20250815_184738.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "f85e19d9-0f32-45f6-ae7c-d52d3f08d401",
+      "image_url": "31d822ed-a02b-4b2a-ab64-8e680f53e28d/before/kitchen/1763517886368_20250815_184940.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "7073bafe-0317-43b2-8200-79e553179e55",
+      "image_url": "31d822ed-a02b-4b2a-ab64-8e680f53e28d/before/fridge/1763517891383_20250815_185236.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "aa61a3db-9b22-4b21-9c93-a8dc0df9b5c3",
+      "image_url": "a8d38722-658b-4dc8-aac8-b78b78fdbb05/general/bedroom/1763521282720_20250815_190237.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "9cc01d8b-823f-4543-85af-d626bcaf84a8",
+      "image_url": "a8d38722-658b-4dc8-aac8-b78b78fdbb05/general/kitchen/1763521291342_20250815_185726.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "f406ffbb-cfcd-4b76-87f1-daa6d67ece11",
+      "image_url": "a8d38722-658b-4dc8-aac8-b78b78fdbb05/general/bathroom/1763521294725_20250815_190153.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "e8dd04dc-7b60-4d65-a011-ecc401d1221a",
+      "image_url": "a8d38722-658b-4dc8-aac8-b78b78fdbb05/general/bedroom/1763521298278_20250815_185257.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "b585052a-a634-47cd-b38d-0797dae4687a",
+      "image_url": "a8d38722-658b-4dc8-aac8-b78b78fdbb05/general/living_room/1763521301418_20250815_185335.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "5944c153-72e6-4437-a76e-553427fbc23d",
+      "image_url": "2e74d540-224d-4d12-9558-83c663cdd3e0/before/stove/1763521607374_20250815_185236.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "cdf63355-08a5-497a-9cd8-29b061965e5c",
+      "image_url": "2e74d540-224d-4d12-9558-83c663cdd3e0/general/kitchen/1763521610409_20250815_190014.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "05bd59eb-928d-4fe5-b9c8-0c41a08b6386",
+      "image_url": "2e74d540-224d-4d12-9558-83c663cdd3e0/general/bathroom/1763521613408_20250815_185257.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "7851dc32-b62e-4de2-befd-7fa3cc5e1756",
+      "image_url": "2e74d540-224d-4d12-9558-83c663cdd3e0/general/bedroom/1763521616816_20250815_190832.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "39ddd0f4-d263-46ff-af4f-7a58d8e6aefc",
+      "image_url": "2e74d540-224d-4d12-9558-83c663cdd3e0/general/living_room/1763521619616_20250815_190429.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "18b8994d-226e-44bf-b579-9f35cdaf0c6a",
+      "image_url": "2e74d540-224d-4d12-9558-83c663cdd3e0/before/stove_back/1763521623379_20250815_185646.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "b7d07a5b-c22a-4f3b-aba9-165d35b828ab",
+      "image_url": "2e74d540-224d-4d12-9558-83c663cdd3e0/before/fridge/1763521628556_20250815_190830.jpg",
+      "problem": "Archivo no existe en bucket"
+    },
+    {
+      "id": "d483513c-b137-481c-b3b8-d1d706d0044b",
+      "image_url": "2e74d540-224d-4d12-9558-83c663cdd3e0/before/fridge_back/1763521632556_20250815_190741.jpg",
+      "problem": "Archivo no existe en bucket"
+    }
+  ],
+  "fixed": [
+    {
+      "id": "103eb171-494b-4f26-ba32-bf8dee396460",
+      "old": "d9673945-b06a-4b23-a222-5da50bd82195/stove/1761704927448_1.jpg",
+      "new": "d9673945-b06a-4b23-a222-5da50bd82195/stove/1761704927448_1.jpg"
+    },
+    {
+      "id": "56fa8573-17b7-4c1e-94f6-a20991627b4a",
+      "old": "d9673945-b06a-4b23-a222-5da50bd82195/oven/1761704932675_2.jpg",
+      "new": "d9673945-b06a-4b23-a222-5da50bd82195/oven/1761704932675_2.jpg"
+    },
+    {
+      "id": "fbbeffd2-9914-4cd4-9237-83ab6d1493b8",
+      "old": "d9673945-b06a-4b23-a222-5da50bd82195/fridge/1761704936920_4.jpg",
+      "new": "d9673945-b06a-4b23-a222-5da50bd82195/fridge/1761704936920_4.jpg"
+    },
+    {
+      "id": "721ca826-ad6b-471d-afb9-ca2a0d456bd5",
+      "old": "d9673945-b06a-4b23-a222-5da50bd82195/range_hood/1761704941548_7.jpg",
+      "new": "d9673945-b06a-4b23-a222-5da50bd82195/range_hood/1761704941548_7.jpg"
+    },
+    {
+      "id": "3fdd2929-fd7e-4f02-a44d-a27067af2375",
+      "old": "d9673945-b06a-4b23-a222-5da50bd82195/sink/1761704946140_8.jpg",
+      "new": "d9673945-b06a-4b23-a222-5da50bd82195/sink/1761704946140_8.jpg"
+    },
+    {
+      "id": "4a68abea-7513-429f-af97-d96c1b2a8d07",
+      "old": "16e2385a-b00f-41f4-92ac-bbe2d25dd2dc/stove/1761705110143_1.jpg",
+      "new": "16e2385a-b00f-41f4-92ac-bbe2d25dd2dc/stove/1761705110143_1.jpg"
+    },
+    {
+      "id": "e6abb728-f71f-446f-9cc3-32487a062250",
+      "old": "16e2385a-b00f-41f4-92ac-bbe2d25dd2dc/oven/1761705114702_3.jpg",
+      "new": "16e2385a-b00f-41f4-92ac-bbe2d25dd2dc/oven/1761705114702_3.jpg"
+    },
+    {
+      "id": "3d5fd9af-0ed6-4fde-9ee4-bcf2ce29bce0",
+      "old": "16e2385a-b00f-41f4-92ac-bbe2d25dd2dc/fridge/1761705118843_6.jpg",
+      "new": "16e2385a-b00f-41f4-92ac-bbe2d25dd2dc/fridge/1761705118843_6.jpg"
+    },
+    {
+      "id": "5c00ddb3-5161-4983-adb2-8a80ac32a765",
+      "old": "16e2385a-b00f-41f4-92ac-bbe2d25dd2dc/range_hood/1761705122732_10.jpg",
+      "new": "16e2385a-b00f-41f4-92ac-bbe2d25dd2dc/range_hood/1761705122732_10.jpg"
+    },
+    {
+      "id": "11221ee8-8dbb-42e6-b2fa-55fa2a97ec66",
+      "old": "16e2385a-b00f-41f4-92ac-bbe2d25dd2dc/sink/1761705126993_11.jpg",
+      "new": "16e2385a-b00f-41f4-92ac-bbe2d25dd2dc/sink/1761705126993_11.jpg"
+    },
+    {
+      "id": "aed281bf-15be-49f5-a28e-35392149eb7f",
+      "old": "65f936c4-4908-4b36-adcd-ca0602c7482b/stove/1761705289130_b0fb19e9-e3f1-4715-8ba6-d2b1b0a7d1ed.jpeg",
+      "new": "65f936c4-4908-4b36-adcd-ca0602c7482b/stove/1761705289130_b0fb19e9-e3f1-4715-8ba6-d2b1b0a7d1ed.jpeg"
+    },
+    {
+      "id": "01c536ce-d5e4-4724-b0d6-4a6707aa9f91",
+      "old": "65f936c4-4908-4b36-adcd-ca0602c7482b/oven/1761705293528_3.jpg",
+      "new": "65f936c4-4908-4b36-adcd-ca0602c7482b/oven/1761705293528_3.jpg"
+    },
+    {
+      "id": "f67f3264-1e6c-4b30-9688-e2d54035f129",
+      "old": "65f936c4-4908-4b36-adcd-ca0602c7482b/fridge/1761705297131_7.jpg",
+      "new": "65f936c4-4908-4b36-adcd-ca0602c7482b/fridge/1761705297131_7.jpg"
+    },
+    {
+      "id": "3c5e7d49-77c9-4dd2-bcb2-e1754f424625",
+      "old": "65f936c4-4908-4b36-adcd-ca0602c7482b/range_hood/1761705301164_10.jpg",
+      "new": "65f936c4-4908-4b36-adcd-ca0602c7482b/range_hood/1761705301164_10.jpg"
+    },
+    {
+      "id": "dddc2d0a-6cd5-4873-b37a-64400ff55d50",
+      "old": "65f936c4-4908-4b36-adcd-ca0602c7482b/sink/1761705304658_12.jpg",
+      "new": "65f936c4-4908-4b36-adcd-ca0602c7482b/sink/1761705304658_12.jpg"
+    },
+    {
+      "id": "99c8c5ab-d900-4956-afcf-6616150137ca",
+      "old": "65f936c4-4908-4b36-adcd-ca0602c7482b/stove/1761705468475_1.jpg",
+      "new": "65f936c4-4908-4b36-adcd-ca0602c7482b/stove/1761705468475_1.jpg"
+    },
+    {
+      "id": "f86ea625-af94-40c3-bb4e-2d4a38cf42f0",
+      "old": "65f936c4-4908-4b36-adcd-ca0602c7482b/oven/1761705473153_2.jpg",
+      "new": "65f936c4-4908-4b36-adcd-ca0602c7482b/oven/1761705473153_2.jpg"
+    },
+    {
+      "id": "2484c78b-a50d-4a31-b7d1-81532b488866",
+      "old": "65f936c4-4908-4b36-adcd-ca0602c7482b/fridge/1761705478819_6.jpg",
+      "new": "65f936c4-4908-4b36-adcd-ca0602c7482b/fridge/1761705478819_6.jpg"
+    },
+    {
+      "id": "52204051-47af-40be-8eec-4876694a8b5e",
+      "old": "65f936c4-4908-4b36-adcd-ca0602c7482b/range_hood/1761705488250_9.jpg",
+      "new": "65f936c4-4908-4b36-adcd-ca0602c7482b/range_hood/1761705488250_9.jpg"
+    },
+    {
+      "id": "2d141330-5ae7-4682-86e6-b0238b314634",
+      "old": "65f936c4-4908-4b36-adcd-ca0602c7482b/sink/1761705491866_12.jpg",
+      "new": "65f936c4-4908-4b36-adcd-ca0602c7482b/sink/1761705491866_12.jpg"
+    }
+  ]
+}

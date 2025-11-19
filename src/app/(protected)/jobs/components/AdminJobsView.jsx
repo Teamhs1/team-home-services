@@ -15,6 +15,7 @@ import { CalendarDays, User, Trash2, LayoutGrid, List } from "lucide-react";
 import JobForm from "./JobForm";
 import Slider from "@/components/Slider";
 import JobDuration from "./JobDuration";
+import JobTimer from "./JobTimer";
 import Link from "next/link";
 
 export default function AdminJobsView({
@@ -158,12 +159,23 @@ export default function AdminJobsView({
                       </span>
                     </td>
                     <td className="px-4 py-2">
-                      {job.status === "completed" ? (
-                        <JobDuration jobId={job.id} />
-                      ) : (
-                        "-"
+                      {job.status === "in_progress" && (
+                        <div className="text-blue-600 font-semibold text-xs flex items-center gap-1">
+                          <JobTimer jobId={job.id} status="in_progress" />
+                        </div>
+                      )}
+
+                      {job.status === "completed" && (
+                        <div className="text-green-600 font-semibold text-xs flex items-center gap-1">
+                          <JobDuration jobId={job.id} status="completed" />
+                        </div>
+                      )}
+
+                      {job.status === "pending" && (
+                        <span className="text-gray-400">—</span>
                       )}
                     </td>
+
                     <td className="px-4 py-2 text-right">
                       <Button
                         size="sm"
@@ -250,11 +262,32 @@ export default function AdminJobsView({
                     {job.status.replace("_", " ")}
                   </span>
 
-                  {job.status === "completed" && (
-                    <div className="text-xs text-gray-600">
-                      <JobDuration jobId={job.id} />
-                    </div>
-                  )}
+                  {/* Estado + Timer + Duración */}
+                  <div className="space-y-2">
+                    <span
+                      className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                        job.status === "pending"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : job.status === "in_progress"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {job.status.replace("_", " ")}
+                    </span>
+
+                    {job.status === "in_progress" && (
+                      <div className="bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-lg shadow-sm w-fit">
+                        <JobTimer jobId={job.id} status="in_progress" />
+                      </div>
+                    )}
+
+                    {job.status === "completed" && (
+                      <div className="bg-green-50 text-green-700 text-xs font-semibold px-3 py-1 rounded-lg shadow-sm w-fit">
+                        <JobDuration jobId={job.id} status="completed" />
+                      </div>
+                    )}
+                  </div>
 
                   <div className="flex justify-end">
                     <Button

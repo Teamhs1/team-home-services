@@ -51,7 +51,7 @@ export function JobUploadModal({
   };
 
   // =============================
-  // Upload
+  // Upload (ACTUALIZADO)
   // =============================
   const handleUpload = async (e) => {
     const files = Array.from(e.target.files);
@@ -77,8 +77,17 @@ export function JobUploadModal({
         [selectedCategory]: [...(prev[selectedCategory] || []), ...previews],
       }));
 
+      // Detectar si es categoría general
+      const isGeneral = generalCategories
+        .map((c) => c.key)
+        .includes(selectedCategory);
+
+      // before / after → comparadores
+      // general → carpeta general
+      const folderType = isGeneral ? "general" : type;
+
       for (const file of files) {
-        const path = `${jobId}/${type}/${selectedCategory}/${Date.now()}_${
+        const path = `${jobId}/${folderType}/${selectedCategory}/${Date.now()}_${
           file.name
         }`;
 
@@ -87,6 +96,7 @@ export function JobUploadModal({
         formData.append("path", path);
         formData.append("job_id", jobId);
         formData.append("category", selectedCategory);
+        formData.append("type", folderType); // 🔥 SE AGREGA PARA EL BACKEND
 
         const res = await fetch("/api/job-photos/upload", {
           method: "POST",

@@ -12,11 +12,13 @@ import {
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation"; // ⭐ IMPORTANTE
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 export default function CompletedJobsPage() {
   const { getToken } = useAuth();
+  const router = useRouter(); // ⭐ NUEVO
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("grid");
@@ -40,11 +42,8 @@ export default function CompletedJobsPage() {
         .eq("status", "completed")
         .order("scheduled_date", { ascending: false });
 
-      if (error) {
-        console.error("❌ Error fetching completed jobs:", error.message);
-      } else {
-        setJobs(data || []);
-      }
+      if (!error) setJobs(data || []);
+      else console.error("❌ Error:", error.message);
     } catch (err) {
       console.error("⚠️ Fetch error:", err);
     } finally {
@@ -56,9 +55,10 @@ export default function CompletedJobsPage() {
     fetchCompletedJobs();
   }, []);
 
+  // Load saved mode
   useEffect(() => {
-    const savedMode = localStorage.getItem("completedViewMode");
-    if (savedMode) setViewMode(savedMode);
+    const saved = localStorage.getItem("completedViewMode");
+    if (saved) setViewMode(saved);
   }, []);
 
   useEffect(() => {
@@ -86,7 +86,6 @@ export default function CompletedJobsPage() {
           size="sm"
           onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
           className="flex items-center gap-2"
-          title={`Switch to ${viewMode === "grid" ? "List" : "Grid"} View`}
         >
           {viewMode === "grid" ? (
             <List className="w-4 h-4" />
@@ -96,30 +95,34 @@ export default function CompletedJobsPage() {
         </Button>
       </div>
 
-      {/* Contenido */}
+      {/* Content */}
       {jobs.length === 0 ? (
         <p className="text-gray-500">No completed jobs found.</p>
       ) : viewMode === "grid" ? (
-        // 🧱 Vista en grid
+        // 🧱 GRID VIEW — CLICKEABLE
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {jobs.map((job) => (
             <Card
               key={job.id}
-              className="border border-gray-200 shadow-sm hover:shadow-md transition"
+              onClick={() => router.push(`/jobs/${job.id}`)} // ⭐ CLICK!
+              className="cursor-pointer border border-gray-200 shadow-sm hover:shadow-md transition"
             >
               <CardHeader>
                 <CardTitle className="text-lg font-semibold">
                   {job.title || "Untitled Job"}
                 </CardTitle>
               </CardHeader>
+
               <CardContent className="text-sm text-gray-600 space-y-2">
                 <p>{job.property_address || "No address provided"}</p>
+
                 <p className="flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-gray-400" />
                   {job.scheduled_date
                     ? new Date(job.scheduled_date).toLocaleDateString()
-                    : "No date set"}
+                    : "No date"}
                 </p>
+
                 <p className="capitalize font-medium text-green-600">
                   {job.status || "unknown"}
                 </p>
@@ -128,7 +131,7 @@ export default function CompletedJobsPage() {
           ))}
         </div>
       ) : (
-        // 📋 Vista en tabla
+        // 📋 LIST VIEW — CLICKEABLE
         <div className="overflow-x-auto">
           <table className="min-w-full border border-gray-200 rounded-lg overflow-hidden">
             <thead className="bg-gray-100 text-left text-sm font-medium">
@@ -139,21 +142,31 @@ export default function CompletedJobsPage() {
                 <th className="px-4 py-2">Status</th>
               </tr>
             </thead>
+
             <tbody>
               {jobs.map((job) => (
                 <tr
                   key={job.id}
-                  className="border-t hover:bg-gray-50 transition text-sm"
+                  onClick={(e) => {
+                    const tag = e.target.tagName.toLowerCase();
+                    if (["button", "svg", "path"].includes(tag)) return;
+
+                    router.push(`/jobs/${job.id}`); // ⭐ CLICK!
+                  }}
+                  className="cursor-pointer border-t hover:bg-gray-50 transition text-sm"
                 >
                   <td className="px-4 py-2">{job.title || "Untitled"}</td>
+
                   <td className="px-4 py-2">
                     {job.property_address || "No address"}
                   </td>
+
                   <td className="px-4 py-2">
                     {job.scheduled_date
                       ? new Date(job.scheduled_date).toLocaleDateString()
                       : "No date"}
                   </td>
+
                   <td className="px-4 py-2 capitalize text-green-600 font-medium">
                     {job.status || "unknown"}
                   </td>

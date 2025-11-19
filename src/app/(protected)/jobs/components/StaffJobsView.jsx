@@ -9,6 +9,7 @@ import { JobUploadModal } from "./JobUploadModal";
 import JobTimer from "./JobTimer";
 import JobDuration from "./JobDuration";
 import { createClient } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 
 export default function StaffJobsView({
   jobs: initialJobs,
@@ -21,6 +22,15 @@ export default function StaffJobsView({
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null);
   const [currentJob, setCurrentJob] = useState(null);
+
+  const router = useRouter();
+
+  // ⭐ AUTO-FORZAR GRID EN MÓVIL (UX recomendado)
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setViewMode("grid"); // sm breakpoint
+    }
+  }, []);
 
   const openModal = (jobId, type) => {
     setModalType(type);
@@ -40,6 +50,7 @@ export default function StaffJobsView({
     );
   };
 
+  // ⭐ REALTIME
   useEffect(() => {
     const supabaseRealtime = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -50,35 +61,25 @@ export default function StaffJobsView({
       .channel("staff_jobs_updates")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "cleaning_jobs",
-        },
-        async (payload) => {
-          console.log("📡 Staff Realtime event:", payload.eventType);
+        { event: "*", schema: "public", table: "cleaning_jobs" },
+        async () => {
           await fetchJobs?.();
           toast.info("🔄 Job list updated in real-time");
         }
       )
-      .subscribe((status) => {
-        console.log("📶 Staff Realtime channel status:", status);
-      });
+      .subscribe();
 
-    return () => {
-      console.log("❌ Unsubscribed from staff realtime");
-      supabaseRealtime.removeChannel(channel);
-    };
+    return () => supabaseRealtime.removeChannel(channel);
   }, [fetchJobs]);
 
   const ViewToggleButton = () => (
-    <div className="flex justify-end mb-6">
+    <div className="hidden sm:flex justify-end mb-6">
+      {/* 🔥 Toggle solo aparece en desktop/tablet */}
       <Button
         variant="outline"
         size="sm"
         onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
         className="flex items-center gap-2"
-        title={`Switch to ${viewMode === "grid" ? "List" : "Grid"} View`}
       >
         {viewMode === "grid" ? (
           <List className="w-4 h-4" />
@@ -91,7 +92,7 @@ export default function StaffJobsView({
 
   return (
     <main className="px-4 py-6 sm:px-6 sm:py-10 max-w-[1600px] mx-auto space-y-10">
-      {/* 🧽 Header */}
+      {/* 🔹 Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
           <ClipboardList className="w-6 h-6 text-primary" />
@@ -108,11 +109,12 @@ export default function StaffJobsView({
           >
             Refresh
           </Button>
+
           <ViewToggleButton />
         </div>
       </div>
 
-      {/* Vista según modo */}
+      {/* LISTA / GRID */}
       {viewMode === "list" ? (
         <JobList jobs={jobs} openModal={openModal} />
       ) : (
@@ -120,8 +122,10 @@ export default function StaffJobsView({
           {jobs.map((job) => (
             <div
               key={job.id}
-              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-4 flex flex-col justify-between"
+              onClick={() => router.push(`/jobs/${job.id}`)}
+              className="cursor-pointer bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-4 flex flex-col justify-between"
             >
+              {/* Top */}
               <div>
                 <h3 className="font-semibold text-lg text-gray-900 leading-snug">
                   {job.title}
@@ -134,7 +138,7 @@ export default function StaffJobsView({
                     : "No date"}
                 </p>
 
-                {/* ⭐️ BLOQUE ACTUALIZADO — TIMER Y DURACIÓN VISIBLES EN MÓVIL */}
+                {/* Status + Timers */}
                 <div className="mt-3 space-y-2">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-semibold inline-block w-fit
@@ -163,17 +167,28 @@ export default function StaffJobsView({
                 </div>
               </div>
 
+              {/* Buttons */}
               <div className="mt-4 text-right">
                 {job.status === "pending" && (
-                  <Button size="sm" onClick={() => openModal(job.id, "before")}>
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation(); // ⭐ evita redirect
+                      openModal(job.id, "before");
+                    }}
+                  >
                     Start
                   </Button>
                 )}
+
                 {job.status === "in_progress" && (
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => openModal(job.id, "after")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openModal(job.id, "after");
+                    }}
                   >
                     Complete
                   </Button>
@@ -184,7 +199,7 @@ export default function StaffJobsView({
         </div>
       )}
 
-      {/* Modal de fotos */}
+      {/* Modal */}
       <AnimatePresence>
         {modalOpen && currentJob && (
           <JobUploadModal

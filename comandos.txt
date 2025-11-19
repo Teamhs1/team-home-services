@@ -47,3 +47,7 @@ ORDER BY schemaname, tablename, policyname;
 -----------------------------------------------------------------------------
 Desactivar politicas temporalmente
 ALTER TABLE cleaning_jobs DISABLE ROW LEVEL SECURITY;
+-------------------------------
+reparar fotos (escribe en la terminal)
+node repair-job-photos.js
+-----------------------------------------

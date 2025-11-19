@@ -4,14 +4,13 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
 export default function JobPhotoModal({
   open,
   onClose,
   jobId,
-  type,
+  type, // "before" | "after"
   onConfirm,
   getToken,
 }) {
@@ -25,51 +24,50 @@ export default function JobPhotoModal({
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
-    // ⚡ Mostrar previsualización instantánea
-    const previewsArr = files.map((f) => URL.createObjectURL(f));
-    setPreviews(previewsArr);
+    // Previews inmediatas
+    setPreviews(files.map((f) => URL.createObjectURL(f)));
 
     setUploading(true);
 
     try {
-      // 🔑 Esperar token Clerk
       const token = await getToken({ template: "supabase" });
       if (!token) {
-        toast.warning("No se obtuvo token de autenticación, reintenta.");
+        toast.warning("No se obtuvo token de autenticación.");
         setUploading(false);
         return;
       }
 
-      // 🔧 Cliente Supabase autenticado
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        {
-          global: { headers: { Authorization: `Bearer ${token}` } },
-        }
-      );
-
       const uploaded = [];
 
       for (const file of files) {
-        const safeName = file.name.replace(/\s+/g, "_");
-        const path = `${jobId}/${type}/${Date.now()}_${safeName}`;
+        const fileName = `${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
 
-        const { error } = await supabase.storage
-          .from("job-photos")
-          .upload(path, file);
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("path", fileName); // solo nombre, backend crea carpeta completa
+        formData.append("job_id", jobId);
+        formData.append("category", "general"); // <-- antes estaba mal: category = type
+        formData.append("type", type); // before / after
 
-        if (error) {
-          console.error("🚫 Error subiendo archivo:", error.message);
+        const res = await fetch("/api/job-photos/upload", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          console.error("🚫 Upload error:", data);
           toast.error(`Error subiendo ${file.name}`);
-        } else {
-          uploaded.push({ name: file.name, path });
+          continue;
         }
+
+        uploaded.push(data.photo);
       }
 
       if (uploaded.length > 0) {
         setPhotos((prev) => [...prev, ...uploaded]);
-        toast.success(`${uploaded.length} foto(s) subidas correctamente`);
+        toast.success(`${uploaded.length} foto(s) subidas`);
       }
     } catch (err) {
       console.error("❌ Error en upload:", err.message);

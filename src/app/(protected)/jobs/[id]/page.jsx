@@ -10,6 +10,26 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@clerk/nextjs";
 
+// ⬇️ AGREGA ESTO JUSTO DESPUÉS DE LOS IMPORTS
+const getPublicUrl = (url) => {
+  if (!url) return "";
+
+  // Si ya viene como URL completa (fotos viejas)
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+
+  // Si viene solo como path (fotos nuevas)
+  const clean = url.replace(/^\/?job-photos\//, "").trim();
+
+  const encoded = clean
+    .split("/")
+    .map((x) => encodeURIComponent(x))
+    .join("/");
+
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/job-photos/${encoded}`;
+};
+
 const ReactCompareImage = dynamic(() => import("react-compare-image"), {
   ssr: false,
 });
@@ -56,9 +76,18 @@ export default function JobPhotosPage() {
         // 3️⃣ Normaliza el tipo según la ruta o categoría
         const detectType = (p) => {
           const url = p.image_url?.toLowerCase() || "";
-          if (url.includes("/before/") || p.category === "before")
-            return "before";
-          if (url.includes("/after/") || p.category === "after") return "after";
+
+          // 1️⃣ Respeta type si está en BD
+          if (p.type) return p.type.toLowerCase();
+
+          // 2️⃣ Detectar imágenes antiguas basadas en el nombre del archivo
+          if (url.includes("before_")) return "before";
+          if (url.includes("after_")) return "after";
+
+          // 3️⃣ Fallback orginal
+          if (url.includes("/before/")) return "before";
+          if (url.includes("/after/")) return "after";
+
           return "general";
         };
 
@@ -112,18 +141,7 @@ export default function JobPhotosPage() {
   );
 
   // ✅ URLs públicas seguras (sin duplicar el dominio)
-  const publicUrl = (path) => {
-    if (!path) return "";
-    if (path.startsWith("http")) return path;
-
-    const cleanPath = path.replace(/^\/?job-photos\//, "").trim();
-    const encodedPath = cleanPath
-      .split("/")
-      .map((segment) => encodeURIComponent(segment))
-      .join("/");
-
-    return `${supabaseUrl}/storage/v1/object/public/job-photos/${encodedPath}`;
-  };
+  const publicUrl = getPublicUrl;
 
   const allImages = useMemo(
     () => photos.map((p) => publicUrl(p.image_url)),
