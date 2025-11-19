@@ -22,28 +22,24 @@ export default function StaffJobsView({
   const [modalType, setModalType] = useState(null);
   const [currentJob, setCurrentJob] = useState(null);
 
-  // 🧩 Abrir modal (before / after)
   const openModal = (jobId, type) => {
     setModalType(type);
     setCurrentJob(jobId);
     setModalOpen(true);
   };
 
-  // ✅ Cerrar modal
   const handleCloseModal = () => {
     setModalOpen(false);
     setCurrentJob(null);
     setModalType(null);
   };
 
-  // ✅ Actualiza un job localmente (para reflejar cambios sin recargar)
   const updateLocalJob = (jobId, updates) => {
     setJobs((prev) =>
       prev.map((j) => (j.id === jobId ? { ...j, ...updates } : j))
     );
   };
 
-  // ✅ Realtime: actualizaciones automáticas
   useEffect(() => {
     const supabaseRealtime = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -75,7 +71,6 @@ export default function StaffJobsView({
     };
   }, [fetchJobs]);
 
-  // 🔘 Botón de cambio de vista (grid / list)
   const ViewToggleButton = () => (
     <div className="flex justify-end mb-6">
       <Button
@@ -95,10 +90,10 @@ export default function StaffJobsView({
   );
 
   return (
-    <main className="px-6 py-10 max-w-[1600px] mx-auto space-y-10">
-      {/* 🧽 Encabezado */}
+    <main className="px-4 py-6 sm:px-6 sm:py-10 max-w-[1600px] mx-auto space-y-10">
+      {/* 🧽 Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
+        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
           <ClipboardList className="w-6 h-6 text-primary" />
           My Jobs
         </h1>
@@ -117,7 +112,7 @@ export default function StaffJobsView({
         </div>
       </div>
 
-      {/* 🧾 Vista según modo */}
+      {/* Vista según modo */}
       {viewMode === "list" ? (
         <JobList jobs={jobs} openModal={openModal} />
       ) : (
@@ -125,12 +120,13 @@ export default function StaffJobsView({
           {jobs.map((job) => (
             <div
               key={job.id}
-              className="bg-white border border-gray-200 rounded-lg shadow hover:shadow-lg transition p-4 flex flex-col justify-between"
+              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-4 flex flex-col justify-between"
             >
               <div>
-                <h3 className="font-semibold text-lg text-gray-900">
+                <h3 className="font-semibold text-lg text-gray-900 leading-snug">
                   {job.title}
                 </h3>
+
                 <p className="text-sm text-gray-500 mt-1">
                   {job.service_type} •{" "}
                   {job.scheduled_date
@@ -138,9 +134,11 @@ export default function StaffJobsView({
                     : "No date"}
                 </p>
 
-                <div className="mt-3">
+                {/* ⭐️ BLOQUE ACTUALIZADO — TIMER Y DURACIÓN VISIBLES EN MÓVIL */}
+                <div className="mt-3 space-y-2">
                   <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                    className={`px-2 py-1 rounded-full text-xs font-semibold inline-block w-fit
+                    ${
                       job.status === "pending"
                         ? "bg-yellow-100 text-yellow-700"
                         : job.status === "in_progress"
@@ -151,8 +149,17 @@ export default function StaffJobsView({
                     {job.status.replace("_", " ")}
                   </span>
 
-                  {job.status === "in_progress" && <JobTimer jobId={job.id} />}
-                  {job.status === "completed" && <JobDuration jobId={job.id} />}
+                  {job.status === "in_progress" && (
+                    <div className="bg-blue-50 text-blue-700 text-sm font-semibold px-3 py-2 rounded-lg shadow-sm w-fit">
+                      <JobTimer jobId={job.id} />
+                    </div>
+                  )}
+
+                  {job.status === "completed" && (
+                    <div className="bg-green-50 text-green-700 text-sm font-semibold px-3 py-2 rounded-lg shadow-sm w-fit">
+                      <JobDuration jobId={job.id} />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -177,7 +184,7 @@ export default function StaffJobsView({
         </div>
       )}
 
-      {/* 📸 Modal de fotos y confirmación */}
+      {/* Modal de fotos */}
       <AnimatePresence>
         {modalOpen && currentJob && (
           <JobUploadModal
