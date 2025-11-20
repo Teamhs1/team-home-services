@@ -190,7 +190,7 @@ export default function GlobalNavbar() {
 
   // 🔹 Config visual
   const baseClasses =
-    "fixed top-0 left-0 z-[70] w-full flex items-center justify-between transition-all duration-500 border-b";
+    "fixed top-0 left-0 z-[40] w-full flex items-center justify-between transition-all duration-500 border-b";
 
   const bgClass =
     pathname === "/"
@@ -316,20 +316,58 @@ export default function GlobalNavbar() {
                           (item) => (
                             <div
                               key={item.id}
-                              className="px-4 py-3 border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-sm"
+                              onClick={() => {
+                                if (role === "admin")
+                                  router.push(`/admin/staff-applications`);
+                                if (role === "staff")
+                                  router.push(`/jobs/${item.id}`);
+                                if (role === "client")
+                                  router.push(`/jobs/${item.id}`);
+                                setDropdownOpen(false);
+                              }}
+                              className="px-4 py-3 border-b dark:border-gray-800 cursor-pointer 
+             hover:bg-gray-50 dark:hover:bg-gray-800 transition text-sm 
+             flex flex-col gap-1 group"
                             >
-                              <p className="font-medium text-gray-800 dark:text-gray-100">
+                              {/* Título */}
+                              <p className="font-semibold text-gray-800 dark:text-gray-100 group-hover:text-blue-600 transition">
                                 {item.title ||
                                   item.property_address ||
                                   item.full_name ||
-                                  "Unnamed"}
+                                  "New activity"}
                               </p>
-                              <p className="text-xs text-gray-500">
-                                {formatDistanceToNow(
-                                  new Date(item.created_at),
-                                  { addSuffix: true }
-                                )}
-                              </p>
+
+                              {/* Badge + tiempo */}
+                              <div className="flex items-center justify-between">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold
+      ${
+        item.status === "pending"
+          ? "bg-yellow-100 text-yellow-700"
+          : item.status === "in_progress"
+          ? "bg-blue-100 text-blue-700"
+          : "bg-green-100 text-green-700"
+      }`}
+                                >
+                                  {item.status?.replace("_", " ") || "update"}
+                                </span>
+
+                                <span className="text-xs text-gray-500">
+                                  {formatDistanceToNow(
+                                    new Date(item.created_at),
+                                    { addSuffix: true }
+                                  )}
+                                </span>
+                              </div>
+
+                              {/* Preview opcional */}
+                              {item.property_address && (
+                                <p className="text-gray-500 text-xs">
+                                  {item.property_address.length > 40
+                                    ? item.property_address.slice(0, 40) + "..."
+                                    : item.property_address}
+                                </p>
+                              )}
                             </div>
                           )
                         )

@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@clerk/nextjs";
+import JobDuration from "../components/JobDuration";
 
 // ⬇️ AGREGA ESTO JUSTO DESPUÉS DE LOS IMPORTS
 const getPublicUrl = (url) => {
@@ -189,7 +190,7 @@ export default function JobPhotosPage() {
       : "Volver";
 
   return (
-    <div className="px-6 py-10 max-w-6xl mx-auto space-y-10">
+    <div className="mt-32 px-6 py-10 max-w-6xl mx-auto space-y-10">
       {/* 🔙 Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -229,6 +230,61 @@ export default function JobPhotosPage() {
             </div>
           )}
         </div>
+
+        {/* ⭐ ACCIONES SEGÚN ESTADO DEL TRABAJO */}
+        {job && (
+          <div className="flex items-center gap-3 mt-6 z-[20] relative">
+            {/* PENDING → START */}
+            {job.status === "pending" && (
+              <Button
+                size="sm"
+                className="shadow-md"
+                onClick={async () => {
+                  await fetch(`/api/jobs/start`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ job_id: job.id }),
+                  });
+                  router.refresh();
+                }}
+              >
+                Start Job
+              </Button>
+            )}
+
+            {/* IN PROGRESS → TIMER + COMPLETE */}
+            {job.status === "in_progress" && (
+              <>
+                <div className="bg-blue-50 text-blue-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
+                  <JobTimer jobId={job.id} />
+                </div>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shadow-sm"
+                  onClick={async () => {
+                    await fetch(`/api/jobs/complete`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ job_id: job.id }),
+                    });
+                    router.refresh();
+                  }}
+                >
+                  Complete Job
+                </Button>
+              </>
+            )}
+
+            {/* COMPLETED → SHOW DURATION */}
+            {job.status === "completed" && (
+              <div className="bg-green-50 text-green-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
+                <JobDuration jobId={job.id} />
+              </div>
+            )}
+          </div>
+        )}
       </motion.div>
 
       {/* 🔹 Comparador Before/After (versión pro) */}

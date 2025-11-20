@@ -4,12 +4,13 @@ import { useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Loader2, Mail } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import MessagesTable from "./components/MessagesTable"; // 👈 tu nuevo componente moderno
 
 export default function MessagesPage() {
   const { getToken } = useAuth();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMessage, setSelectedMessage] = useState(null);
 
   useEffect(() => {
     const loadMessages = async () => {
@@ -22,64 +23,65 @@ export default function MessagesPage() {
             global: { headers: { Authorization: `Bearer ${token}` } },
           }
         );
+
         const { data, error } = await supabase
           .from("contact_messages")
+
           .select("*")
           .order("created_at", { ascending: false });
+
         if (error) throw error;
+
         setMessages(data || []);
       } catch (err) {
-        console.error("Error loading messages:", err.message);
+        console.error("❌ Error loading messages:", err.message);
       } finally {
         setLoading(false);
       }
     };
+
     loadMessages();
   }, [getToken]);
 
   if (loading)
     return (
       <div className="flex justify-center items-center h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
       </div>
     );
 
   return (
-    <main className="max-w-4xl mx-auto p-6 pt-36">
-      <Card className="border border-border/50 shadow-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="w-5 h-5 text-primary" />
-            Contact Messages
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {messages.length === 0 ? (
-            <p className="text-gray-500 text-center py-10">
-              No messages found.
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {messages.map((msg) => (
-                <li key={msg.id} className="py-5">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-semibold text-gray-900">{msg.name}</p>
-                      <p className="text-sm text-gray-600">{msg.email}</p>
-                    </div>
-                    <span className="text-xs text-gray-400">
-                      {new Date(msg.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-gray-700 whitespace-pre-line">
-                    {msg.message}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+    <main className="max-w-5xl mx-auto px-6 pt-32 pb-10">
+      {/* Título */}
+      <div className="flex items-center gap-3 mb-6">
+        <Mail className="w-6 h-6 text-primary" />
+        <h1 className="text-2xl font-bold">Contact Messages</h1>
+      </div>
+
+      {/* Tabla moderna */}
+      <MessagesTable
+        messages={messages}
+        onSelect={(msg) => setSelectedMessage(msg)}
+      />
+
+      {/* Panel de detalle (si quieres lo hacemos luego) */}
+      {selectedMessage && (
+        <div className="mt-6 p-5 rounded-xl border shadow bg-white">
+          <h2 className="text-xl font-semibold">{selectedMessage.name}</h2>
+          <p className="text-sm text-gray-600">{selectedMessage.email}</p>
+
+          <p className="mt-4 whitespace-pre-line text-gray-800">
+            {selectedMessage.message}
+          </p>
+
+          <button
+            onClick={() => setSelectedMessage(null)}
+            className="mt-5 px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 transition"
+          >
+            Close
+          </button>
+        </div>
+      )}
     </main>
   );
 }

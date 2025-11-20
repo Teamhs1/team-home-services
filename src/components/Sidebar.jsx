@@ -182,7 +182,7 @@ export default function Sidebar() {
             ${isOpen ? "right-[-10px]" : "right-[-12px]"}
             bg-white border border-gray-300
             rounded-full p-1.5 shadow-md hover:bg-gray-100
-            transition-all duration-300 z-[70]`}
+            transition-all duration-300 z-[10050]`}
           aria-label="Toggle sidebar"
         >
           {isOpen ? (

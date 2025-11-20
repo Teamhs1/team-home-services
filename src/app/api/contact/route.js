@@ -10,19 +10,27 @@ export async function POST(req) {
     const body = await req.json();
     const { name, email, message } = body;
 
-    if (!name || !email || !message)
+    if (!name || !email || !message) {
       return new Response(JSON.stringify({ error: "Missing fields" }), {
         status: 400,
       });
+    }
 
     const { error } = await supabase
-      .from("contact_messages")
-      .insert([{ name, email, message }]);
+      .from("private.contact_messages") // ✅ AHORA ESTÁ EN EL SCHEMA PRIVATE
+      .insert([
+        {
+          full_name: name, // 👈 tu campo correcto
+          email,
+          message,
+        },
+      ]);
 
-    if (error)
+    if (error) {
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
       });
+    }
 
     return new Response(
       JSON.stringify({ success: true, message: "Message received" }),
