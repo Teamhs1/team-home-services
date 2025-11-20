@@ -4,13 +4,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
   X,
-  CookingPot,
-  Snowflake,
+  Flame,
   ChefHat,
+  IceCream,
+  Snowflake,
   ShowerHead,
-  Bed,
-  Sofa,
+  BedSingle,
+  Armchair,
+  UtensilsCrossed,
+  Toilet,
+  Bath,
+  Droplet,
 } from "lucide-react";
+
+import { Oven } from "lucide-react";
+
 import { toast } from "sonner";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -31,18 +39,22 @@ export function JobUploadModal({
   // CATEGORÍAS ORGANIZADAS 🔥
   // =============================
   const compareCategories = [
-    { key: "stove", label: "Stove", icon: CookingPot },
-    { key: "stove_back", label: "Behind Stove", icon: CookingPot },
+    { key: "stove", label: "Stove", icon: Flame },
+    { key: "stove_back", label: "Behind Stove", icon: ChefHat },
 
-    { key: "fridge", label: "Fridge", icon: Snowflake },
+    { key: "fridge", label: "Fridge", icon: IceCream },
     { key: "fridge_back", label: "Behind Fridge", icon: Snowflake },
+
+    { key: "toilet", label: "Toilet", icon: Toilet },
+    { key: "bathtub", label: "Bathtub", icon: Bath },
+    { key: "sink", label: "Sink", icon: Droplet },
   ];
 
   const generalCategories = [
-    { key: "kitchen", label: "Kitchen", icon: ChefHat },
+    { key: "kitchen", label: "Kitchen", icon: UtensilsCrossed },
     { key: "bathroom", label: "Bathroom", icon: ShowerHead },
-    { key: "bedroom", label: "Bedroom", icon: Bed },
-    { key: "living_room", label: "Living Room", icon: Sofa },
+    { key: "bedroom", label: "Bedroom", icon: BedSingle },
+    { key: "living_room", label: "Living Room", icon: Armchair },
   ];
 
   const handleCategoryClick = (key) => {
@@ -82,9 +94,18 @@ export function JobUploadModal({
         .map((c) => c.key)
         .includes(selectedCategory);
 
-      // before / after → comparadores
-      // general → carpeta general
-      const folderType = isGeneral ? "general" : type;
+      // ⛔ No permitir generales en BEFORE
+      if (isGeneral && type === "before") {
+        toast.error(
+          "General photos can only be uploaded AFTER completing the job."
+        );
+        setUploading(false);
+        e.target.value = "";
+        return;
+      }
+
+      // ✔ General areas siempre van como "after" (no comparador)
+      const folderType = isGeneral ? "after" : type;
 
       for (const file of files) {
         const path = `${jobId}/${folderType}/${selectedCategory}/${Date.now()}_${
@@ -191,7 +212,12 @@ export function JobUploadModal({
           initial={{ y: 60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 60, opacity: 0 }}
-          className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-3xl p-8 relative"
+          className="
+  bg-white dark:bg-gray-900 
+  rounded-2xl shadow-xl 
+  w-full max-w-3xl p-6 relative
+  max-h-[90vh] overflow-y-auto
+"
         >
           <button
             className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
@@ -227,22 +253,26 @@ export function JobUploadModal({
           </div>
 
           {/* ============================= */}
-          {/* GENERAL AREAS SECTION */}
+          {/* GENERAL AREAS ONLY FOR AFTER */}
           {/* ============================= */}
-          <h3 className="text-lg font-semibold mb-3">General Areas</h3>
+          {type === "after" && (
+            <>
+              <h3 className="text-lg font-semibold mb-3">General Areas</h3>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-10">
-            {generalCategories.map(({ key, label, icon: Icon }) => (
-              <CategoryBlock
-                key={key}
-                icon={Icon}
-                label={label}
-                categoryKey={key}
-                photos={photosByCategory[key]}
-                onClick={() => handleCategoryClick(key)}
-              />
-            ))}
-          </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-10">
+                {generalCategories.map(({ key, label, icon: Icon }) => (
+                  <CategoryBlock
+                    key={key}
+                    icon={Icon}
+                    label={label}
+                    categoryKey={key}
+                    photos={photosByCategory[key]}
+                    onClick={() => handleCategoryClick(key)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Hidden input */}
           <input

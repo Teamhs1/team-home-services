@@ -127,21 +127,29 @@ export default function JobPhotosPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // 🔹 Categorías de fotos con fallback
-  const beforePhotos = photos.filter(
-    (p) => p.type === "before" || p.category?.toLowerCase() === "before"
-  );
-  const afterPhotos = photos.filter(
-    (p) => p.type === "after" || p.category?.toLowerCase() === "after"
-  );
-  const generalPhotos = photos.filter(
-    (p) =>
-      p.type === "general" ||
-      (!p.type && !["before", "after"].includes(p.category?.toLowerCase()))
-  );
-
   // ✅ URLs públicas seguras (sin duplicar el dominio)
   const publicUrl = getPublicUrl;
+
+  // 🔹 Categorías de fotos con fallback
+  const beforePhotos = photos.filter(
+    (p) =>
+      (p.type === "before" || p.category?.toLowerCase() === "before") &&
+      p.image_url &&
+      /\.(jpg|jpeg|png|webp|gif)$/i.test(publicUrl(p.image_url))
+  );
+
+  const afterPhotos = photos.filter(
+    (p) =>
+      (p.type === "after" || p.category?.toLowerCase() === "after") &&
+      p.image_url &&
+      /\.(jpg|jpeg|png|webp|gif)$/i.test(publicUrl(p.image_url))
+  );
+
+  const generalPhotos = photos.filter((p) =>
+    ["kitchen", "bathroom", "bedroom", "living_room"].includes(
+      p.category?.toLowerCase()
+    )
+  );
 
   const allImages = useMemo(
     () => photos.map((p) => publicUrl(p.image_url)),
@@ -394,13 +402,23 @@ export default function JobPhotosPage() {
                       className="rounded-lg overflow-hidden shadow-md hover:shadow-xl transition cursor-zoom-in"
                       onClick={() => setExpandedImage(publicUrl(p.image_url))}
                     >
-                      <Image
-                        src={publicUrl(p.image_url)}
-                        alt={p.category || type}
-                        width={400}
-                        height={400}
-                        className="object-cover w-full h-48"
-                      />
+                      {p.image_url &&
+                      publicUrl(p.image_url).match(
+                        /\.(jpg|jpeg|png|webp|gif)$/i
+                      ) ? (
+                        <Image
+                          src={publicUrl(p.image_url)}
+                          alt={p.category || type}
+                          width={400}
+                          height={400}
+                          className="object-cover w-full h-48"
+                        />
+                      ) : (
+                        <div className="w-full h-48 bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 text-sm italic">
+                          Invalid image
+                        </div>
+                      )}
+
                       {p.category && (
                         <div className="text-center text-sm py-2 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 capitalize">
                           {p.category.replace("_", " ")}
