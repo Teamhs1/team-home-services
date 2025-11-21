@@ -10,6 +10,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@clerk/nextjs";
 import JobDuration from "../components/JobDuration";
+import JobTimer from "../components/JobTimer";
 
 // ⬇️ AGREGA ESTO JUSTO DESPUÉS DE LOS IMPORTS
 const getPublicUrl = (url) => {
