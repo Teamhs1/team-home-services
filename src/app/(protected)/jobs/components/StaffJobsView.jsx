@@ -9,7 +9,7 @@ import { JobUploadModal } from "./JobUploadModal";
 import JobTimer from "./JobTimer";
 import JobDuration from "./JobDuration";
 import { createClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function StaffJobsView({
   jobs: initialJobs,
@@ -24,11 +24,13 @@ export default function StaffJobsView({
   const [currentJob, setCurrentJob] = useState(null);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const statusFilter = searchParams.get("status") || "all";
 
-  // ⭐ AUTO-FORZAR GRID EN MÓVIL (UX recomendado)
+  // ⭐ AUTO-FORZAR GRID EN MÓVIL
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 640) {
-      setViewMode("grid"); // sm breakpoint
+      setViewMode("grid");
     }
   }, []);
 
@@ -72,22 +74,28 @@ export default function StaffJobsView({
     return () => supabaseRealtime.removeChannel(channel);
   }, [fetchJobs]);
 
+  // ⭐ FILTRO DE JOBS DESDE QUERY PARAM
+  const filteredJobs =
+    statusFilter === "all"
+      ? jobs
+      : statusFilter === "upcoming"
+      ? jobs.filter((j) => new Date(j.scheduled_date) > new Date())
+      : jobs.filter((j) => j.status === statusFilter);
+
+  // ⭐ BOTÓN GRID / LIST
   const ViewToggleButton = () => (
-    <div className="hidden sm:flex justify-end mb-6">
-      {/* 🔥 Toggle solo aparece en desktop/tablet */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
-        className="flex items-center gap-2"
-      >
-        {viewMode === "grid" ? (
-          <List className="w-4 h-4" />
-        ) : (
-          <LayoutGrid className="w-4 h-4" />
-        )}
-      </Button>
-    </div>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+      className="flex items-center gap-2"
+    >
+      {viewMode === "grid" ? (
+        <List className="w-4 h-4" />
+      ) : (
+        <LayoutGrid className="w-4 h-4" />
+      )}
+    </Button>
   );
 
   return (
@@ -99,7 +107,7 @@ export default function StaffJobsView({
           My Jobs
         </h1>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Button
             variant="outline"
             onClick={() => {
@@ -114,35 +122,32 @@ export default function StaffJobsView({
         </div>
       </div>
 
-      {/* LISTA / GRID */}
+      {/* LIST / GRID */}
       {viewMode === "list" ? (
-        <JobList jobs={jobs} openModal={openModal} />
+        <JobList jobs={filteredJobs} openModal={openModal} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {jobs.map((job) => (
+          {filteredJobs.map((job) => (
             <div
               key={job.id}
               onClick={() => router.push(`/jobs/${job.id}`)}
               className="cursor-pointer bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-4 flex flex-col justify-between"
             >
-              {/* Top */}
               <div>
-                <h3 className="font-semibold text-lg text-gray-900 leading-snug">
+                <h3 className="font-semibold text-xl text-gray-900 leading-snug">
                   {job.title}
                 </h3>
 
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-base text-gray-500 mt-1">
                   {job.service_type} •{" "}
                   {job.scheduled_date
                     ? new Date(job.scheduled_date).toLocaleDateString()
                     : "No date"}
                 </p>
 
-                {/* Status + Timers */}
                 <div className="mt-3 space-y-2">
                   <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold inline-block w-fit
-                    ${
+                    className={`px-2 py-1 rounded-full text-xl inline-block w-fit ${
                       job.status === "pending"
                         ? "bg-yellow-100 text-yellow-700"
                         : job.status === "in_progress"
@@ -154,26 +159,25 @@ export default function StaffJobsView({
                   </span>
 
                   {job.status === "in_progress" && (
-                    <div className="bg-blue-50 text-blue-700 text-sm font-semibold px-3 py-2 rounded-lg shadow-sm w-fit">
+                    <div className="bg-blue-50 text-blue-700 text-xl px-4 py-2 rounded-lg shadow-sm w-fit">
                       <JobTimer jobId={job.id} />
                     </div>
                   )}
 
                   {job.status === "completed" && (
-                    <div className="bg-green-50 text-green-700 text-sm font-semibold px-3 py-2 rounded-lg shadow-sm w-fit">
+                    <div className="bg-green-50 text-green-700 text-xl px-4 py-2 rounded-lg shadow-sm w-fit">
                       <JobDuration jobId={job.id} />
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Buttons */}
               <div className="mt-4 text-right">
                 {job.status === "pending" && (
                   <Button
                     size="sm"
                     onClick={(e) => {
-                      e.stopPropagation(); // ⭐ evita redirect
+                      e.stopPropagation();
                       openModal(job.id, "before");
                     }}
                   >

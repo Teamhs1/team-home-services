@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: ["class"], // Modo oscuro activable con classList.toggle('dark')
+  darkMode: ["class"],
   content: [
     "./src/app/**/*.{js,jsx,ts,tsx}",
     "./src/components/**/*.{js,jsx,ts,tsx}",
@@ -8,18 +8,20 @@ module.exports = {
   ],
   theme: {
     extend: {
+      screens: {
+        xs: "420px", // ⭐ Nuevo breakpoint móvil
+      },
       colors: {
-        // 🎨 Colores base del tema TeamHS
         primary: {
-          DEFAULT: "#2563eb", // Azul corporativo
+          DEFAULT: "#2563eb",
           foreground: "#ffffff",
         },
         secondary: {
-          DEFAULT: "#1e3a8a", // Azul profundo
+          DEFAULT: "#1e3a8a",
           foreground: "#ffffff",
         },
         accent: {
-          DEFAULT: "#3b82f6", // Azul intermedio (hover, detalles)
+          DEFAULT: "#3b82f6",
           foreground: "#ffffff",
         },
         muted: {
@@ -35,7 +37,6 @@ module.exports = {
         border: "#e5e7eb",
         input: "#e5e7eb",
         ring: "#2563eb",
-        // Tonos personalizados para charts o badges
         chart: {
           1: "#2563eb",
           2: "#1e40af",

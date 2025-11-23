@@ -171,24 +171,8 @@ export default function JobPhotosPage() {
             jobId={currentJob}
             type={modalType}
             onClose={closeModal}
-            updateStatus={async (jobId, newStatus) => {
-              const supabase = createClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL,
-                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-              );
-
-              await supabase
-                .from("cleaning_jobs")
-                .update({ status: newStatus })
-                .eq("id", jobId);
-            }}
-            fetchJobs={() => {
-              // Si ya tienes una función fetchJobs afuera, úsala:
-              // fetchJobs();
-
-              // Si NO tienes una, puedes dejar este placeholder vacío:
-              console.log("fetchJobs ejecutado");
-            }}
+            updateStatus={null}
+            fetchJobs={null}
           />
         )}
       </AnimatePresence>

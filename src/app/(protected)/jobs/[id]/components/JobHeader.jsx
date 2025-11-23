@@ -5,9 +5,13 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import JobTimer from "../../components/JobTimer";
 import JobDuration from "../../components/JobDuration";
+import { useUser } from "@clerk/nextjs"; // ✅ AGREGADO
 
 export default function JobHeader({ job, router, openModal }) {
   const backLabel = "Volver";
+
+  const { user } = useUser();
+  const role = user?.publicMetadata?.role; // ✅ OBTENER ROL
 
   return (
     <motion.div
@@ -57,14 +61,7 @@ export default function JobHeader({ job, router, openModal }) {
           <Button
             size="sm"
             className="shadow-md"
-            onClick={async () => {
-              await fetch(`/api/jobs/start`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ job_id: job.id }),
-              });
-              router.refresh();
-            }}
+            onClick={() => openModal(job.id, "before")}
           >
             Start Job
           </Button>
@@ -73,9 +70,12 @@ export default function JobHeader({ job, router, openModal }) {
         {/* JOB EN PROGRESO */}
         {job.status === "in_progress" && (
           <>
-            <div className="bg-blue-50 text-blue-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
-              <JobTimer jobId={job.id} />
-            </div>
+            {/* ⏱ OCULTO PARA CLIENTES */}
+            {role !== "client" && (
+              <div className="bg-blue-50 text-blue-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
+                <JobTimer jobId={job.id} />
+              </div>
+            )}
 
             <Button
               size="sm"
@@ -89,7 +89,7 @@ export default function JobHeader({ job, router, openModal }) {
         )}
 
         {/* JOB COMPLETADO */}
-        {job.status === "completed" && (
+        {job.status === "completed" && role !== "client" && (
           <div className="bg-green-50 text-green-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
             <JobDuration jobId={job.id} />
           </div>

@@ -234,10 +234,9 @@ export default function GlobalNavbar() {
               width={40}
               height={40}
               priority
-              className={`rounded-md transition-transform duration-300 group-hover:scale-105 ${
-                pathname === "/" && !navBg ? "brightness-0 invert" : ""
-              }`}
+              className="rounded-md transition-transform duration-300 group-hover:scale-105"
             />
+
             <span className="font-semibold text-lg tracking-tight whitespace-nowrap group-hover:text-blue-600 transition-colors">
               Team Home Services
             </span>
@@ -245,7 +244,14 @@ export default function GlobalNavbar() {
         )}
 
         {/* 🔹 CENTRO */}
-        <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 text-sm font-medium">
+        <div
+          className={`hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 text-sm font-medium 
+  ${
+    pathname === "/" && !navBg
+      ? "text-white"
+      : "text-gray-800 dark:text-gray-200"
+  }`}
+        >
           <a href="/#about" className="hover:text-blue-600 transition-colors">
             About
           </a>

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Card,
   CardHeader,
@@ -29,7 +29,14 @@ export default function AdminJobsView({
 }) {
   const { getClientWithToken } = useSupabaseWithClerk();
 
-  // 🔹 Asignar staff a un trabajo
+  // 🟦 FORZAR GRID EN MÓVIL
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      if (viewMode !== "grid") setViewMode("grid");
+    }
+  }, [viewMode, setViewMode]);
+
+  // 🔹 Asignar staff
   const assignToStaff = async (jobId, assigned_to) => {
     try {
       const supabase = await getClientWithToken();
@@ -49,19 +56,19 @@ export default function AdminJobsView({
   };
 
   return (
-    <main className="px-6 py-10 max-w-[1600px] mx-auto space-y-10">
-      {/* 🔹 Header */}
-      <div className="flex justify-between items-center">
+    <main className="px-4 sm:px-6 py-6 sm:py-10 max-w-[1600px] mx-auto space-y-8 sm:space-y-10">
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           🧽 Jobs Management
         </h1>
 
-        {/* 🔘 Botón de cambio de vista (list/grid) */}
+        {/* BOTÓN — OCULTO EN MÓVIL */}
         <Button
           variant="outline"
           size="sm"
           onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
-          className="flex items-center gap-2"
+          className="hidden sm:flex items-center gap-2"
           title={`Switch to ${viewMode === "grid" ? "List" : "Grid"} View`}
         >
           {viewMode === "grid" ? (
@@ -72,8 +79,8 @@ export default function AdminJobsView({
         </Button>
       </div>
 
-      {/* 🧾 Crear nuevo trabajo */}
-      <Card className="border border-border/50 shadow-md">
+      {/* CREAR JOB */}
+      <Card className="border border-border/50 shadow-md rounded-xl p-2 sm:p-4">
         <CardHeader>
           <CardTitle>Create New Job</CardTitle>
           <CardDescription>Add a new cleaning job.</CardDescription>
@@ -83,10 +90,9 @@ export default function AdminJobsView({
         </CardContent>
       </Card>
 
-      {/* 👁️ Vista list o grid */}
+      {/* VISTA LISTA (OCULTA EN MÓVILES) */}
       {viewMode === "list" ? (
-        // 📋 LIST VIEW
-        <div className="overflow-x-auto bg-white shadow rounded-lg border border-gray-200">
+        <div className="hidden sm:block overflow-x-auto bg-white shadow rounded-lg border border-gray-200 scrollbar-thin scrollbar-thumb-gray-300">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
               <tr>
@@ -197,8 +203,15 @@ export default function AdminJobsView({
           </table>
         </div>
       ) : (
-        // 🟦 GRID VIEW
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        // 🟦 GRID VIEW (ACTIVO EN MOBILE & DESKTOP)
+        <div
+          className="grid gap-4 sm:gap-6 
+            grid-cols-1     /* 📱 Móvil SIEMPRE 1 columna */
+            sm:grid-cols-1  /* 🟦 Tablets también 1 columna */
+            md:grid-cols-2  /* 💻 Desktop pequeño: 2 columnas */
+            lg:grid-cols-3 
+            xl:grid-cols-4"
+        >
           {jobs.length === 0 ? (
             <p className="col-span-full text-center text-gray-500 italic">
               No jobs available.
@@ -207,34 +220,59 @@ export default function AdminJobsView({
             jobs.map((job) => (
               <Card
                 key={job.id}
-                className="border shadow-sm hover:shadow-md transition-all overflow-hidden rounded-xl bg-white"
+                className="relative border shadow-sm hover:shadow-md transition-all rounded-2xl bg-white overflow-hidden"
               >
+                {/* 🖼 Imagen + overlay info */}
                 <div
-                  className="cursor-pointer aspect-video bg-gray-100"
+                  className="cursor-pointer relative aspect-video bg-gray-100"
                   onClick={() => (window.location.href = `/jobs/${job.id}`)}
                 >
                   <Slider jobId={job.id} mini />
+
+                  {/* Badge de cantidad de fotos */}
+                  <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
+                    {job.photo_count || 0} photos
+                  </div>
+
+                  {/* Estado sobre imagen */}
+                  <span
+                    className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm
+        ${
+          job.status === "pending"
+            ? "bg-yellow-300/70 text-black"
+            : job.status === "in_progress"
+            ? "bg-blue-500/70 text-white"
+            : "bg-green-500/70 text-white"
+        }`}
+                  >
+                    {job.status.replace("_", " ")}
+                  </span>
                 </div>
 
-                <CardHeader className="pb-2">
+                {/* 📝 Contenido */}
+                <CardHeader className="pb-1">
                   <CardTitle className="text-lg font-semibold truncate">
                     {job.title}
                   </CardTitle>
+
                   <CardDescription className="flex items-center gap-2 text-xs text-gray-500">
                     <CalendarDays className="w-3 h-3" />
                     {job.scheduled_date || "No date"}
                   </CardDescription>
                 </CardHeader>
 
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-3 pt-1">
+                  {/* Tipo */}
                   <p className="text-sm capitalize text-gray-700">
-                    <strong>Type:</strong> {job.service_type || "standard"}
+                    <strong className="text-gray-800">Type:</strong>{" "}
+                    {job.service_type}
                   </p>
 
+                  {/* Staff */}
                   <div className="flex items-center gap-2 text-sm text-gray-700">
-                    <User className="w-4 h-4" />
+                    <User className="w-4 h-4 text-gray-500" />
                     <select
-                      className="border rounded-md p-1 text-xs flex-1"
+                      className="border rounded-md p-1 text-xs flex-1 focus:ring-primary focus:border-primary"
                       value={job.assigned_to || ""}
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) =>
@@ -250,46 +288,23 @@ export default function AdminJobsView({
                     </select>
                   </div>
 
-                  <span
-                    className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                      job.status === "pending"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : job.status === "in_progress"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-green-100 text-green-700"
-                    }`}
-                  >
-                    {job.status.replace("_", " ")}
-                  </span>
-
-                  {/* Estado + Timer + Duración */}
-                  <div className="space-y-2">
-                    <span
-                      className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                        job.status === "pending"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : job.status === "in_progress"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {job.status.replace("_", " ")}
-                    </span>
-
+                  {/* Timer / Duración */}
+                  <div>
                     {job.status === "in_progress" && (
-                      <div className="bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-lg shadow-sm w-fit">
-                        <JobTimer jobId={job.id} status="in_progress" />
+                      <div className="inline-block bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                        <JobTimer jobId={job.id} />
                       </div>
                     )}
 
                     {job.status === "completed" && (
-                      <div className="bg-green-50 text-green-700 text-xs font-semibold px-3 py-1 rounded-lg shadow-sm w-fit">
-                        <JobDuration jobId={job.id} status="completed" />
+                      <div className="inline-block bg-green-50 text-green-700 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                        <JobDuration jobId={job.id} />
                       </div>
                     )}
                   </div>
 
-                  <div className="flex justify-end">
+                  {/* Botón Delete */}
+                  <div className="pt-1 flex justify-end">
                     <Button
                       size="sm"
                       variant="destructive"

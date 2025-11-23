@@ -1,5 +1,6 @@
 "use client";
 import Slider from "@/components/Slider";
+import { useRouter } from "next/navigation";
 
 import SafeClerkWrapper from "@/components/SafeClerkWrapper";
 import { useEffect, useState, useMemo, useRef } from "react";
@@ -48,6 +49,7 @@ export default function StaffView() {
 }
 
 function StaffDashboard({ user, role }) {
+  const router = useRouter(); // ⭐ NECESARIO
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -192,28 +194,51 @@ function StaffDashboard({ user, role }) {
 
       {/* Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          icon={<ClipboardList className="text-primary" />}
-          label="Assigned Jobs"
-          value={stats.total}
-        />
-        <StatCard
-          icon={<Clock className="text-yellow-500" />}
-          label="Pending"
-          value={stats.pending}
-        />
-        <StatCard
-          icon={<CheckCircle2 className="text-green-600" />}
-          label="Completed"
-          value={stats.completed}
-        />
-        <StatCard
-          icon={<CalendarDays className="text-blue-600" />}
-          label="Upcoming"
-          value={
-            jobs.filter((j) => new Date(j.scheduled_date) > new Date()).length
-          }
-        />
+        <div
+          onClick={() => router.push("/jobs?status=all")}
+          className="cursor-pointer"
+        >
+          <StatCard
+            icon={<ClipboardList className="text-primary" />}
+            label="Assigned Jobs"
+            value={stats.total}
+          />
+        </div>
+
+        <div
+          onClick={() => router.push("/jobs?status=pending")}
+          className="cursor-pointer"
+        >
+          <StatCard
+            icon={<Clock className="text-yellow-500" />}
+            label="Pending"
+            value={stats.pending}
+          />
+        </div>
+
+        <div
+          onClick={() => router.push("/jobs?status=completed")}
+          className="cursor-pointer"
+        >
+          <StatCard
+            icon={<CheckCircle2 className="text-green-600" />}
+            label="Completed"
+            value={stats.completed}
+          />
+        </div>
+
+        <div
+          onClick={() => router.push("/jobs?status=upcoming")}
+          className="cursor-pointer"
+        >
+          <StatCard
+            icon={<CalendarDays className="text-blue-600" />}
+            label="Upcoming"
+            value={
+              jobs.filter((j) => new Date(j.scheduled_date) > new Date()).length
+            }
+          />
+        </div>
       </div>
 
       {/* 📈 Weekly Progress */}

@@ -108,7 +108,7 @@ export default function HomePage() {
   // 🏡 LANDING PAGE
   return (
     <main className="relative min-h-screen text-white overflow-x-hidden">
-      {/* 🔹 Hero */}
+      {/* 🔹 HERO NUEVO — ULTRA LEGIBLE */}
       <section
         className="relative flex flex-col items-center justify-center h-screen text-center"
         style={{
@@ -118,36 +118,44 @@ export default function HomePage() {
           backgroundPosition: "center",
         }}
       >
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+        {/* 🔹 Overlay más oscuro y con degradado más suave */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/40 backdrop-blur-[2px]" />
+
         <motion.div
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="relative z-10 mt-10 px-6 max-w-3xl"
+          className="relative z-10 px-6 max-w-3xl mx-auto"
         >
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 drop-shadow-lg">
-            Cleaning & Property Care Made Easy
-          </h1>
-          <p className="text-lg md:text-xl text-gray-100 mb-10 leading-relaxed">
-            Fast, reliable, and professional services for homes and rental
-            units.
-            <br />
-            <span className="block text-2xl font-semibold mt-2 text-white">
-              We take care of the details so you don’t have to.
+          {/* TÍTULO — más glow y más spacing */}
+          <h1 className="text-4xl md:text-6xl font-extrabold mb-6 leading-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.7)]">
+            Professional Cleaning
+            <span className="block text-blue-300 drop-shadow-[0_3px_8px_rgba(0,0,0,0.9)]">
+              For Homes & Rentals
             </span>
+          </h1>
+
+          {/* SUBTÍTULO — tamaño ligeramente mayor y mayor contraste */}
+          <p className="text-lg md:text-2xl text-gray-100 mb-10 leading-relaxed max-w-2xl mx-auto drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)]">
+            Fast, reliable and detailed cleaning for property managers,
+            landlords, homeowners and renters across Moncton, Dieppe and
+            Riverview.
           </p>
+
+          {/* BOTONES — tamaño más balanceado y más shadows */}
           <div className="flex justify-center gap-4 flex-wrap">
-            {/*  -----------------------------------------Seccion comentada temporalmente -----------------------------------------
-            <SignUpButton mode="modal">
-              <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-lg transition">
-                Get Started
-              </button>
-            </SignUpButton>*/}
             <a
-              href="#about"
-              className="px-6 py-3 bg-white/90 hover:bg-white text-blue-700 font-semibold rounded-lg shadow-lg transition"
+              href="#services"
+              className="px-7 py-3 bg-white text-blue-700 font-semibold rounded-full shadow-xl hover:shadow-2xl hover:bg-blue-50 transition"
             >
-              Learn More
+              View Services
+            </a>
+
+            <a
+              href="#contact"
+              className="px-7 py-3 bg-blue-600 text-white font-semibold rounded-full shadow-xl hover:bg-blue-700 hover:shadow-2xl transition"
+            >
+              Get a Quote
             </a>
           </div>
         </motion.div>
