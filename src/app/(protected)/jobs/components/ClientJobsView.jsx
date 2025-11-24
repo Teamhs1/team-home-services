@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 export default function ClientJobsView({
   customerJobs,
@@ -27,13 +28,16 @@ export default function ClientJobsView({
   setForm,
   createCustomerJob,
   fetchCustomerJobs,
-  handleRealtimeUpdate, // ✅ nuevo prop desde useCustomerJobs
+  handleRealtimeUpdate,
   clerkId,
   getToken,
   viewMode,
   setViewMode,
 }) {
-  // ✅ Suscripción Realtime optimizada
+  const searchParams = useSearchParams();
+  const status = searchParams.get("status") || "all";
+
+  // ⭐ Realtime
   useEffect(() => {
     if (!clerkId) return;
 
@@ -112,12 +116,18 @@ export default function ClientJobsView({
     initRealtime();
   }, [clerkId, getToken, handleRealtimeUpdate]);
 
-  // ✅ Eliminar duplicados antes de renderizar
+  // ⭐ Quitar duplicados
   const uniqueJobs = Array.from(
     new Map(customerJobs.map((j) => [j.id, j])).values()
   );
 
-  // 🧹 Render principal
+  // ⭐ FILTRO POR STATUS
+  const filteredJobs =
+    status === "all"
+      ? uniqueJobs
+      : uniqueJobs.filter((job) => job.status === status);
+
+  // ⭐ Render
   return (
     <main className="px-6 md:px-12 lg:px-16 xl:px-20 py-10 max-w-[1600px] mx-auto space-y-10">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -126,7 +136,7 @@ export default function ClientJobsView({
         </h1>
       </div>
 
-      {/* 🧾 Request a Cleaning */}
+      {/* Request a Cleaning */}
       <Card className="border border-border/50 shadow-md">
         <CardHeader>
           <CardTitle>Request a Cleaning</CardTitle>
@@ -191,7 +201,7 @@ export default function ClientJobsView({
         </CardContent>
       </Card>
 
-      {/* 🧾 Job List */}
+      {/* Job List */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-semibold">My Requests</h2>
@@ -200,7 +210,6 @@ export default function ClientJobsView({
             size="sm"
             onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
             className="flex items-center gap-2"
-            title={`Switch to ${viewMode === "grid" ? "List" : "Grid"} View`}
           >
             {viewMode === "grid" ? (
               <List className="w-4 h-4" />
@@ -214,8 +223,10 @@ export default function ClientJobsView({
           <div className="flex justify-center py-10">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
-        ) : uniqueJobs.length === 0 ? (
-          <p className="text-gray-500 text-sm">No cleaning requests yet.</p>
+        ) : filteredJobs.length === 0 ? (
+          <p className="text-gray-500 text-sm">
+            No cleaning requests found for this filter.
+          </p>
         ) : viewMode === "list" ? (
           <div className="overflow-x-auto bg-white shadow rounded-lg border border-gray-200">
             <table className="min-w-full text-sm">
@@ -228,7 +239,7 @@ export default function ClientJobsView({
                 </tr>
               </thead>
               <tbody>
-                {uniqueJobs.map((job, idx) =>
+                {filteredJobs.map((job, idx) =>
                   job.deleted ? null : (
                     <tr
                       key={`${job.id}-${idx}`}
@@ -263,7 +274,7 @@ export default function ClientJobsView({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {uniqueJobs
+            {filteredJobs
               .filter((j) => !j.deleted)
               .map((job, idx) => (
                 <Link

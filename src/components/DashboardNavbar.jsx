@@ -13,7 +13,7 @@ export default function DashboardNavbar() {
   // Detectar mobile
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
-  // Detectar sección principal
+  // Resolver sección actual
   const getSection = () => {
     if (pathname.startsWith("/admin")) return "admin";
     if (pathname.startsWith("/settings")) return "settings";
@@ -24,12 +24,12 @@ export default function DashboardNavbar() {
 
   const section = getSection();
 
-  // SUBNAV
+  // Tabs por sección
   const subNav = {
     dashboard: [],
 
     jobs: [
-      { label: "All Jobs", href: "/jobs?status=all", key: "all" },
+      { label: "All Jobs", href: "/jobs", key: "all" },
       { label: "Completed", href: "/jobs?status=completed", key: "completed" },
       { label: "Pending", href: "/jobs?status=pending", key: "pending" },
       {
@@ -54,13 +54,14 @@ export default function DashboardNavbar() {
 
   const activeTabs = subNav[section] || [];
 
+  // No subnav → no navbar
   if (!activeTabs.length) return null;
 
-  const status = searchParams.get("status") || "all";
+  // Leer ?status=
+  const status = searchParams.get("status");
 
-  // ⭐ Igual que tu GlobalNavbar
+  // Estilos según sidebar
   const marginLeft = isMobile ? "0" : isSidebarOpen ? "16rem" : "5rem";
-
   const width = isMobile
     ? "100%"
     : isSidebarOpen
@@ -78,10 +79,26 @@ export default function DashboardNavbar() {
       style={{ marginLeft, width }}
     >
       {activeTabs.map((tab) => {
-        const isActive =
-          (section === "jobs" && tab.key === status) ||
-          pathname === tab.href ||
-          pathname.startsWith(`${tab.href}/`);
+        let isActive = false;
+
+        // ⭐ LÓGICA ESPECIAL PARA JOBS
+        if (section === "jobs") {
+          const qs = status;
+
+          // /jobs → active = all
+          if (!qs && tab.key === "all") {
+            isActive = true;
+          }
+
+          // /jobs?status=completed (etc)
+          if (qs === tab.key) {
+            isActive = true;
+          }
+        } else {
+          // ⭐ Lógica normal para admin/settings
+          isActive =
+            pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+        }
 
         return (
           <Link

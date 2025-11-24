@@ -79,9 +79,10 @@ export default function MobileBottomNav() {
       {
         label: "Request",
         icon: PlusCircle,
-        href: "/jobs/create",
+        href: "/request-cleaning",
         center: true,
       },
+
       { label: "Inbox", icon: Mail, href: "/messages" },
       { label: "Profile", icon: User, href: "/profile" },
     ];

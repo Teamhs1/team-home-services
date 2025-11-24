@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Loader2, ClipboardList, CalendarDays, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Card,
@@ -27,6 +28,7 @@ import { Button } from "@/components/ui/button";
 export default function CustomerDashboard() {
   const { isLoaded, user } = useUser();
   const { getToken } = useAuth();
+  const router = useRouter();
 
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,19 +41,26 @@ export default function CustomerDashboard() {
   const clerkId = user?.id;
   const role = user?.publicMetadata?.role || "client";
 
-  // ✅ Cliente autenticado de Supabase
+  // ========================================
+  // SUPABASE AUTH CLIENT
+  // ========================================
   const createSupabaseClient = useCallback(async () => {
     if (!isLoaded) return null;
     const token = await getToken({ template: "supabase" });
     if (!token) throw new Error("No token from Clerk");
+
     return createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      { global: { headers: { Authorization: `Bearer ${token}` } } }
+      {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      }
     );
   }, [getToken, isLoaded]);
 
-  // 📦 Cargar trabajos creados por el cliente
+  // ========================================
+  // LOAD JOBS
+  // ========================================
   const fetchJobs = useCallback(async () => {
     try {
       setLoading(true);
@@ -74,7 +83,9 @@ export default function CustomerDashboard() {
     }
   }, [createSupabaseClient, clerkId]);
 
-  // 🧩 Crear nueva solicitud
+  // ========================================
+  // CREATE JOB REQUEST
+  // ========================================
   const createJobRequest = useCallback(
     async (newJob) => {
       try {
@@ -93,6 +104,7 @@ export default function CustomerDashboard() {
         ]);
 
         if (error) throw error;
+
         toast.success("✅ Request submitted successfully!");
         await fetchJobs();
         setNewJob({ title: "", service_type: "", property_address: "" });
@@ -112,34 +124,47 @@ export default function CustomerDashboard() {
     fetchJobs();
   }, [isLoaded, user, role, fetchJobs]);
 
-  // 📊 Métricas
+  // ========================================
+  // STATS
+  // ========================================
   const stats = useMemo(() => {
     const total = jobs.length;
     const pending = jobs.filter((j) => j.status === "pending").length;
     const inProgress = jobs.filter((j) => j.status === "in_progress").length;
     const completed = jobs.filter((j) => j.status === "completed").length;
+
     return { total, pending, inProgress, completed };
   }, [jobs]);
 
-  // 📅 Gráfico semanal
+  // ========================================
+  // WEEKLY CHART DATA
+  // ========================================
   const weeklyData = useMemo(() => {
     const map = {};
+
     jobs.forEach((job) => {
       if (!job.created_at) return;
+
       const date = new Date(job.created_at);
       const week = date.toLocaleDateString("en-CA", {
         month: "short",
         day: "numeric",
       });
+
       map[week] = map[week] || { date: week, completed: 0, pending: 0 };
+
       if (job.status === "completed") map[week].completed++;
       if (job.status === "pending") map[week].pending++;
     });
+
     return Object.values(map).sort(
       (a, b) => new Date(a.date) - new Date(b.date)
     );
   }, [jobs]);
 
+  // ========================================
+  // LOADING STATE
+  // ========================================
   if (!isLoaded || loading)
     return (
       <div className="flex items-center justify-center h-screen">
@@ -147,6 +172,9 @@ export default function CustomerDashboard() {
       </div>
     );
 
+  // ========================================
+  // UI
+  // ========================================
   return (
     <main className="pt-6 md:pt-10 max-w-7xl mx-auto space-y-10">
       {/* Header */}
@@ -157,34 +185,38 @@ export default function CustomerDashboard() {
         </h2>
       </div>
 
-      {/* 📊 Métricas */}
+      {/* METRICS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Requests"
           value={stats.total}
           desc="All my jobs"
+          href="/jobs"
         />
         <StatCard
           title="Pending"
           value={stats.pending}
           desc="Awaiting start"
           color="text-yellow-600"
+          href="/jobs?status=pending"
         />
         <StatCard
           title="In Progress"
           value={stats.inProgress}
           desc="Currently active"
           color="text-blue-600"
+          href="/jobs?status=in_progress"
         />
         <StatCard
           title="Completed"
           value={stats.completed}
           desc="Finished successfully"
           color="text-green-600"
+          href="/jobs?status=completed"
         />
       </div>
 
-      {/* 📈 Gráfico semanal */}
+      {/* WEEKLY CHART */}
       <Card className="border border-border/50 shadow-md">
         <CardHeader>
           <CardTitle>Weekly Performance</CardTitle>
@@ -211,7 +243,7 @@ export default function CustomerDashboard() {
         </CardContent>
       </Card>
 
-      {/* 🧾 Trabajos recientes */}
+      {/* RECENT JOBS */}
       <Card className="border border-border/50 shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -231,18 +263,16 @@ export default function CustomerDashboard() {
               {jobs.slice(0, 10).map((job) => (
                 <li
                   key={job.id}
-                  className="py-4 flex items-center justify-between gap-4 text-sm hover:bg-gray-50 rounded-lg px-2 transition"
+                  className="py-4 flex items-center justify-between gap-4 text-sm hover:bg-gray-50 rounded-lg px-2 transition cursor-pointer"
+                  onClick={() => router.push(`/jobs/${job.id}`)}
                 >
-                  {/* 🔹 Slider MINI como Admin */}
-                  <div className="relative w-40 h-40 rounded-xl bg-gray-100 shadow-sm overflow-hidden flex-shrink-0">
+                  {/* Slider */}
+                  <div className="relative w-40 h-40 rounded-xl bg-gray-100 shadow-sm overflow-hidden flex-shrink-0 pointer-events-none">
                     <Slider jobId={job.id} mini disableFullscreen />
                   </div>
 
-                  {/* 🔹 Info clickeable */}
-                  <div
-                    className="flex-1 cursor-pointer"
-                    onClick={() => (window.location.href = `/jobs/${job.id}`)}
-                  >
+                  {/* Info */}
+                  <div className="flex-1">
                     <p className="font-semibold text-gray-900 truncate">
                       {job.title || "Untitled Job"}
                     </p>
@@ -254,7 +284,7 @@ export default function CustomerDashboard() {
                     </p>
                   </div>
 
-                  {/* 🔹 Status */}
+                  {/* Status */}
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-semibold ${
                       job.status === "completed"
@@ -276,17 +306,30 @@ export default function CustomerDashboard() {
   );
 }
 
-/* ✅ Componente para tarjetas de métricas */
-function StatCard({ title, value, desc, color }) {
+/* ======================================================
+   CLICKABLE STAT CARD (UPDATED)
+====================================================== */
+function StatCard({ title, value, desc, color, href }) {
+  const router = useRouter();
+
   return (
-    <Card className="border border-border/50 shadow-md">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{desc}</CardDescription>
-      </CardHeader>
-      <CardContent className={`text-3xl font-bold ${color || ""}`}>
-        {value}
-      </CardContent>
-    </Card>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => href && router.push(href)}
+      onKeyDown={(e) => e.key === "Enter" && href && router.push(href)}
+      className="cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg"
+    >
+      <Card className="border border-border/50 shadow-md">
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{desc}</CardDescription>
+        </CardHeader>
+
+        <CardContent className={`text-3xl font-bold ${color || ""}`}>
+          {value}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
