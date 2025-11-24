@@ -113,7 +113,7 @@ export default function DashboardPage() {
   // 🧭 Vista para admin con botón de prueba integrado
   if (role === "admin") {
     return (
-      <main className="px-6 md:px-12 lg:px-16 xl:px-20 py-10 max-w-[1600px] mx-auto space-y-10">
+      <main className="pt-32 md:pt-36 px-6 md:px-12 lg:px-16 xl:px-20 max-w-[1600px] mx-auto space-y-10">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
         </div>

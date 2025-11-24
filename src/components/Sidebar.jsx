@@ -141,8 +141,8 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed top-0 left-0 h-screen bg-white border-r border-gray-200
-        flex flex-col justify-between shadow-sm transform transition-all duration-300 z-[50]`}
+      className={`hidden md:flex fixed top-0 left-0 h-screen bg-white border-r border-gray-200
+        flex-col justify-between shadow-sm transform transition-all duration-300 z-[50]`}
       style={{ width: isOpen ? "16rem" : "5rem" }}
     >
       {/* 🔹 Header con logo */}
@@ -224,8 +224,18 @@ export default function Sidebar() {
 
               {!isOpen && (
                 <span
-                  className="absolute left-14 opacity-0 group-hover:opacity-100 bg-gray-900 text-white text-xs px-2 py-1 rounded-md pointer-events-none transition-opacity duration-300"
-                  style={{ whiteSpace: "nowrap" }}
+                  className="
+      fixed
+      left-[72px]
+      top-auto
+      py-1 px-2
+      whitespace-nowrap
+      bg-gray-900 text-white text-xs rounded-md shadow-lg
+      opacity-0 group-hover:opacity-100
+      pointer-events-none
+      transition-opacity duration-150
+      z-[99999]
+    "
                 >
                   {item.name}
                 </span>

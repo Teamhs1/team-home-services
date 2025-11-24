@@ -5,6 +5,9 @@ import ConditionalNavbar from "@/components/ConditionalNavbar";
 import { Toaster } from "sonner";
 import "@/app/globals.css";
 
+// 👇 Nuevo import
+import MobileBottomNav from "@/components/MobileBottomNav";
+
 export const metadata = {
   title: {
     default: "Team Home Services | Cleaning Services in Moncton NB",
@@ -140,7 +143,11 @@ export default function RootLayout({ children }) {
           <SidebarProvider>
             <SupabaseProvider>
               <ConditionalNavbar />
-              <main className="relative">{children}</main>
+              <main className="relative min-h-screen pb-24">{children}</main>
+
+              {/* 👇 Agregado: Bottom Navigation estilo App */}
+              <MobileBottomNav />
+
               <Toaster position="bottom-right" richColors />
             </SupabaseProvider>
           </SidebarProvider>

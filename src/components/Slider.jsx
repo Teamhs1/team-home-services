@@ -26,6 +26,7 @@ const getImageUrl = (src) => {
       .replace(/\)/g, "%29")
       .replace(/#/g, "%23");
   }
+
   const clean = src
     .replace(/^\/?storage\/v1\/object\/public\/job-photos\//, "")
     .replace(/^job-photos\//, "")
@@ -60,6 +61,7 @@ const shimmer = `
     <rect id="r" width="700" height="475" fill="url(#g)" />
     <animate xlink:href="#r" attributeName="x" from="-700" to="700" dur="1.2s" repeatCount="indefinite" />
   </svg>`;
+
 const toBase64 = (str) =>
   typeof window === "undefined"
     ? Buffer.from(str).toString("base64")
@@ -112,10 +114,17 @@ export default function Slider({
   }, [jobId]);
 
   // =============================================
-  //  Navegación suave sin frenos
+  //  Navegación suave sin frenos — FIX aplicado
   // =============================================
+  const safeStop = (e) => {
+    if (e && typeof e.stopPropagation === "function") {
+      e.stopPropagation();
+    }
+  };
+
   const next = (e) => {
-    e?.stopPropagation();
+    safeStop(e);
+
     if (index < images.length - 1) {
       setDirection(1);
       setIndex((i) => i + 1);
@@ -123,7 +132,8 @@ export default function Slider({
   };
 
   const prev = (e) => {
-    e?.stopPropagation();
+    safeStop(e);
+
     if (index > 0) {
       setDirection(-1);
       setIndex((i) => i - 1);
@@ -131,8 +141,8 @@ export default function Slider({
   };
 
   const handlers = useSwipeable({
-    onSwipedLeft: next,
-    onSwipedRight: prev,
+    onSwipedLeft: () => next(),
+    onSwipedRight: () => prev(),
     trackMouse: true,
     preventScrollOnSwipe: true,
   });
@@ -165,7 +175,7 @@ export default function Slider({
     );
 
   // =============================================
-  //  RENDER
+  //  Render
   // =============================================
   return (
     <>
@@ -175,7 +185,7 @@ export default function Slider({
         {...handlers}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onClick={(e) => {
+        onClick={() => {
           if (!isFullscreen) router.push(`/jobs/${jobId}`);
         }}
         className={`relative w-full overflow-hidden rounded-2xl ${
@@ -201,7 +211,7 @@ export default function Slider({
             }}
             transition={{
               duration: 0.28,
-              ease: [0.25, 0.1, 0.25, 1], // easeInOut suave
+              ease: [0.25, 0.1, 0.25, 1],
             }}
             className="absolute inset-0"
           >
@@ -232,18 +242,19 @@ export default function Slider({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: hovered ? 1 : 0 }}
                 transition={{ duration: 0.25 }}
-                onClick={(e) => prev(e)}
+                onClick={prev}
                 className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/70 p-1.5 rounded-full shadow backdrop-blur"
               >
                 <ChevronLeft className="h-5 w-5" />
               </motion.button>
             )}
+
             {index < images.length - 1 && (
               <motion.button
                 initial={{ opacity: 0 }}
                 animate={{ opacity: hovered ? 1 : 0 }}
                 transition={{ duration: 0.25 }}
-                onClick={(e) => next(e)}
+                onClick={next}
                 className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/70 p-1.5 rounded-full shadow backdrop-blur"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -252,14 +263,14 @@ export default function Slider({
           </>
         )}
 
-        {/* Botón fullscreen */}
+        {/* Fullscreen */}
         {!disableFullscreen && (
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: hovered ? 1 : 0 }}
             transition={{ duration: 0.25 }}
             onClick={(e) => {
-              e.stopPropagation();
+              safeStop(e);
               setIsFullscreen(true);
             }}
             className="absolute right-2 top-2 bg-white/60 p-1.5 rounded-full shadow backdrop-blur"

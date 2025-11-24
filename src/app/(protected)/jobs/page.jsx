@@ -6,6 +6,8 @@ import { Loader2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
+import { useSearchParams } from "next/navigation"; // ⭐ NUEVO
+
 import { useJobs } from "./hooks/useJobs";
 import { useStaff } from "./hooks/useStaff";
 
@@ -20,6 +22,9 @@ export default function JobsPage() {
 
   const clerkId = user?.id;
   const role = user?.publicMetadata?.role || "client";
+
+  const searchParams = useSearchParams(); // ⭐
+  const activeStatus = searchParams.get("status") || "all"; // ⭐
 
   const { jobs, loading, fetchJobs, updateStatus, deleteJob } = useJobs({
     clerkId,
@@ -39,14 +44,14 @@ export default function JobsPage() {
   const [customerLoading, setCustomerLoading] = useState(false);
   const [viewMode, setViewMode] = useState(() => "list");
 
-  // ✅ Forzar vista "list" si el usuario es admin o staff
+  // Forzar vista list si admin/staff
   useEffect(() => {
     if (role === "admin" || role === "staff") {
       setViewMode("list");
     }
   }, [role]);
 
-  // ✅ Cargar datos iniciales
+  // Load initial data
   useEffect(() => {
     if (!ready || !clerkId) return;
 
@@ -69,7 +74,7 @@ export default function JobsPage() {
 
   const filteredJobs = useMemo(() => jobs || [], [jobs]);
 
-  // 🧩 Cargar trabajos del cliente
+  // Cliente — cargar trabajos
   async function fetchCustomerJobs() {
     if (role !== "client") return;
     setCustomerLoading(true);
@@ -97,7 +102,7 @@ export default function JobsPage() {
     }
   }
 
-  // 🧾 Crear trabajo del cliente
+  // Cliente — crear job
   async function createCustomerJob() {
     if (!form.title || !form.service_type || !form.scheduled_date) {
       toast.error("Please fill all required fields.");
@@ -146,139 +151,7 @@ export default function JobsPage() {
     }
   }
 
-  // ✅ Realtime para CLIENT
-  useEffect(() => {
-    if (role !== "client" || !clerkId) return;
-
-    const initRealtime = async () => {
-      try {
-        const token = await getToken({ template: "supabase" });
-        if (!token) return console.warn("⚠️ No token for realtime (client)");
-
-        const supabaseRealtime = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        );
-
-        await supabaseRealtime.auth.setSession({ access_token: token });
-
-        const channel = supabaseRealtime
-          .channel(`client_jobs_${clerkId}`)
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "cleaning_jobs",
-              filter: `created_by=eq.${clerkId}`,
-            },
-            (payload) => {
-              const { eventType, new: newJob, old: oldJob } = payload;
-              console.log("📡 Client Realtime Event:", eventType, newJob);
-
-              setCustomerJobs((prev) => {
-                if (eventType === "INSERT") return [newJob, ...prev];
-                if (eventType === "UPDATE")
-                  return prev.map((j) => (j.id === newJob.id ? newJob : j));
-                if (eventType === "DELETE")
-                  return prev.filter((j) => j.id !== oldJob.id);
-                return prev;
-              });
-
-              // 💬 Feedback visual
-              if (eventType === "UPDATE") {
-                if (newJob.status === "in_progress")
-                  toast.info("🧽 Your cleaning has started!");
-                else if (newJob.status === "completed")
-                  toast.success("✨ Cleaning completed!");
-              }
-            }
-          )
-          .subscribe((status) =>
-            console.log("📶 Client realtime channel status:", status)
-          );
-
-        return () => {
-          supabaseRealtime.removeChannel(channel);
-          console.log("❌ Unsubscribed from client realtime");
-        };
-      } catch (err) {
-        console.error("❌ Error in client realtime:", err);
-      }
-    };
-
-    initRealtime();
-  }, [role, clerkId, getToken]);
-
-  // ✅ Realtime para STAFF
-  useEffect(() => {
-    if (role !== "staff" || !clerkId) return;
-
-    const initRealtimeStaff = async () => {
-      try {
-        const token = await getToken({ template: "supabase" });
-        if (!token) return console.warn("⚠️ No token for realtime (staff)");
-
-        const supabaseRealtime = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        );
-
-        await supabaseRealtime.auth.setSession({ access_token: token });
-
-        const channel = supabaseRealtime
-          .channel(`staff_jobs_${clerkId}`)
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "cleaning_jobs",
-              filter: `assigned_to=eq.${clerkId}`,
-            },
-            (payload) => {
-              const { eventType, new: newJob, old: oldJob } = payload;
-              console.log("📡 Staff Realtime Event:", eventType, newJob);
-
-              // 🔄 Actualizar lista local
-              if (eventType === "INSERT") fetchJobs();
-              if (eventType === "UPDATE" || eventType === "DELETE") fetchJobs();
-
-              // 💬 Toasts informativos
-              if (eventType === "UPDATE") {
-                if (newJob.status === "in_progress") {
-                  toast.info("🚀 Job started!", {
-                    description: newJob.title,
-                  });
-                } else if (newJob.status === "completed") {
-                  toast.success("✅ Job completed!", {
-                    description: newJob.title,
-                  });
-                } else {
-                  toast.message("🔁 Job updated", {
-                    description: newJob.title,
-                  });
-                }
-              }
-            }
-          )
-          .subscribe((status) =>
-            console.log("📶 Staff realtime channel status:", status)
-          );
-
-        return () => {
-          supabaseRealtime.removeChannel(channel);
-          console.log("❌ Unsubscribed from staff realtime");
-        };
-      } catch (err) {
-        console.error("❌ Error in staff realtime:", err);
-      }
-    };
-
-    initRealtimeStaff();
-  }, [role, clerkId, getToken, fetchJobs]);
-
-  // 🕐 Spinner de carga inicial
+  // Loading Spinner
   if (!ready || loading)
     return (
       <div className="flex items-center justify-center h-screen">
@@ -286,7 +159,7 @@ export default function JobsPage() {
       </div>
     );
 
-  // ✅ Render principal
+  // Render principal
   return (
     <div className="pt-24 px-4 md:px-6 lg:px-8">
       {filteredJobs.length === 0 && role !== "client" && (
@@ -304,6 +177,7 @@ export default function JobsPage() {
           fetchJobs={fetchJobs}
           updateStatus={updateStatus}
           deleteJob={deleteJob}
+          activeStatus={activeStatus} // ⭐
         />
       ) : role === "staff" ? (
         <StaffJobsView
@@ -312,6 +186,7 @@ export default function JobsPage() {
           setViewMode={setViewMode}
           updateStatus={updateStatus}
           fetchJobs={fetchJobs}
+          activeStatus={activeStatus} // ⭐
         />
       ) : (
         <ClientJobsView
@@ -325,6 +200,7 @@ export default function JobsPage() {
           viewMode={viewMode}
           setViewMode={setViewMode}
           getToken={getToken}
+          activeStatus={activeStatus} // ⭐
         />
       )}
     </div>

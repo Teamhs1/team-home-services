@@ -1,5 +1,5 @@
 "use client";
-
+import { useRouter } from "next/navigation";
 import Slider from "@/components/Slider";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -233,7 +233,7 @@ export default function AdminDashboard() {
     );
 
   return (
-    <main className="pt-6 md:pt-10 max-w-7xl mx-auto space-y-10">
+    <main className="pt-24 md:pt-28 max-w-7xl mx-auto px-4 space-y-10">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -253,24 +253,35 @@ export default function AdminDashboard() {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
       >
-        <StatCard title="Total Jobs" value={stats.total} desc="All jobs" />
+        <StatCard
+          title="Total Jobs"
+          value={stats.total}
+          desc="All jobs"
+          href="/jobs"
+        />
+
         <StatCard
           title="Pending"
           value={stats.pending}
           desc="Awaiting start"
           color="text-yellow-600"
+          href="/jobs?status=pending"
         />
+
         <StatCard
           title="In Progress"
           value={stats.inProgress}
           desc="Currently active"
           color="text-blue-600"
+          href="/jobs?status=in_progress"
         />
+
         <StatCard
           title="Completed"
           value={stats.completed}
           desc="Finished successfully"
           color="text-green-600"
+          href="/jobs?status=completed"
         />
       </motion.div>
 
@@ -338,22 +349,33 @@ export default function AdminDashboard() {
 }
 
 /* --- Subcomponentes --- */
+function StatCard({ title, value, desc, color, href }) {
+  const router = useRouter();
 
-function StatCard({ title, value, desc, color }) {
   return (
-    <Card className="shadow-sm border border-border/40 hover:shadow-md transition-all">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-gray-600">
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className={`text-3xl font-bold ${color || ""}`}>
-        {value}
-      </CardContent>
-      <CardDescription className="px-6 pb-4 text-xs text-gray-500">
-        {desc}
-      </CardDescription>
-    </Card>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => href && router.push(href)}
+      onKeyDown={(e) => e.key === "Enter" && href && router.push(href)}
+      className="cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg"
+    >
+      <Card className="shadow-sm border border-border/40">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-gray-600">
+            {title}
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className={`text-3xl font-bold ${color || ""}`}>
+          {value}
+        </CardContent>
+
+        <CardDescription className="px-6 pb-4 text-xs text-gray-500">
+          {desc}
+        </CardDescription>
+      </Card>
+    </div>
   );
 }
 

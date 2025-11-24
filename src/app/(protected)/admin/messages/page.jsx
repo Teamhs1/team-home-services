@@ -51,7 +51,7 @@ export default function MessagesPage() {
     );
 
   return (
-    <main className="max-w-5xl mx-auto px-6 pt-32 pb-10">
+    <main className="w-full px-4 pt-32 pb-24 md:max-w-5xl md:mx-auto">
       {/* Título */}
       <div className="flex items-center gap-3 mb-6">
         <Mail className="w-6 h-6 text-primary" />

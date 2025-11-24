@@ -206,8 +206,21 @@ export default function GlobalNavbar() {
     pathname?.startsWith("/profile") ||
     pathname?.startsWith("/settings");
 
-  const marginLeft = isPrivatePage ? (isSidebarOpen ? "16rem" : "5rem") : "0";
-  const width = isPrivatePage
+  // Detectar mobile (para ignorar sidebar)
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
+  // En mobile → navbar siempre 100% ancho y sin márgenes
+  const marginLeft = isMobile
+    ? "0"
+    : isPrivatePage
+    ? isSidebarOpen
+      ? "16rem"
+      : "5rem"
+    : "0";
+
+  const width = isMobile
+    ? "100%"
+    : isPrivatePage
     ? isSidebarOpen
       ? "calc(100% - 16rem)"
       : "calc(100% - 5rem)"

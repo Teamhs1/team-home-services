@@ -178,7 +178,7 @@ function StaffDashboard({ user, role }) {
     );
 
   return (
-    <main className="pt-6 md:pt-10 max-w-7xl mx-auto space-y-10">
+    <main className="pt-24 md:pt-28 max-w-7xl mx-auto px-4 space-y-10">
       {/* Header con campana y sonido */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>

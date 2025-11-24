@@ -5,13 +5,33 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import JobTimer from "../../components/JobTimer";
 import JobDuration from "../../components/JobDuration";
-import { useUser } from "@clerk/nextjs"; // ✅ AGREGADO
+import { useUser } from "@clerk/nextjs";
 
 export default function JobHeader({ job, router, openModal }) {
   const backLabel = "Volver";
-
   const { user } = useUser();
-  const role = user?.publicMetadata?.role; // ✅ OBTENER ROL
+  const role = user?.publicMetadata?.role;
+
+  // ⭐ PROTECCIONES
+  const hasJob = !!job;
+  const dateLabel =
+    hasJob && job.scheduled_date
+      ? new Date(job.scheduled_date).toLocaleDateString()
+      : "Sin fecha";
+
+  const typeLabel = hasJob && job.service_type ? job.service_type : "Sin tipo";
+
+  const statusLabel =
+    hasJob && job.status ? job.status.replace("_", " ") : "N/A";
+
+  const statusColor =
+    job?.status === "pending"
+      ? "bg-yellow-100 text-yellow-700"
+      : job?.status === "in_progress"
+      ? "bg-blue-100 text-blue-700"
+      : job?.status === "completed"
+      ? "bg-green-100 text-green-700"
+      : "bg-gray-200 text-gray-600";
 
   return (
     <motion.div
@@ -33,68 +53,62 @@ export default function JobHeader({ job, router, openModal }) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 text-gray-700">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <ClipboardList className="w-5 h-5 text-primary" />
-          {job?.title}
+          {job?.title || "Nuevo trabajo"}
         </h1>
 
         <div className="text-sm flex items-center gap-2">
           <CalendarDays className="w-4 h-4" />
-          {new Date(job.scheduled_date).toLocaleDateString()} •{" "}
-          <span className="capitalize">{job.service_type}</span> •{" "}
+          {dateLabel} • <span className="capitalize">{typeLabel}</span> •{" "}
           <span
-            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-              job.status === "pending"
-                ? "bg-yellow-100 text-yellow-700"
-                : job.status === "in_progress"
-                ? "bg-blue-100 text-blue-700"
-                : "bg-green-100 text-green-700"
-            }`}
+            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}
           >
-            {job.status.replace("_", " ")}
+            {statusLabel}
           </span>
         </div>
       </div>
 
       {/* ACCIONES DEL JOB */}
-      <div className="flex items-center gap-3 mt-6 z-[20] relative">
-        {/* START JOB */}
-        {job.status === "pending" && (
-          <Button
-            size="sm"
-            className="shadow-md"
-            onClick={() => openModal(job.id, "before")}
-          >
-            Start Job
-          </Button>
-        )}
-
-        {/* JOB EN PROGRESO */}
-        {job.status === "in_progress" && (
-          <>
-            {/* ⏱ OCULTO PARA CLIENTES */}
-            {role !== "client" && (
-              <div className="bg-blue-50 text-blue-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
-                <JobTimer jobId={job.id} />
-              </div>
-            )}
-
+      {hasJob && (
+        <div className="flex items-center gap-3 mt-6 z-[20] relative">
+          {/* START JOB */}
+          {job.status === "pending" && (
             <Button
               size="sm"
-              variant="outline"
-              className="shadow-sm"
-              onClick={() => openModal(job.id, "after")}
+              className="shadow-md"
+              onClick={() => openModal(job.id, "before")}
             >
-              Complete Job
+              Start Job
             </Button>
-          </>
-        )}
+          )}
 
-        {/* JOB COMPLETADO */}
-        {job.status === "completed" && role !== "client" && (
-          <div className="bg-green-50 text-green-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
-            <JobDuration jobId={job.id} />
-          </div>
-        )}
-      </div>
+          {/* JOB EN PROGRESO */}
+          {job.status === "in_progress" && (
+            <>
+              {role !== "client" && (
+                <div className="bg-blue-50 text-blue-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
+                  <JobTimer jobId={job.id} />
+                </div>
+              )}
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="shadow-sm"
+                onClick={() => openModal(job.id, "after")}
+              >
+                Complete Job
+              </Button>
+            </>
+          )}
+
+          {/* JOB COMPLETADO */}
+          {job.status === "completed" && role !== "client" && (
+            <div className="bg-green-50 text-green-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
+              <JobDuration jobId={job.id} />
+            </div>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }
