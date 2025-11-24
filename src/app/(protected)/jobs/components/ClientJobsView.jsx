@@ -37,6 +37,13 @@ export default function ClientJobsView({
   const searchParams = useSearchParams();
   const status = searchParams.get("status") || "all";
 
+  // ⭐ Forzar GRID en móviles como StaffJobsView
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setViewMode("grid");
+    }
+  }, [setViewMode]);
+
   // ⭐ Realtime
   useEffect(() => {
     if (!clerkId) return;
@@ -127,6 +134,9 @@ export default function ClientJobsView({
       ? uniqueJobs
       : uniqueJobs.filter((job) => job.status === status);
 
+  // ⭐ Detectar mobile
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+
   // ⭐ Render
   return (
     <main className="px-6 md:px-12 lg:px-16 xl:px-20 py-10 max-w-[1600px] mx-auto space-y-10">
@@ -205,11 +215,13 @@ export default function ClientJobsView({
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-semibold">My Requests</h2>
+
+          {/* 🔒 En móvil el botón está desactivado */}
           <Button
             variant="outline"
             size="sm"
             onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
-            className="flex items-center gap-2"
+            className={`flex items-center gap-2 ${isMobile ? "hidden" : ""}`}
           >
             {viewMode === "grid" ? (
               <List className="w-4 h-4" />
@@ -227,7 +239,8 @@ export default function ClientJobsView({
           <p className="text-gray-500 text-sm">
             No cleaning requests found for this filter.
           </p>
-        ) : viewMode === "list" ? (
+        ) : viewMode === "list" && !isMobile ? (
+          /* SOLO LISTA EN DESKTOP */
           <div className="overflow-x-auto bg-white shadow rounded-lg border border-gray-200">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100 text-gray-700">
@@ -273,6 +286,7 @@ export default function ClientJobsView({
             </table>
           </div>
         ) : (
+          /* SIEMPRE GRID EN MÓVIL */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredJobs
               .filter((j) => !j.deleted)

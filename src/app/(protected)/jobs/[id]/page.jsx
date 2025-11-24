@@ -10,7 +10,7 @@ import JobHeader from "./components/JobHeader";
 import JobCompare from "./components/JobCompare";
 import JobGallery from "./components/JobGallery";
 
-import { JobUploadModal } from "../components/JobUploadModal"; // ✅ FIX: named import
+import { JobUploadModal } from "../components/JobUploadModal";
 import { AnimatePresence } from "framer-motion";
 
 // ===============================
@@ -51,14 +51,64 @@ export default function JobPhotosPage() {
     setModalOpen(true);
   };
 
-  const closeModal = () => {
+  // ⭐ Refresh photos WITHOUT full reload
+  const refreshPhotos = async () => {
+    const res = await fetch(`/api/job-photos/list?job_id=${id}`);
+    const result = await res.json();
+
+    const grouped = result.data || {
+      before: [],
+      after: [],
+      general: [],
+    };
+
+    const detectType = (p) => {
+      const url = p.image_url?.toLowerCase() || "";
+      if (p.type) return p.type.toLowerCase();
+      if (url.includes("before_")) return "before";
+      if (url.includes("after_")) return "after";
+      if (url.includes("/before/")) return "before";
+      if (url.includes("/after/")) return "after";
+      return "general";
+    };
+
+    const allPhotos = [
+      ...grouped.before.map((p) => ({ ...p, type: detectType(p) })),
+      ...grouped.after.map((p) => ({ ...p, type: detectType(p) })),
+      ...grouped.general.map((p) => ({ ...p, type: detectType(p) })),
+    ];
+
+    setPhotos(allPhotos);
+  };
+
+  // ⭐ Refresh ONLY the job (fixes Start Job showing incorrectly)
+  const refreshJobData = async () => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+
+    const { data: jobData } = await supabase
+      .from("cleaning_jobs")
+      .select("id, title, service_type, scheduled_date, status")
+      .eq("id", id)
+      .maybeSingle();
+
+    setJob(jobData || null);
+  };
+
+  // ⭐ Close modal → refresh photos + job status
+  const closeModal = async () => {
     setModalOpen(false);
     setModalType(null);
     setCurrentJob(null);
+
+    await refreshPhotos(); // Refresh images
+    await refreshJobData(); // Refresh job status (IMPORTANT)
   };
 
   // ===============================
-  // LOAD JOB + PHOTOS
+  // LOAD JOB + PHOTOS ON PAGE LOAD
   // ===============================
   useEffect(() => {
     if (!id) return;
@@ -81,33 +131,8 @@ export default function JobPhotosPage() {
 
         setJob(jobData || null);
 
-        // Load photos
-        const res = await fetch(`/api/job-photos/list?job_id=${id}`);
-        const result = await res.json();
-
-        const grouped = result.data || {
-          before: [],
-          after: [],
-          general: [],
-        };
-
-        const detectType = (p) => {
-          const url = p.image_url?.toLowerCase() || "";
-          if (p.type) return p.type.toLowerCase();
-          if (url.includes("before_")) return "before";
-          if (url.includes("after_")) return "after";
-          if (url.includes("/before/")) return "before";
-          if (url.includes("/after/")) return "after";
-          return "general";
-        };
-
-        const allPhotos = [
-          ...grouped.before.map((p) => ({ ...p, type: detectType(p) })),
-          ...grouped.after.map((p) => ({ ...p, type: detectType(p) })),
-          ...grouped.general.map((p) => ({ ...p, type: detectType(p) })),
-        ];
-
-        setPhotos(allPhotos);
+        // Load initial photos
+        await refreshPhotos();
       } catch (err) {
         console.error("❌ Error:", err.message);
       } finally {
@@ -146,7 +171,6 @@ export default function JobPhotosPage() {
   return (
     <>
       <div className="mt-32 px-6 py-10 max-w-6xl mx-auto space-y-10">
-        {/* Pass openModal to header buttons */}
         <JobHeader job={job} router={router} openModal={openModal} />
 
         <JobCompare
@@ -170,23 +194,18 @@ export default function JobPhotosPage() {
             key={currentJob}
             jobId={currentJob}
             type={modalType}
-            onClose={closeModal}
+            onClose={closeModal} // Refresh job + photos
             updateStatus={async (jobId, newStatus) => {
               const supabase = createClient(
                 process.env.NEXT_PUBLIC_SUPABASE_URL,
                 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
               );
-
               await supabase
                 .from("cleaning_jobs")
                 .update({ status: newStatus })
                 .eq("id", jobId);
             }}
             fetchJobs={() => {
-              // Si ya tienes una función fetchJobs afuera, úsala:
-              // fetchJobs();
-
-              // Si NO tienes una, puedes dejar este placeholder vacío:
               console.log("fetchJobs ejecutado");
             }}
           />

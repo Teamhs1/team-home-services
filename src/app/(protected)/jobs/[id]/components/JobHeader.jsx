@@ -10,7 +10,7 @@ import { useUser } from "@clerk/nextjs";
 export default function JobHeader({ job, router, openModal }) {
   const backLabel = "Volver";
   const { user } = useUser();
-  const role = user?.publicMetadata?.role;
+  const role = user?.publicMetadata?.role || "client"; // 👈 DEFAULT client
 
   // ⭐ PROTECCIONES
   const hasJob = !!job;
@@ -68,47 +68,46 @@ export default function JobHeader({ job, router, openModal }) {
       </div>
 
       {/* ACCIONES DEL JOB */}
-      {hasJob && (
-        <div className="flex items-center gap-3 mt-6 z-[20] relative">
-          {/* START JOB */}
-          {job.status === "pending" && (
-            <Button
-              size="sm"
-              className="shadow-md"
-              onClick={() => openModal(job.id, "before")}
-            >
-              Start Job
-            </Button>
-          )}
+      {hasJob &&
+        role !== "client" && ( // 👈 OCULTA TODO PARA CLIENTES
+          <div className="flex items-center gap-3 mt-6 z-[20] relative">
+            {/* START JOB */}
+            {job.status === "pending" && (
+              <Button
+                size="sm"
+                className="shadow-md"
+                onClick={() => openModal(job.id, "before")}
+              >
+                Start Job
+              </Button>
+            )}
 
-          {/* JOB EN PROGRESO */}
-          {job.status === "in_progress" && (
-            <>
-              {role !== "client" && (
+            {/* JOB EN PROGRESO */}
+            {job.status === "in_progress" && (
+              <>
                 <div className="bg-blue-50 text-blue-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
                   <JobTimer jobId={job.id} />
                 </div>
-              )}
 
-              <Button
-                size="sm"
-                variant="outline"
-                className="shadow-sm"
-                onClick={() => openModal(job.id, "after")}
-              >
-                Complete Job
-              </Button>
-            </>
-          )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shadow-sm"
+                  onClick={() => openModal(job.id, "after")}
+                >
+                  Complete Job
+                </Button>
+              </>
+            )}
 
-          {/* JOB COMPLETADO */}
-          {job.status === "completed" && role !== "client" && (
-            <div className="bg-green-50 text-green-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
-              <JobDuration jobId={job.id} />
-            </div>
-          )}
-        </div>
-      )}
+            {/* JOB COMPLETADO */}
+            {job.status === "completed" && (
+              <div className="bg-green-50 text-green-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
+                <JobDuration jobId={job.id} />
+              </div>
+            )}
+          </div>
+        )}
     </motion.div>
   );
 }
