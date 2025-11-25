@@ -160,32 +160,46 @@ export function JobUploadModal({
 
     try {
       const newStatus = type === "before" ? "in_progress" : "completed";
-      await updateStatus(jobId, newStatus);
 
-      await fetch("/api/job-activity", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          job_id: jobId,
-          action: type === "before" ? "start" : "complete",
-          notes: type === "before" ? "Job started" : "Job completed",
-        }),
-      });
-
+      // 🔥 Si es AFTER, guardar la fecha de completado
       if (type === "after") {
-        const stop = await fetch("/api/job-activity/stop", {
+        const { error } = await fetch("/api/job-activity/stop", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ job_id: jobId }),
-        });
+        }).then((r) => r.json());
 
-        const stopData = await stop.json();
-        if (!stop.ok) throw new Error(stopData.error);
+        await updateStatus(jobId, "completed");
 
-        toast.success(`Job completed in ${stopData.durationMinutes} minutes`);
+        // 🚀 Guardar completed_at en Supabase
+        const { error: dateError } = await fetch(
+          "/api/jobs/set-completed-date",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              job_id: jobId,
+              completed_at: new Date().toISOString(),
+            }),
+          }
+        );
+
+        if (dateError) throw new Error("Failed to save completion date");
       } else {
-        toast.success("Job started!");
+        await updateStatus(jobId, "in_progress");
+
+        await fetch("/api/job-activity", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            job_id: jobId,
+            action: "start",
+            notes: "Job started",
+          }),
+        });
       }
+
+      toast.success(type === "after" ? "Job completed!" : "Job started!");
 
       await fetchJobs?.();
       onClose();

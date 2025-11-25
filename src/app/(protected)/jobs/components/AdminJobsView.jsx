@@ -97,7 +97,7 @@ export default function AdminJobsView({
             <thead className="bg-gray-100 text-gray-700">
               <tr>
                 <th className="px-4 py-2 text-left">Job</th>
-                <th className="px-4 py-2 text-left">Date</th>
+                <th className="px-4 py-2 text-left">Scheduled Date</th>
                 <th className="px-4 py-2 text-left">Type</th>
                 <th className="px-4 py-2 text-left">Assigned To</th>
                 <th className="px-4 py-2 text-left">Status</th>
@@ -153,7 +153,7 @@ export default function AdminJobsView({
                     </td>
                     <td className="px-4 py-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        className={`px-2 py-1 rounded-full text-sm font-semibold inline-block w-fit ${
                           job.status === "pending"
                             ? "bg-yellow-100 text-yellow-700"
                             : job.status === "in_progress"
@@ -172,8 +172,17 @@ export default function AdminJobsView({
                       )}
 
                       {job.status === "completed" && (
-                        <div className="text-green-600 font-semibold text-xs flex items-center gap-1">
-                          <JobDuration jobId={job.id} status="completed" />
+                        <div className="text-green-600 font-semibold text-xs flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1">
+                            <JobDuration jobId={job.id} status="completed" />
+                          </div>
+
+                          <span className="text-gray-500 text-[11px]">
+                            Completed on{" "}
+                            {job.completed_at
+                              ? new Date(job.completed_at).toLocaleDateString()
+                              : "—"}
+                          </span>
                         </div>
                       )}
 
@@ -297,8 +306,17 @@ export default function AdminJobsView({
                     )}
 
                     {job.status === "completed" && (
-                      <div className="inline-block bg-green-50 text-green-700 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                        <JobDuration jobId={job.id} />
+                      <div className="flex flex-col text-xs text-green-700 gap-0.5">
+                        <div className="inline-block bg-green-50 px-3 py-1 font-semibold rounded-full shadow-sm">
+                          <JobDuration jobId={job.id} />
+                        </div>
+
+                        <span className="text-gray-500 text-[11px]">
+                          Completed on{" "}
+                          {job.completed_at
+                            ? new Date(job.completed_at).toLocaleDateString()
+                            : "—"}
+                        </span>
                       </div>
                     )}
                   </div>

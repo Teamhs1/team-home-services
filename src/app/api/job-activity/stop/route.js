@@ -9,13 +9,13 @@ export async function POST(req) {
       return NextResponse.json({ error: "Missing job_id" }, { status: 400 });
     }
 
-    // 🔑 Cliente con Service Role Key (bypassa RLS)
+    // 🔑 Cliente con Service Role (bypassa RLS)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // 1️⃣ Buscar el último registro de inicio
+    // 1️⃣ Buscar el registro start
     const { data: startData, error: startError } = await supabase
       .from("job_activity_log")
       .select("created_at")
@@ -26,6 +26,7 @@ export async function POST(req) {
       .maybeSingle();
 
     if (startError) throw startError;
+
     if (!startData) {
       return NextResponse.json(
         { error: "No start record found for this job" },
@@ -37,13 +38,13 @@ export async function POST(req) {
     const startTime = new Date(startData.created_at);
     const endTime = new Date();
     const diffSeconds = Math.floor((endTime - startTime) / 1000);
-    const durationMinutes = Math.max(Math.floor(diffSeconds / 60), 1); // mínimo 1 minuto
+    const durationMinutes = Math.max(Math.floor(diffSeconds / 60), 1);
 
     console.log(
       `⏱️ Job ${job_id} started at ${startTime.toISOString()} — ended at ${endTime.toISOString()} (${durationMinutes} min)`
     );
 
-    // 3️⃣ Insertar registro "stop" en el log
+    // 3️⃣ Registrar STOP
     const { error: insertError } = await supabase
       .from("job_activity_log")
       .insert([
@@ -58,16 +59,16 @@ export async function POST(req) {
       ]);
     if (insertError) throw insertError;
 
-    // 4️⃣ Actualizar el job principal (asegúrate de que el id coincida)
+    // 4️⃣ Actualizar el job principal
     const { data: updateData, error: updateError } = await supabase
       .from("cleaning_jobs")
       .update({
         status: "completed",
         duration_minutes: durationMinutes,
-        completed_at: endTime.toISOString(),
+        completed_at: endTime.toISOString(), // 👈 🔥 FECHA PERFECTAMENTE FORMATEADA
       })
       .eq("id", job_id)
-      .select("id, status, duration_minutes")
+      .select("id, status, duration_minutes, completed_at")
       .maybeSingle();
 
     if (updateError) throw updateError;
