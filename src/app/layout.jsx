@@ -139,15 +139,16 @@ export default function RootLayout({ children }) {
           />
         </head>
 
-        <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
+        <body className="min-h-screen w-full overflow-x-hidden bg-gray-50 text-gray-900 antialiased">
           <SidebarProvider>
             <SupabaseProvider>
               <ConditionalNavbar />
-              <main className="relative min-h-screen pb-24">{children}</main>
 
-              {/* 👇 Agregado: Bottom Navigation estilo App */}
+              <main className="relative min-h-screen w-full overflow-x-hidden pb-24">
+                {children}
+              </main>
+
               <MobileBottomNav />
-
               <Toaster position="bottom-right" richColors />
             </SupabaseProvider>
           </SidebarProvider>

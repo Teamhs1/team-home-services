@@ -26,34 +26,24 @@ export default function MobileBottomNav() {
 
   if (!isMobile) return null;
 
-  // ❌ No mostrar en login/registro
+  // No mostrar en login
   const hiddenRoutes = ["/sign-in", "/sign-up"];
   if (hiddenRoutes.includes(pathname)) return null;
 
-  // ⭐ Navegación basada en ROL
   let navItems = [];
 
-  // ============================
-  // ⭐ ADMIN
-  // ============================
+  // ADMIN
   if (role === "admin") {
     navItems = [
       { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
       { label: "Jobs", icon: ClipboardList, href: "/jobs" },
-      {
-        label: "Add",
-        icon: PlusCircle,
-        href: "/jobs/new",
-        center: true,
-      },
+      { label: "Add", icon: PlusCircle, href: "/jobs/new", center: true },
       { label: "Inbox", icon: Mail, href: "/admin/messages" },
       { label: "Users", icon: Users, href: "/admin/users" },
     ];
   }
 
-  // ============================
-  // ⭐ STAFF
-  // ============================
+  // STAFF
   if (role === "staff") {
     navItems = [
       { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
@@ -69,9 +59,7 @@ export default function MobileBottomNav() {
     ];
   }
 
-  // ============================
-  // ⭐ CLIENT
-  // ============================
+  // CLIENT
   if (role === "client") {
     navItems = [
       { label: "Home", icon: Home, href: "/" },
@@ -82,14 +70,13 @@ export default function MobileBottomNav() {
         href: "/request-cleaning",
         center: true,
       },
-
       { label: "Inbox", icon: Mail, href: "/messages" },
       { label: "Profile", icon: User, href: "/profile" },
     ];
   }
 
   return (
-    <div className="fixed bottom-0 left-0 w-full h-20 bg-white border-t border-gray-200 shadow-lg z-[9999] flex items-center justify-between px-6">
+    <div className="fixed bottom-0 left-0 right-0 h-20 bg-white border-t border-gray-200 shadow-lg z-[9999] grid grid-cols-5 items-center">
       {navItems.map((item, index) => {
         const Icon = item.icon;
         const isActive = pathname === item.href;
@@ -100,7 +87,7 @@ export default function MobileBottomNav() {
             <button
               key={index}
               onClick={() => router.push(item.href)}
-              className="relative -mt-6 flex flex-col items-center justify-center"
+              className="relative -mt-6 flex flex-col items-center justify-center shrink-0"
             >
               <div className="bg-blue-600 p-4 rounded-full shadow-2xl">
                 <Icon size={28} className="text-white" />
@@ -116,7 +103,7 @@ export default function MobileBottomNav() {
           <button
             key={index}
             onClick={() => router.push(item.href)}
-            className="flex flex-col items-center justify-center text-center"
+            className="flex flex-col items-center justify-center text-center shrink-0"
           >
             <Icon
               size={24}
