@@ -4,7 +4,14 @@ import { useSidebar } from "@/components/SidebarContext";
 
 export default function ProtectedLayoutClient({ children }) {
   const { isSidebarOpen } = useSidebar?.() || {};
-  const marginLeft = isSidebarOpen ? "16rem" : "5rem";
+
+  // 📌 Solo aplicar margen en pantallas grandes
+  const marginLeft =
+    typeof window !== "undefined" && window.innerWidth >= 768
+      ? isSidebarOpen
+        ? "16rem"
+        : "5rem"
+      : "0"; // 🔥 En móvil, SIEMPRE 0
 
   return (
     <div

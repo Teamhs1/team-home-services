@@ -1,5 +1,7 @@
 "use client";
-import React, { useState, useRef } from "react";
+
+import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,12 +18,71 @@ import {
   Bath,
   Droplet,
 } from "lucide-react";
-
-import { Oven } from "lucide-react";
-
 import { toast } from "sonner";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+// ======================================================
+// 🔥 OPTIMIZACIÓN + ROTACIÓN EXIF (Samsung / Android)
+// ======================================================
+async function processImage(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      let w = img.width;
+      let h = img.height;
+
+      const needRotation =
+        (file.type.includes("jpeg") || file.type.includes("jpg")) && h > w;
+
+      if (needRotation) {
+        canvas.width = h;
+        canvas.height = w;
+        ctx.rotate((90 * Math.PI) / 180);
+        ctx.drawImage(img, 0, -h);
+      } else {
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(img, 0, 0);
+      }
+
+      const MAX = 1600;
+      const scale = Math.min(MAX / canvas.width, MAX / canvas.height, 1);
+
+      const finalCanvas = document.createElement("canvas");
+      finalCanvas.width = canvas.width * scale;
+      finalCanvas.height = canvas.height * scale;
+
+      finalCanvas
+        .getContext("2d")
+        .drawImage(
+          canvas,
+          0,
+          0,
+          canvas.width,
+          canvas.height,
+          0,
+          0,
+          finalCanvas.width,
+          finalCanvas.height
+        );
+
+      finalCanvas.toBlob(
+        (blob) => {
+          resolve(new File([blob], file.name, { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        0.92
+      );
+    };
+
+    img.src = URL.createObjectURL(file);
+  });
+}
 
 export function JobUploadModal({
   jobId,
@@ -35,9 +96,49 @@ export function JobUploadModal({
   const fileInputRef = useRef(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
 
-  // =============================
-  // CATEGORÍAS ORGANIZADAS 🔥
-  // =============================
+  // ======================================================
+  // ⏱️ TIMER EXACTO COMO JobTimer.jsx
+  // ======================================================
+  const [elapsed, setElapsed] = useState(null);
+  const [startTime, setStartTime] = useState(null);
+
+  useEffect(() => {
+    if (!jobId) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/job-activity/last-start?job_id=${jobId}`);
+        const data = await res.json();
+        if (data.startTime) {
+          setStartTime(new Date(data.startTime));
+        }
+      } catch (err) {
+        console.error("Timer error:", err);
+      }
+    })();
+  }, [jobId]);
+
+  useEffect(() => {
+    if (!startTime) return;
+
+    const interval = setInterval(() => {
+      const diff = Math.floor((Date.now() - startTime.getTime()) / 1000);
+      setElapsed(diff);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [startTime]);
+
+  const formatTime = (sec) => {
+    const h = String(Math.floor(sec / 3600)).padStart(2, "0");
+    const m = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
+    const s = String(sec % 60).padStart(2, "0");
+    return `${h}:${m}:${s}`;
+  };
+
+  // ======================================================
+  // CATEGORÍAS
+  // ======================================================
   const compareCategories = [
     { key: "stove", label: "Stove", icon: Flame },
     { key: "stove_back", label: "Behind Stove", icon: ChefHat },
@@ -62,9 +163,9 @@ export function JobUploadModal({
     fileInputRef.current?.click();
   };
 
-  // =============================
-  // Upload (ACTUALIZADO)
-  // =============================
+  // ======================================================
+  // UPLOAD
+  // ======================================================
   const handleUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length || !selectedCategory) return;
@@ -72,11 +173,11 @@ export function JobUploadModal({
     setUploading(true);
 
     try {
-      const token = await window.Clerk?.session?.getToken({
+      const token = await window.Clerk.session.getToken({
         template: "supabase",
       });
 
-      if (!token) throw new Error("No se obtuvo token Clerk");
+      if (!token) throw new Error("No Clerk token");
 
       const previews = files.map((file) => ({
         name: file.name,
@@ -89,35 +190,31 @@ export function JobUploadModal({
         [selectedCategory]: [...(prev[selectedCategory] || []), ...previews],
       }));
 
-      // Detectar si es categoría general
-      const isGeneral = generalCategories
-        .map((c) => c.key)
-        .includes(selectedCategory);
+      const isGeneral = generalCategories.some(
+        (g) => g.key === selectedCategory
+      );
 
-      // ⛔ No permitir generales en BEFORE
       if (isGeneral && type === "before") {
-        toast.error(
-          "General photos can only be uploaded AFTER completing the job."
-        );
+        toast.error("General photos solo pueden subirse AFTER.");
         setUploading(false);
-        e.target.value = "";
         return;
       }
 
-      // ✔ General areas siempre van como "after" (no comparador)
       const folderType = isGeneral ? "after" : type;
 
       for (const file of files) {
+        const fixedFile = await processImage(file);
+
         const path = `${jobId}/${folderType}/${selectedCategory}/${Date.now()}_${
           file.name
         }`;
 
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", fixedFile);
         formData.append("path", path);
         formData.append("job_id", jobId);
         formData.append("category", selectedCategory);
-        formData.append("type", folderType); // 🔥 SE AGREGA PARA EL BACKEND
+        formData.append("type", folderType);
 
         const res = await fetch("/api/job-photos/upload", {
           method: "POST",
@@ -126,7 +223,7 @@ export function JobUploadModal({
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Upload failed");
+        if (!res.ok) throw new Error(data.error);
 
         const publicUrl = `${supabaseUrl}/storage/v1/object/public/job-photos/${path}`;
 
@@ -140,16 +237,16 @@ export function JobUploadModal({
 
       toast.success(`${files.length} photo(s) uploaded!`);
     } catch (err) {
-      toast.error(err.message || "Error uploading");
+      toast.error(err.message);
     } finally {
       setUploading(false);
       e.target.value = "";
     }
   };
 
-  // =============================
-  // Confirm
-  // =============================
+  // ======================================================
+  // CONFIRM
+  // ======================================================
   const handleConfirm = async () => {
     if (!Object.keys(photosByCategory).length) {
       toast.warning("Please upload at least one photo.");
@@ -159,33 +256,16 @@ export function JobUploadModal({
     setUploading(true);
 
     try {
-      const newStatus = type === "before" ? "in_progress" : "completed";
-
-      // 🔥 Si es AFTER, guardar la fecha de completado
       if (type === "after") {
-        const { error } = await fetch("/api/job-activity/stop", {
+        await fetch("/api/job-activity/stop", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ job_id: jobId }),
-        }).then((r) => r.json());
+        });
 
         await updateStatus(jobId, "completed");
-
-        // 🚀 Guardar completed_at en Supabase
-        const { error: dateError } = await fetch(
-          "/api/jobs/set-completed-date",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              job_id: jobId,
-              completed_at: new Date().toISOString(),
-            }),
-          }
-        );
-
-        if (dateError) throw new Error("Failed to save completion date");
       } else {
+        // 🟦 BEFORE → INICIA TRABAJO
         await updateStatus(jobId, "in_progress");
 
         await fetch("/api/job-activity", {
@@ -197,6 +277,9 @@ export function JobUploadModal({
             notes: "Job started",
           }),
         });
+
+        // 🟩 ARRANCAR CONTADOR INMEDIATO (lo que faltaba)
+        setStartTime(new Date());
       }
 
       toast.success(type === "after" ? "Job completed!" : "Job started!");
@@ -207,123 +290,142 @@ export function JobUploadModal({
       toast.error(err.message);
     } finally {
       setUploading(false);
-      setPhotosByCategory({});
     }
   };
 
-  // =============================
-  // RENDER
-  // =============================
-  return (
+  // ======================================================
+  // RENDER MODAL
+  // ======================================================
+  const modal = (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[999]"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[99999]"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
       >
         <motion.div
           initial={{ y: 60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 60, opacity: 0 }}
           className="
-  bg-white dark:bg-gray-900 
-  rounded-2xl shadow-xl 
-  w-full max-w-3xl p-6 relative
-  max-h-[90vh] overflow-y-auto
-"
+            relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl 
+            w-full max-w-3xl max-h-[90vh] 
+            flex flex-col
+            z-[100000]
+          "
         >
-          <button
-            className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-            onClick={onClose}
-          >
-            <X size={22} />
-          </button>
+          {/* ===== CONTENIDO SCROLLEABLE ===== */}
+          <div className="overflow-y-auto px-6 pt-6 pb-32">
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              onClick={onClose}
+            >
+              <X size={22} />
+            </button>
 
-          <h2 className="text-xl font-bold mb-6 text-center">
-            {type === "before"
-              ? "Upload Photos Before Starting"
-              : "Upload Photos After Completing"}
-          </h2>
+            <h2 className="text-xl font-bold text-center">
+              {type === "before"
+                ? "Upload Photos Before Starting"
+                : "Upload Photos After Completing"}
+            </h2>
 
-          {/* ============================= */}
-          {/* COMPARE SECTION */}
-          {/* ============================= */}
-          <h3 className="text-lg font-semibold mb-3">
-            Compare Photos (Before / After)
-          </h3>
+            {/* ⏱️ TIMER VISIBLE DEBAJO DEL TÍTULO */}
+            {elapsed !== null && (
+              <div className="text-center text-blue-600 text-lg font-semibold mt-2 mb-6">
+                ⏱️ {formatTime(elapsed)}
+              </div>
+            )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-10">
-            {compareCategories.map(({ key, label, icon: Icon }) => (
-              <CategoryBlock
-                key={key}
-                icon={Icon}
-                label={label}
-                categoryKey={key}
-                photos={photosByCategory[key]}
-                onClick={() => handleCategoryClick(key)}
-              />
-            ))}
+            <h3 className="text-lg font-semibold mb-3">
+              Compare Photos (Before / After)
+            </h3>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-10">
+              {compareCategories.map((c) => (
+                <CategoryBlock
+                  key={c.key}
+                  icon={c.icon}
+                  label={c.label}
+                  categoryKey={c.key}
+                  photos={photosByCategory[c.key]}
+                  onClick={() => handleCategoryClick(c.key)}
+                />
+              ))}
+            </div>
+
+            {type === "after" && (
+              <>
+                <h3 className="text-lg font-semibold mb-3">General Areas</h3>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-10">
+                  {generalCategories.map((c) => (
+                    <CategoryBlock
+                      key={c.key}
+                      icon={c.icon}
+                      label={c.label}
+                      categoryKey={c.key}
+                      photos={photosByCategory[c.key]}
+                      onClick={() => handleCategoryClick(c.key)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleUpload}
+            />
           </div>
 
-          {/* ============================= */}
-          {/* GENERAL AREAS ONLY FOR AFTER */}
-          {/* ============================= */}
-          {type === "after" && (
-            <>
-              <h3 className="text-lg font-semibold mb-3">General Areas</h3>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-10">
-                {generalCategories.map(({ key, label, icon: Icon }) => (
-                  <CategoryBlock
-                    key={key}
-                    icon={Icon}
-                    label={label}
-                    categoryKey={key}
-                    photos={photosByCategory[key]}
-                    onClick={() => handleCategoryClick(key)}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* Hidden input */}
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            ref={fileInputRef}
-            onChange={handleUpload}
-            className="hidden"
-          />
-
-          <Button
-            className="w-full mt-4"
-            onClick={handleConfirm}
-            disabled={uploading}
+          {/* ===== FOOTER FIJO ===== */}
+          <div
+            className="
+              sticky bottom-0 
+              w-full 
+              bg-white dark:bg-gray-900 
+              border-t 
+              p-4 
+              shadow-[0_-4px_12px_rgba(0,0,0,0.15)]
+              z-[100001]
+            "
           >
-            {uploading
-              ? "Uploading..."
-              : type === "before"
-              ? "Confirm & Start Job"
-              : "Confirm & Complete Job"}
-          </Button>
+            <Button
+              className="w-full"
+              disabled={uploading}
+              onClick={handleConfirm}
+            >
+              {uploading
+                ? "Uploading..."
+                : type === "before"
+                ? "Confirm & Start Job"
+                : "Confirm & Complete Job"}
+            </Button>
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>
   );
+
+  return createPortal(modal, document.body);
 }
 
-// =============================
-// Category Block component
-// =============================
+// ======================================================
+// CATEGORY BLOCK
+// ======================================================
 function CategoryBlock({ icon: Icon, label, categoryKey, photos, onClick }) {
   return (
     <div className="flex flex-col items-center space-y-3">
       <button
         onClick={onClick}
-        className="flex flex-col items-center justify-center w-28 h-28 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition relative shadow-sm"
+        className="
+          flex flex-col items-center justify-center 
+          w-28 h-28 rounded-xl border border-gray-300 dark:border-gray-700 
+          bg-white dark:bg-gray-800 transition relative shadow-sm
+        "
       >
         <Icon className="w-6 h-6 text-primary mb-1" />
         <span className="text-sm font-medium">{label}</span>
@@ -340,12 +442,12 @@ function CategoryBlock({ icon: Icon, label, categoryKey, photos, onClick }) {
           {photos.map((f, i) => (
             <div
               key={i}
-              className="w-full aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 shadow-sm overflow-hidden"
+              className="w-full aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg border overflow-hidden"
             >
               <img
                 src={f.url}
                 alt={f.name}
-                className="w-full h-full object-cover rounded-lg hover:scale-105 transition-transform duration-200"
+                className="w-full h-full object-cover rounded-lg"
               />
             </div>
           ))}
