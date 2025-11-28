@@ -1,0 +1,33 @@
+import {
+  Wind,
+  WashingMachine,
+  Dishwasher,
+  Microwave,
+  Refrigerator,
+  Sun,
+  Fan,
+  Briefcase,
+  DoorClosed,
+  Package,
+  Bed,
+  Home,
+  Bath,
+  ShowerHead,
+} from "lucide-react";
+
+export const FEATURE_ICONS = {
+  air_conditioner: Wind,
+  dishwasher: Dishwasher,
+  microwave: Microwave,
+  laundry: WashingMachine,
+  freezer: Refrigerator,
+  heat_pump: Fan,
+  balcony: Sun,
+  den: Briefcase,
+  walkin_closet: DoorClosed,
+  storage_room: Package,
+  carpeted_rooms: Bed,
+  private_entrance: Home,
+  glass_shower: ShowerHead,
+  double_sink: Bath,
+};

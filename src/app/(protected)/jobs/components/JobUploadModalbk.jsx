@@ -33,29 +33,22 @@ async function processImage(file) {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
 
-      let w = img.width;
-      let h = img.height;
+      // Mantener orientación ORIGINAL SIEMPRE
+      const w = img.width;
+      const h = img.height;
 
-      const needRotation =
-        (file.type.includes("jpeg") || file.type.includes("jpg")) && h > w;
+      canvas.width = w;
+      canvas.height = h;
 
-      if (needRotation) {
-        canvas.width = h;
-        canvas.height = w;
-        ctx.rotate((90 * Math.PI) / 180);
-        ctx.drawImage(img, 0, -h);
-      } else {
-        canvas.width = w;
-        canvas.height = h;
-        ctx.drawImage(img, 0, 0);
-      }
+      ctx.drawImage(img, 0, 0);
 
+      // Redimensión opcional
       const MAX = 1600;
-      const scale = Math.min(MAX / canvas.width, MAX / canvas.height, 1);
+      const scale = Math.min(MAX / w, MAX / h, 1);
 
       const finalCanvas = document.createElement("canvas");
-      finalCanvas.width = canvas.width * scale;
-      finalCanvas.height = canvas.height * scale;
+      finalCanvas.width = w * scale;
+      finalCanvas.height = h * scale;
 
       finalCanvas
         .getContext("2d")
@@ -63,8 +56,8 @@ async function processImage(file) {
           canvas,
           0,
           0,
-          canvas.width,
-          canvas.height,
+          w,
+          h,
           0,
           0,
           finalCanvas.width,
@@ -73,7 +66,9 @@ async function processImage(file) {
 
       finalCanvas.toBlob(
         (blob) => {
-          resolve(new File([blob], file.name, { type: "image/jpeg" }));
+          resolve(
+            new File([blob], file.name, { type: file.type || "image/jpeg" })
+          );
         },
         "image/jpeg",
         0.92
@@ -93,8 +88,13 @@ export function JobUploadModal({
 }) {
   const [uploading, setUploading] = useState(false);
   const [photosByCategory, setPhotosByCategory] = useState({});
+
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
   const fileInputRef = useRef(null);
+
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [showPicker, setShowPicker] = useState(false);
 
   // ======================================================
   // ⏱️ TIMER EXACTO COMO JobTimer.jsx
@@ -142,10 +142,8 @@ export function JobUploadModal({
   const compareCategories = [
     { key: "stove", label: "Stove", icon: Flame },
     { key: "stove_back", label: "Behind Stove", icon: ChefHat },
-
     { key: "fridge", label: "Fridge", icon: IceCream },
     { key: "fridge_back", label: "Behind Fridge", icon: Snowflake },
-
     { key: "toilet", label: "Toilet", icon: Toilet },
     { key: "bathtub", label: "Bathtub", icon: Bath },
     { key: "sink", label: "Sink", icon: Droplet },
@@ -160,7 +158,7 @@ export function JobUploadModal({
 
   const handleCategoryClick = (key) => {
     setSelectedCategory(key);
-    fileInputRef.current?.click();
+    setShowPicker(true);
   };
 
   // ======================================================
@@ -265,7 +263,6 @@ export function JobUploadModal({
 
         await updateStatus(jobId, "completed");
       } else {
-        // 🟦 BEFORE → INICIA TRABAJO
         await updateStatus(jobId, "in_progress");
 
         await fetch("/api/job-activity", {
@@ -278,7 +275,6 @@ export function JobUploadModal({
           }),
         });
 
-        // 🟩 ARRANCAR CONTADOR INMEDIATO (lo que faltaba)
         setStartTime(new Date());
       }
 
@@ -328,7 +324,6 @@ export function JobUploadModal({
                 : "Upload Photos After Completing"}
             </h2>
 
-            {/* ⏱️ TIMER VISIBLE DEBAJO DEL TÍTULO */}
             {elapsed !== null && (
               <div className="text-center text-blue-600 text-lg font-semibold mt-2 mb-6">
                 ⏱️ {formatTime(elapsed)}
@@ -371,12 +366,30 @@ export function JobUploadModal({
               </>
             )}
 
+            {/* Inputs ocultos */}
             <input
               type="file"
-              multiple
               accept="image/*"
+              capture="environment"
+              ref={cameraInputRef}
               className="hidden"
+              onChange={handleUpload}
+            />
+
+            <input
+              type="file"
+              accept="image/*"
+              ref={galleryInputRef}
+              className="hidden"
+              onChange={handleUpload}
+            />
+
+            <input
+              type="file"
+              accept="image/*"
+              multiple
               ref={fileInputRef}
+              className="hidden"
               onChange={handleUpload}
             />
           </div>
@@ -405,6 +418,73 @@ export function JobUploadModal({
                 : "Confirm & Complete Job"}
             </Button>
           </div>
+
+          {/* ============================
+              📸 BOTTOM SHEET PICKER
+          ============================= */}
+          <AnimatePresence>
+            {showPicker && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/40 z-[999999] flex items-end justify-center"
+                onClick={() => setShowPicker(false)}
+              >
+                <motion.div
+                  initial={{ y: 150 }}
+                  animate={{ y: 0 }}
+                  exit={{ y: 150 }}
+                  transition={{ duration: 0.25 }}
+                  className="w-full bg-white dark:bg-gray-800 rounded-t-2xl p-6 shadow-xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 className="text-lg font-semibold text-center mb-4">
+                    Choose an option
+                  </h3>
+
+                  <div className="flex flex-col space-y-3">
+                    <button
+                      onClick={() => {
+                        setShowPicker(false);
+                        cameraInputRef.current?.click();
+                      }}
+                      className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold"
+                    >
+                      📷 Take Photo
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowPicker(false);
+                        galleryInputRef.current?.click();
+                      }}
+                      className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold"
+                    >
+                      🖼️ Gallery
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowPicker(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className="w-full py-3 rounded-xl bg-gray-700 text-white font-semibold"
+                    >
+                      📁 File Manager
+                    </button>
+
+                    <button
+                      onClick={() => setShowPicker(false)}
+                      className="w-full py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </motion.div>
     </AnimatePresence>

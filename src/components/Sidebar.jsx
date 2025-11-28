@@ -245,28 +245,19 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* 🔻 Footer */}
-      <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {/* ✅ Evitar hydration mismatch */}
-          <ClientOnly>
-            <UserButton afterSignOutUrl="/" />
-          </ClientOnly>
-
-          {isOpen && (
-            <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                role === "admin"
-                  ? "bg-blue-100 text-blue-700"
-                  : role === "staff"
-                  ? "bg-green-100 text-green-700"
-                  : "bg-gray-200 text-gray-700"
-              }`}
-            >
-              {role.toUpperCase()}
-            </span>
-          )}
-        </div>
+      {/* 🔻 Footer — SOLO mostrar el rol */}
+      <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-center">
+        <span
+          className={`text-[10px] font-semibold px-3 py-1 rounded-full ${
+            role === "admin"
+              ? "bg-blue-100 text-blue-700"
+              : role === "staff"
+              ? "bg-green-100 text-green-700"
+              : "bg-gray-200 text-gray-700"
+          }`}
+        >
+          {role.toUpperCase()}
+        </span>
       </div>
     </aside>
   );

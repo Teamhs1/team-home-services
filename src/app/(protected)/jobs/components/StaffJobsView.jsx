@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ClipboardList, LayoutGrid, List, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { JobList } from "./JobList";
-import { JobUploadModal } from "./JobUploadModal";
+import { JobUploadModal } from "./job-upload/JobUploadModal";
 import JobTimer from "./JobTimer";
 import JobDuration from "./JobDuration";
 import { createClient } from "@supabase/supabase-js";

@@ -10,8 +10,13 @@ import JobHeader from "./components/JobHeader";
 import JobCompare from "./components/JobCompare";
 import JobGallery from "./components/JobGallery";
 
-import { JobUploadModal } from "../components/JobUploadModal";
+import { JobUploadModal } from "../components/job-upload/JobUploadModal";
 import { AnimatePresence } from "framer-motion";
+
+// 🔥 IMPORTA ICONOS DE FEATURES Y UNIT TYPE
+import { FEATURE_ICONS } from "../components/job-upload/featureIcons";
+import { FEATURES } from "../components/job-upload/features";
+import { UNIT_TYPE_ICONS } from "../components/job-upload/unitTypeIcons";
 
 // ===============================
 // PUBLIC URL GENERATOR
@@ -51,24 +56,26 @@ export default function JobPhotosPage() {
     setModalOpen(true);
   };
 
-  // ⭐ Refresh photos WITHOUT full reload
+  // ===============================
+  // Refresh photos WITHOUT reload
+  // ===============================
   const refreshPhotos = async () => {
     const res = await fetch(`/api/job-photos/list?job_id=${id}`);
     const result = await res.json();
 
-    const grouped = result.data || {
-      before: [],
-      after: [],
-      general: [],
-    };
+    const grouped = result.data || { before: [], after: [], general: [] };
 
     const detectType = (p) => {
-      const url = p.image_url?.toLowerCase() || "";
+      const url = p.image_url || "";
+      if (!url || url === "general" || url === "null" || url === "undefined")
+        return null;
+
+      const lower = url.toLowerCase();
       if (p.type) return p.type.toLowerCase();
-      if (url.includes("before_")) return "before";
-      if (url.includes("after_")) return "after";
-      if (url.includes("/before/")) return "before";
-      if (url.includes("/after/")) return "after";
+      if (lower.includes("/before/") || lower.includes("before_"))
+        return "before";
+      if (lower.includes("/after/") || lower.includes("after_")) return "after";
+
       return "general";
     };
 
@@ -76,12 +83,14 @@ export default function JobPhotosPage() {
       ...grouped.before.map((p) => ({ ...p, type: detectType(p) })),
       ...grouped.after.map((p) => ({ ...p, type: detectType(p) })),
       ...grouped.general.map((p) => ({ ...p, type: detectType(p) })),
-    ];
+    ].filter((p) => p.type !== null);
 
     setPhotos(allPhotos);
   };
 
-  // ⭐ Refresh ONLY the job (fixes Start Job showing incorrectly)
+  // ===============================
+  // Refresh ONLY job info
+  // ===============================
   const refreshJobData = async () => {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -90,21 +99,25 @@ export default function JobPhotosPage() {
 
     const { data: jobData } = await supabase
       .from("cleaning_jobs")
-      .select("id, title, service_type, scheduled_date, status")
+      .select(
+        "id, title, service_type, scheduled_date, status, unit_type, features"
+      )
       .eq("id", id)
       .maybeSingle();
 
     setJob(jobData || null);
   };
 
-  // ⭐ Close modal → refresh photos + job status
+  // ===============================
+  // Close modal → refresh all
+  // ===============================
   const closeModal = async () => {
     setModalOpen(false);
     setModalType(null);
     setCurrentJob(null);
 
-    await refreshPhotos(); // Refresh images
-    await refreshJobData(); // Refresh job status (IMPORTANT)
+    await refreshPhotos();
+    await refreshJobData();
   };
 
   // ===============================
@@ -122,16 +135,15 @@ export default function JobPhotosPage() {
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
         );
 
-        // Load job
         const { data: jobData } = await supabase
           .from("cleaning_jobs")
-          .select("id, title, service_type, scheduled_date, status")
+          .select(
+            "id, title, service_type, scheduled_date, status, unit_type, features"
+          )
           .eq("id", id)
           .maybeSingle();
 
         setJob(jobData || null);
-
-        // Load initial photos
         await refreshPhotos();
       } catch (err) {
         console.error("❌ Error:", err.message);
@@ -145,22 +157,25 @@ export default function JobPhotosPage() {
 
   const beforePhotos = photos.filter(
     (p) =>
-      (p.type === "before" || p.category?.toLowerCase() === "before") &&
+      p.type === "before" &&
       /\.(jpg|jpeg|png|webp|gif)$/i.test(publicUrl(p.image_url))
   );
 
   const afterPhotos = photos.filter(
     (p) =>
-      (p.type === "after" || p.category?.toLowerCase() === "after") &&
+      p.type === "after" &&
       /\.(jpg|jpeg|png|webp|gif)$/i.test(publicUrl(p.image_url))
   );
 
-  const generalPhotos = photos.filter((p) =>
-    ["kitchen", "bathroom", "bedroom", "living_room"].includes(
-      p.category?.toLowerCase()
-    )
+  const generalPhotos = photos.filter(
+    (p) =>
+      p.type === "general" &&
+      /\.(jpg|jpeg|png|webp|gif)$/i.test(publicUrl(p.image_url))
   );
 
+  // ===============================
+  // LOADING UI
+  // ===============================
   if (loading)
     return (
       <div className="flex justify-center items-center h-[60vh]">
@@ -172,6 +187,56 @@ export default function JobPhotosPage() {
     <>
       <div className="mt-32 px-6 py-10 max-w-6xl mx-auto space-y-10">
         <JobHeader job={job} router={router} openModal={openModal} />
+
+        {/* ================================
+            SHOW UNIT TYPE + ICON
+        ================================= */}
+        {job?.unit_type && (
+          <div className="mt-2 mb-4 text-center">
+            <p className="text-gray-500 text-sm">Unit Type</p>
+
+            <div className="flex items-center justify-center gap-2 mt-1">
+              {(() => {
+                const Icon =
+                  UNIT_TYPE_ICONS[job.unit_type?.toLowerCase()] || null;
+                return Icon ? (
+                  <Icon size={20} className="text-blue-600" />
+                ) : null;
+              })()}
+
+              <p className="text-lg font-semibold text-blue-600 capitalize">
+                {job.unit_type}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ================================
+            FEATURES WITH ICONS
+        ================================= */}
+        {Array.isArray(job?.features) && job.features.length > 0 && (
+          <div className="text-center mb-10">
+            <p className="text-gray-500 text-sm">Included Features</p>
+
+            <div className="flex flex-wrap gap-3 justify-center mt-3">
+              {job.features.map((feat) => {
+                const Icon = FEATURE_ICONS[feat];
+                const label =
+                  FEATURES.find((f) => f.key === feat)?.label || feat;
+
+                return (
+                  <span
+                    key={feat}
+                    className="flex items-center gap-2 px-3 py-1 text-xs rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 shadow-sm"
+                  >
+                    {Icon && <Icon size={14} className="opacity-80" />}
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <JobCompare
           beforePhotos={beforePhotos}
@@ -194,7 +259,7 @@ export default function JobPhotosPage() {
             key={currentJob}
             jobId={currentJob}
             type={modalType}
-            onClose={closeModal} // Refresh job + photos
+            onClose={closeModal}
             updateStatus={async (jobId, newStatus) => {
               const supabase = createClient(
                 process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -205,9 +270,7 @@ export default function JobPhotosPage() {
                 .update({ status: newStatus })
                 .eq("id", jobId);
             }}
-            fetchJobs={() => {
-              console.log("fetchJobs ejecutado");
-            }}
+            fetchJobs={() => {}}
           />
         )}
       </AnimatePresence>

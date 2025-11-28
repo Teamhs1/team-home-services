@@ -10,7 +10,7 @@ import JobHeader from "./components/JobHeader";
 import JobCompare from "./components/JobCompare";
 import JobGallery from "./components/JobGallery";
 
-import { JobUploadModal } from "../components/JobUploadModal"; // ✅ FIX: named import
+import { JobUploadModal } from "../components/job-upload/JobUploadModal"; // ✅ FIX: named import
 import { AnimatePresence } from "framer-motion";
 
 // ===============================

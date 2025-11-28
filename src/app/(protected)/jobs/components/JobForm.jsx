@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
@@ -26,7 +27,7 @@ export default function JobForm({ staffList = [], fetchJobs }) {
   const [assignedTo, setAssignedTo] = useState("");
   const [serviceType, setServiceType] = useState("standard");
   const [scheduledDate, setScheduledDate] = useState(
-    new Date().toISOString().split("T")[0] // hoy
+    new Date().toISOString().split("T")[0]
   );
   const [creating, setCreating] = useState(false);
 
@@ -47,7 +48,6 @@ export default function JobForm({ staffList = [], fetchJobs }) {
       const token = await getToken();
       if (!token) throw new Error("No authentication token found.");
 
-      // 📡 POST → API
       const res = await fetch("/api/jobs/create", {
         method: "POST",
         headers: {
@@ -68,11 +68,12 @@ export default function JobForm({ staffList = [], fetchJobs }) {
 
       toast.success("Job created successfully!");
 
-      // 🔔 Realtime broadcast (igual que tenías)
+      // 🔔 Realtime broadcast
       const anonClient = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
       );
+
       const channel = anonClient.channel("realtime_jobs_admin_global");
       channel.subscribe((status) => {
         if (status === "SUBSCRIBED") {
@@ -123,7 +124,7 @@ export default function JobForm({ staffList = [], fetchJobs }) {
         <Input
           type="date"
           value={scheduledDate}
-          min={new Date().toISOString().split("T")[0]} // no fechas pasadas
+          min={new Date().toISOString().split("T")[0]}
           onChange={(e) => setScheduledDate(e.target.value)}
           className="h-11"
         />
@@ -132,15 +133,31 @@ export default function JobForm({ staffList = [], fetchJobs }) {
       {/* Staff */}
       <div className="space-y-1.5">
         <Label>Staff</Label>
+
         <Select value={assignedTo} onValueChange={setAssignedTo}>
-          <SelectTrigger className="h-11">
-            {assignedTo
-              ? staffList.find((s) => s.clerk_id === assignedTo)?.full_name
-              : "Select staff"}
+          <SelectTrigger
+            className="
+              h-11 border
+              bg-white dark:bg-gray-900
+              text-gray-900 dark:text-gray-100
+            "
+          >
+            <SelectValue placeholder="Select staff" />
           </SelectTrigger>
-          <SelectContent>
+
+          <SelectContent
+            className="
+              bg-white dark:bg-gray-900
+              border border-gray-200 dark:border-gray-700
+              shadow-lg rounded-md
+            "
+          >
             {staffList.map((staff) => (
-              <SelectItem key={staff.clerk_id} value={staff.clerk_id}>
+              <SelectItem
+                key={staff.clerk_id}
+                value={staff.clerk_id}
+                className="bg-white dark:bg-gray-900"
+              >
                 {staff.full_name}
               </SelectItem>
             ))}
@@ -151,15 +168,37 @@ export default function JobForm({ staffList = [], fetchJobs }) {
       {/* Service Type */}
       <div className="space-y-1.5">
         <Label>Service Type</Label>
+
         <Select value={serviceType} onValueChange={setServiceType}>
-          <SelectTrigger className="h-11 capitalize">
-            {serviceType}
+          <SelectTrigger
+            className="
+              h-11 capitalize border
+              bg-white dark:bg-gray-900
+              text-gray-900 dark:text-gray-100
+            "
+          >
+            <SelectValue />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="standard">Standard</SelectItem>
-            <SelectItem value="deep">Deep</SelectItem>
-            <SelectItem value="move-out">Move-out</SelectItem>
-            <SelectItem value="add-ons">Add-ons</SelectItem>
+
+          <SelectContent
+            className="
+              bg-white dark:bg-gray-900
+              border border-gray-200 dark:border-gray-700
+              shadow-lg rounded-md
+            "
+          >
+            <SelectItem className="bg-white dark:bg-gray-900" value="standard">
+              Standard
+            </SelectItem>
+            <SelectItem className="bg-white dark:bg-gray-900" value="deep">
+              Deep
+            </SelectItem>
+            <SelectItem className="bg-white dark:bg-gray-900" value="move-out">
+              Move-out
+            </SelectItem>
+            <SelectItem className="bg-white dark:bg-gray-900" value="add-ons">
+              Add-ons
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>

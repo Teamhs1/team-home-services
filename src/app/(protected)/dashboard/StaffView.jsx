@@ -228,15 +228,13 @@ function StaffDashboard({ user, role }) {
         </div>
 
         <div
-          onClick={() => router.push("/jobs?status=upcoming")}
+          onClick={() => router.push("/jobs?status=in_progress")}
           className="cursor-pointer"
         >
           <StatCard
-            icon={<CalendarDays className="text-blue-600" />}
-            label="Upcoming"
-            value={
-              jobs.filter((j) => new Date(j.scheduled_date) > new Date()).length
-            }
+            icon={<Clock className="text-blue-600" />}
+            label="In Progress"
+            value={stats.inProgress}
           />
         </div>
       </div>
