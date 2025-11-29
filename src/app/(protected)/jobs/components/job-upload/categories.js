@@ -13,8 +13,12 @@ import {
   BedSingle,
   Armchair,
   Wind,
+  PanelTop, // ✅ Nuevo icono agregado
 } from "lucide-react";
 
+// ================================
+// COMPARE CATEGORIES (fijas)
+// ================================
 export const staticCompare = [
   { key: "stove", label: "Stove", icon: Flame },
   { key: "stove_back", label: "Behind Stove", icon: ChefHat },
@@ -25,18 +29,54 @@ export const staticCompare = [
   { key: "sink", label: "Sink", icon: Droplet },
 ];
 
-// Features que agregan categorías a Compare
+// ================================
+// DYNAMIC COMPARE by FEATURES
+// ================================
 export function compareFromFeatures(features) {
   const output = [];
 
+  // Dishwasher
   if (features.includes("dishwasher")) {
     output.push({
       key: "dishwasher",
       label: "Dishwasher",
-      icon: UtensilsCrossed,
+      icon: Refrigerator,
     });
   }
 
+  // ================================
+  // MICROWAVE — real icon (PanelTop)
+  // ================================
+  if (features.includes("microwave")) {
+    output.push({
+      key: "microwave",
+      label: "Microwave",
+      icon: PanelTop, // ✅ icono más parecido a un microondas
+    });
+
+    output.push({
+      key: "microwave_inside",
+      label: "Inside Microwave",
+      icon: Droplet,
+    });
+  }
+
+  // Freezer
+  if (features.includes("freezer")) {
+    output.push({
+      key: "freezer",
+      label: "Freezer",
+      icon: Refrigerator,
+    });
+
+    output.push({
+      key: "freezer_inside",
+      label: "Inside Freezer",
+      icon: Snowflake,
+    });
+  }
+
+  // A/C Unit
   if (features.includes("air_conditioner") || features.includes("laundry")) {
     output.push({
       key: "ac_unit",
@@ -48,6 +88,9 @@ export function compareFromFeatures(features) {
   return output;
 }
 
+// ================================
+// GENERAL AREAS
+// ================================
 export function generalAreas(features, type, unitType) {
   const base = [
     { key: "kitchen", label: "Kitchen", icon: UtensilsCrossed },
@@ -71,22 +114,6 @@ export function generalAreas(features, type, unitType) {
     });
   }
 
-  if (features.includes("microwave")) {
-    base.push({
-      key: "microwave_unit",
-      label: "Microwave",
-      icon: UtensilsCrossed,
-    });
-  }
-
-  if (features.includes("freezer")) {
-    base.push({
-      key: "freezer_unit",
-      label: "Freezer",
-      icon: Refrigerator,
-    });
-  }
-
   if (features.includes("glass_shower")) {
     base.push({
       key: "glass_shower_area",
@@ -103,7 +130,6 @@ export function generalAreas(features, type, unitType) {
     });
   }
 
-  // Bedrooms dinámicos
   if (
     type === "after" &&
     unitType &&

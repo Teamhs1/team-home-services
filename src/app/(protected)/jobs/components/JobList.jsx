@@ -4,6 +4,10 @@ import JobTimer from "./JobTimer";
 import JobDuration from "./JobDuration";
 import { useRouter } from "next/navigation";
 
+// 🔥 IMPORTS NUEVOS
+import { FEATURE_ICONS } from "./job-upload/featureIcons";
+import { FEATURES } from "./job-upload/features";
+
 export function JobList({ jobs, openModal }) {
   const router = useRouter();
 
@@ -20,10 +24,34 @@ export function JobList({ jobs, openModal }) {
     return d.toLocaleDateString();
   };
 
+  // 🔥 Función para mostrar íconos de features
+  const renderFeatureIcons = (jobFeatures = []) => {
+    return jobFeatures
+      .filter((f) => FEATURE_ICONS[f])
+      .slice(0, 5)
+      .map((f) => {
+        const Icon = FEATURE_ICONS[f];
+        const label =
+          FEATURES.find((x) => x.key === f)?.label || f.replaceAll("_", " ");
+
+        return (
+          <div
+            key={f}
+            className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 
+                       text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full 
+                       text-[10px] font-medium"
+          >
+            <Icon className="w-3 h-3 text-primary" />
+            {label}
+          </div>
+        );
+      });
+  };
+
   return (
     <div className="w-full space-y-6">
       {/* ====================================== */}
-      {/* 🔹 MOBILE VERSION — CARDS (NO TABLE)  */}
+      {/* 🔹 MOBILE VERSION — CARDS             */}
       {/* ====================================== */}
       <div className="sm:hidden space-y-4">
         {jobs.map((job) => (
@@ -39,6 +67,13 @@ export function JobList({ jobs, openModal }) {
             <p className="text-sm text-gray-500 mt-1">
               {job.service_type} • {formatDate(job.scheduled_date)}
             </p>
+
+            {/* 🔥 FEATURES — MOBILE */}
+            {job.features && job.features.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {renderFeatureIcons(job.features)}
+              </div>
+            )}
 
             <div className="mt-3 space-y-2">
               {/* STATUS BADGE */}
@@ -65,7 +100,6 @@ export function JobList({ jobs, openModal }) {
               {job.status === "completed" && (
                 <div className="flex flex-col bg-green-50 text-green-700 text-sm font-semibold px-3 py-1 rounded-lg w-fit">
                   <JobDuration jobId={job.id} />
-
                   <span className="text-xs text-gray-500 mt-1">
                     Completed on {formatDate(job.completed_at)}
                   </span>
@@ -105,7 +139,7 @@ export function JobList({ jobs, openModal }) {
       </div>
 
       {/* ====================================== */}
-      {/* 🔹 DESKTOP VERSION — TABLE            */}
+      {/* 🔹 DESKTOP VERSION — TABLE             */}
       {/* ====================================== */}
       <div className="hidden sm:block overflow-x-auto bg-white shadow rounded-lg border border-gray-200">
         <table className="min-w-full text-sm">
@@ -114,6 +148,10 @@ export function JobList({ jobs, openModal }) {
               <th className="px-4 py-2 text-left">Job</th>
               <th className="px-4 py-2 text-left">Scheduled Date</th>
               <th className="px-4 py-2 text-left">Type</th>
+
+              {/* 🔥 NEW: Features column */}
+              <th className="px-4 py-2 text-left">Features</th>
+
               <th className="px-4 py-2 text-left">Status</th>
               <th className="px-4 py-2 text-right">Actions</th>
             </tr>
@@ -132,14 +170,21 @@ export function JobList({ jobs, openModal }) {
               >
                 <td className="px-4 py-2 font-medium">{job.title}</td>
 
-                {/* Scheduled date */}
                 <td className="px-4 py-2">{formatDate(job.scheduled_date)}</td>
 
                 <td className="px-4 py-2">{job.service_type || "—"}</td>
 
+                {/* 🔥 FEATURES — DESKTOP */}
+                <td className="px-4 py-2">
+                  <div className="flex flex-wrap gap-1">
+                    {job.features && job.features.length > 0
+                      ? renderFeatureIcons(job.features)
+                      : "—"}
+                  </div>
+                </td>
+
                 <td className="px-4 py-2">
                   <div className="flex flex-col gap-1">
-                    {/* STATUS BADGE */}
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-semibold ${
                         job.status === "pending"
@@ -152,16 +197,12 @@ export function JobList({ jobs, openModal }) {
                       {job.status.replace("_", " ")}
                     </span>
 
-                    {/* IN PROGRESS */}
                     {job.status === "in_progress" && (
                       <JobTimer jobId={job.id} />
                     )}
-
-                    {/* COMPLETED */}
                     {job.status === "completed" && (
                       <div className="flex flex-col text-xs">
                         <JobDuration jobId={job.id} />
-
                         <span className="text-gray-500">
                           Completed on {formatDate(job.completed_at)}
                         </span>

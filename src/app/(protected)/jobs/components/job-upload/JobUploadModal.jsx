@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
+import { FEATURE_ICONS } from "./featureIcons";
 import CategoryBlock from "./CategoryBlock";
 import { FEATURES } from "./features";
 import { staticCompare, compareFromFeatures, generalAreas } from "./categories";
 import { processImage } from "./processImage";
 
-// 🔥 IMPORTA LOS ICONOS DE UNIT TYPE
+// 🔥 ICONOS DE UNIT TYPE
 import { UNIT_TYPE_ICONS } from "./unitTypeIcons";
 
 export function JobUploadModal({
@@ -24,9 +25,6 @@ export function JobUploadModal({
 }) {
   const [uploading, setUploading] = useState(false);
 
-  // -----------------------------
-  // LOCAL STATE
-  // -----------------------------
   const [photosByCategory, setPhotosByCategory] = useState({});
   const [localFiles, setLocalFiles] = useState({});
   const [unitType, setUnitType] = useState(null);
@@ -38,9 +36,6 @@ export function JobUploadModal({
   const galleryInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // -----------------------------
-  // TIMER
-  // -----------------------------
   const [elapsed, setElapsed] = useState(null);
   const [startTime, setStartTime] = useState(null);
 
@@ -72,9 +67,9 @@ export function JobUploadModal({
     return `${h}:${m}:${s}`;
   };
 
-  // ----------------------------------------------------------
-  // LOAD UNIT TYPE + FEATURES WHEN COMPLETING JOB (AFTER)
-  // ----------------------------------------------------------
+  // --------------------------------------------------------
+  // CARGAR UNIT TYPE Y FEATURES EN AFTER
+  // --------------------------------------------------------
   useEffect(() => {
     if (type !== "after" || !jobId) return;
 
@@ -91,18 +86,18 @@ export function JobUploadModal({
     })();
   }, [jobId, type]);
 
-  // ----------------------------------------------------------
+  // --------------------------------------------------------
   // TOGGLE FEATURES
-  // ----------------------------------------------------------
+  // --------------------------------------------------------
   const toggleFeature = (key) => {
     setFeatures((prev) =>
       prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]
     );
   };
 
-  // ----------------------------------------------------------
+  // --------------------------------------------------------
   // CATEGORY LISTS
-  // ----------------------------------------------------------
+  // --------------------------------------------------------
   const dynamicCompareCategories = [
     ...staticCompare,
     ...compareFromFeatures(features),
@@ -115,9 +110,9 @@ export function JobUploadModal({
     setShowPicker(true);
   };
 
-  // ----------------------------------------------------------
+  // --------------------------------------------------------
   // LOCAL UPLOAD
-  // ----------------------------------------------------------
+  // --------------------------------------------------------
   const handleUpload = (e) => {
     const files = Array.from(e.target.files);
     if (!files.length || !selectedCategory) return;
@@ -152,9 +147,9 @@ export function JobUploadModal({
     e.target.value = "";
   };
 
-  // ----------------------------------------------------------
-  // UPLOAD ALL
-  // ----------------------------------------------------------
+  // --------------------------------------------------------
+  // SUBIR TODO
+  // --------------------------------------------------------
   const uploadAllPhotos = async () => {
     const token = await window.Clerk.session.getToken({
       template: "supabase",
@@ -193,9 +188,9 @@ export function JobUploadModal({
     }
   };
 
-  // ----------------------------------------------------------
-  // CONFIRM ACTION
-  // ----------------------------------------------------------
+  // --------------------------------------------------------
+  // CONFIRM
+  // --------------------------------------------------------
   const handleConfirm = async () => {
     if (!Object.keys(localFiles).length) {
       toast.warning("Please upload at least one photo.");
@@ -253,9 +248,33 @@ export function JobUploadModal({
     }
   };
 
-  // ----------------------------------------------------------
+  // --------------------------------------------------------
+  // ORDENAR FEATURES EN AFTER
+  // --------------------------------------------------------
+  const FEATURE_ORDER = [
+    "dishwasher",
+    "microwave",
+    "freezer",
+    "air_conditioner",
+    "heat_pump",
+    "laundry",
+    "glass_shower",
+    "double_sink",
+    "balcony",
+    "den",
+    "walkin_closet",
+    "storage_room",
+    "carpeted_rooms",
+    "private_entrance",
+  ];
+
+  const orderedSelectedFeatures = FEATURE_ORDER.filter((key) =>
+    features.includes(key)
+  );
+
+  // --------------------------------------------------------
   // UI
-  // ----------------------------------------------------------
+  // --------------------------------------------------------
   const modal = (
     <AnimatePresence>
       <motion.div
@@ -269,6 +288,7 @@ export function JobUploadModal({
           className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col"
         >
           <div className="overflow-y-auto px-6 pt-6 pb-32">
+            {/* CLOSE */}
             <button
               className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
               onClick={onClose}
@@ -276,15 +296,14 @@ export function JobUploadModal({
               <X size={22} />
             </button>
 
+            {/* TITLE */}
             <h2 className="text-xl font-bold text-center">
               {type === "before"
                 ? "Upload Photos Before Starting"
                 : "Upload Photos After Completing"}
             </h2>
 
-            {/* ===============================
-                UNIT TYPE DISPLAY IN "AFTER"
-            =============================== */}
+            {/* UNIT TYPE IN AFTER */}
             {type === "after" && unitType && (
               <div className="text-center mt-2 flex items-center justify-center gap-2">
                 {(() => {
@@ -306,9 +325,7 @@ export function JobUploadModal({
               </div>
             )}
 
-            {/* ===============================
-                UNIT TYPE SELECT (with ICONS)
-            =============================== */}
+            {/* UNIT TYPE BEFORE */}
             {type === "before" && (
               <>
                 <h3 className="text-lg font-semibold mb-3">Unit Type</h3>
@@ -342,7 +359,6 @@ export function JobUploadModal({
                     })}
                   </select>
 
-                  {/* ICON NEXT TO SELECTED OPTION */}
                   {unitType &&
                     (() => {
                       const Icon = UNIT_TYPE_ICONS[unitType.toLowerCase()];
@@ -357,24 +373,63 @@ export function JobUploadModal({
               </>
             )}
 
-            {/* FEATURES */}
+            {/* ====================================================
+                FEATURES
+            ==================================================== */}
             <h3 className="text-lg font-semibold mb-3">Included Features</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-10">
-              {FEATURES.map((f) => (
-                <label
-                  key={f.key}
-                  className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer bg-white dark:bg-gray-800"
-                >
-                  <input
-                    type="checkbox"
-                    checked={features.includes(f.key)}
-                    onChange={() => toggleFeature(f.key)}
-                    className="w-4 h-4 accent-primary"
-                  />
-                  {f.label}
-                </label>
-              ))}
-            </div>
+
+            {type === "before" ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-10">
+                {FEATURES.map((f) => (
+                  <label
+                    key={f.key}
+                    className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer bg-white dark:bg-gray-800"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={features.includes(f.key)}
+                      onChange={() => toggleFeature(f.key)}
+                      className="w-4 h-4 accent-primary"
+                    />
+                    {f.label}
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-3 mb-10">
+                {orderedSelectedFeatures.map((featKey, idx) => {
+                  const Icon = FEATURE_ICONS[featKey];
+                  const label =
+                    FEATURES.find((f) => f.key === featKey)?.label ||
+                    featKey.replaceAll("_", " ");
+
+                  return (
+                    <span
+                      key={idx}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl 
+                          bg-blue-50 text-blue-700 
+                          dark:bg-blue-900/40 dark:text-blue-200 
+                          text-sm font-medium shadow-sm border border-blue-200/40 
+                          dark:border-blue-800/40"
+                    >
+                      {Icon && (
+                        <Icon
+                          size={16}
+                          className="text-blue-600 dark:text-blue-300"
+                        />
+                      )}
+                      {label}
+                    </span>
+                  );
+                })}
+
+                {orderedSelectedFeatures.length === 0 && (
+                  <p className="text-gray-500 text-sm italic">
+                    No features selected.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* COMPARE */}
             <h3 className="text-lg font-semibold mb-3">Compare Photos</h3>

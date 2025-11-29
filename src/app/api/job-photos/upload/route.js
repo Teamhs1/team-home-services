@@ -2,14 +2,32 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export const config = {
-  api: {
-    bodyParser: false,
-  },
+  api: { bodyParser: false },
+};
+
+// 🔥 Categorías consideradas “general areas”
+const GENERAL_AREAS = [
+  "kitchen",
+  "bathroom",
+  "living_room",
+  "bedroom",
+  "laundry_unit",
+  "balcony_area",
+  "glass_shower_area",
+  "double_sink_area",
+];
+
+// Extra: cualquier categoría bedroom_X (bedroom_1, bedroom_2…)
+const isGeneralArea = (category) => {
+  if (!category) return false;
+  if (GENERAL_AREAS.includes(category)) return true;
+  if (category.startsWith("bedroom_")) return true;
+  return false;
 };
 
 export async function POST(req) {
   try {
-    // CORS
+    // CORS — Opcional
     if (req.method === "OPTIONS") {
       return new NextResponse(null, {
         status: 200,
@@ -25,27 +43,12 @@ export async function POST(req) {
 
     let file = formData.get("file");
     let path = formData.get("path");
+
     const jobId = formData.get("job_id");
     const category = formData.get("category") || "general";
+    let type = formData.get("type"); // "before" o "after" – viene del frontend
 
-    // ⛔ JAMÁS permitir type="general"
-    let type = formData.get("type");
-
-    // 🔥 General areas → type siempre debe ser "after"
-    if (
-      category === "kitchen" ||
-      category === "bathroom" ||
-      category === "bedroom" ||
-      category === "living_room"
-    ) {
-      type = "after";
-    }
-
-    // fallback
-    if (!type || (type !== "before" && type !== "after")) {
-      type = "after";
-    }
-
+    // 🛑 Validación mínima
     if (!file || !path || !jobId) {
       return NextResponse.json(
         { error: "Missing file, path or jobId" },
@@ -53,7 +56,29 @@ export async function POST(req) {
       );
     }
 
-    // Limpieza de filename
+    console.log("📸 Upload received:", {
+      jobId,
+      category,
+      type,
+      originalFilename: file.name,
+    });
+
+    // 🔥 Reglas de clasificación
+    // El frontend SIEMPRE manda “before” o “after”.
+    // Nosotros **corregimos** automáticamente si es un General Area.
+    if (isGeneralArea(category)) {
+      type = "after";
+    }
+
+    // Fallback por si el frontend mandara algo inesperado
+    if (type !== "before" && type !== "after") {
+      console.warn("⚠ Invalid type received. Forcing type=after.");
+      type = "after";
+    }
+
+    // ------------------------------------------------------------
+    // CLEAN FILE NAME
+    // ------------------------------------------------------------
     const cleanName = file.name
       .replace(/\s+/g, "_")
       .replace(/[()]/g, "")
@@ -62,14 +87,13 @@ export async function POST(req) {
 
     path = path.replace(file.name, cleanName);
 
-    // HEIC/HEIF
+    // ------------------------------------------------------------
+    // DETECT MIME TYPE (HEIC fix)
+    // ------------------------------------------------------------
     let contentType = file.type || "image/jpeg";
 
-    if (cleanName.toLowerCase().endsWith(".heic")) {
-      contentType = "image/heic";
-    } else if (cleanName.toLowerCase().endsWith(".heif")) {
-      contentType = "image/heif";
-    }
+    if (cleanName.toLowerCase().endsWith(".heic")) contentType = "image/heic";
+    if (cleanName.toLowerCase().endsWith(".heif")) contentType = "image/heif";
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -78,7 +102,9 @@ export async function POST(req) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // Upload
+    // ------------------------------------------------------------
+    // UPLOAD TO STORAGE
+    // ------------------------------------------------------------
     const { error: uploadError } = await supabase.storage
       .from("job-photos")
       .upload(path, buffer, {
@@ -86,9 +112,14 @@ export async function POST(req) {
         upsert: false,
       });
 
-    if (uploadError) throw new Error(uploadError.message);
+    if (uploadError) {
+      console.error("❌ Upload Error:", uploadError);
+      throw new Error(uploadError.message);
+    }
 
-    // Insert DB
+    // ------------------------------------------------------------
+    // INSERT IN DATABASE
+    // ------------------------------------------------------------
     const { data: photo, error: insertError } = await supabase
       .from("job_photos")
       .insert([
@@ -103,22 +134,26 @@ export async function POST(req) {
       .select()
       .single();
 
-    if (insertError) throw new Error(insertError.message);
+    if (insertError) {
+      console.error("❌ Insert DB Error:", insertError);
+      throw new Error(insertError.message);
+    }
+
+    console.log("✅ Upload complete:", { path });
 
     return NextResponse.json(
       {
+        success: true,
         message: "File uploaded successfully",
         photo,
       },
       {
         status: 200,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: { "Access-Control-Allow-Origin": "*" },
       }
     );
   } catch (err) {
-    console.error("💥 Upload Error:", err);
+    console.error("💥 SERVER ERROR:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

@@ -13,7 +13,11 @@ import { createClient } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
 import Slider from "@/components/Slider";
 
-// NECESARIO PARA LAS TARJETAS
+// Feature Icons
+import { FEATURE_ICONS } from "./job-upload/featureIcons";
+import { FEATURES } from "./job-upload/features";
+
+// Cards
 import {
   Card,
   CardHeader,
@@ -38,7 +42,75 @@ export default function StaffJobsView({
   const searchParams = useSearchParams();
   const statusFilter = searchParams.get("status") || "all";
 
-  // ⭐ AUTO-FORZAR GRID EN MÓVIL
+  // ===================================================
+  // FILTER JOBS (debe estar antes del useEffect)
+  // ===================================================
+  const filteredJobs =
+    statusFilter === "all"
+      ? jobs
+      : statusFilter === "upcoming"
+      ? jobs.filter((j) => new Date(j.scheduled_date) > new Date())
+      : jobs.filter((j) => j.status === statusFilter);
+
+  // ===================================================
+  // 🔥 REAL PHOTO COUNTS (from API)
+  // ===================================================
+  const [photoCounts, setPhotoCounts] = useState({});
+
+  useEffect(() => {
+    if (!filteredJobs?.length) return;
+
+    const loadCounts = async () => {
+      const map = {};
+
+      for (const job of filteredJobs) {
+        try {
+          const res = await fetch(`/api/job-photos/list?job_id=${job.id}`);
+          const data = await res.json();
+
+          const total =
+            (data?.data?.before?.length || 0) +
+            (data?.data?.after?.length || 0) +
+            (data?.data?.general?.length || 0);
+
+          map[job.id] = total;
+        } catch {
+          map[job.id] = 0;
+        }
+      }
+
+      setPhotoCounts(map);
+    };
+
+    loadCounts();
+  }, [filteredJobs]); // 👈 CORRECTO
+
+  // ===================================================
+  // Feature Icons renderer
+  // ===================================================
+  const renderFeatureIcons = (jobFeatures = []) =>
+    jobFeatures
+      .filter((f) => FEATURE_ICONS[f])
+      .slice(0, 5)
+      .map((f) => {
+        const Icon = FEATURE_ICONS[f];
+        const label =
+          FEATURES.find((x) => x.key === f)?.label || f.replaceAll("_", " ");
+        return (
+          <div
+            key={f}
+            className="flex items-center gap-1 text-gray-700 dark:text-gray-300 
+            bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full text-[10px] font-medium"
+          >
+            <Icon className="w-3 h-3 text-primary" />
+            {label}
+          </div>
+        );
+      });
+
+  // ===================================================
+  // AUTO-FORZAR GRID EN MOBILE
+  // ===================================================
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 640) {
       setViewMode("grid");
@@ -63,7 +135,9 @@ export default function StaffJobsView({
     );
   };
 
-  // ⭐ REALTIME
+  // ===================================================
+  // REALTIME UPDATES
+  // ===================================================
   useEffect(() => {
     const supabaseRealtime = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -85,15 +159,9 @@ export default function StaffJobsView({
     return () => supabaseRealtime.removeChannel(channel);
   }, [fetchJobs]);
 
-  // ⭐ FILTRO DE JOBS DESDE QUERY PARAM
-  const filteredJobs =
-    statusFilter === "all"
-      ? jobs
-      : statusFilter === "upcoming"
-      ? jobs.filter((j) => new Date(j.scheduled_date) > new Date())
-      : jobs.filter((j) => j.status === statusFilter);
-
-  // ⭐ BOTÓN GRID / LIST
+  // ===================================================
+  // VIEW TOGGLE
+  // ===================================================
   const ViewToggleButton = () => (
     <Button
       variant="outline"
@@ -111,7 +179,7 @@ export default function StaffJobsView({
 
   return (
     <main className="py-6 sm:px-6 sm:py-10 max-w-[1600px] mx-auto space-y-10">
-      {/* 🔹 Header */}
+      {/* HEADER */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
           <ClipboardList className="w-6 h-6 text-primary" />
@@ -134,64 +202,65 @@ export default function StaffJobsView({
       </div>
 
       {/* LIST / GRID */}
-      {/* LIST / GRID */}
       {viewMode === "list" ? (
         <JobList jobs={filteredJobs} openModal={openModal} />
       ) : (
         <div
           className="
-      grid 
-      gap-4 sm:gap-6 
-      place-items-center   /* 💥 CENTRAR LAS CARDS */
-
-      grid-cols-1     
-      sm:grid-cols-1  
-      md:grid-cols-2  
-      lg:grid-cols-3 
-      xl:grid-cols-4
-    "
+            grid 
+            gap-4 sm:gap-6 
+            place-items-stretch 
+            grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
+            auto-rows-[1fr]
+          "
         >
           {filteredJobs.map((job) => (
             <Card
               key={job.id}
               className="
-          relative border shadow-sm hover:shadow-md transition-all 
-          rounded-2xl bg-white overflow-hidden
-
-          w-[90%]    /* 💥 90% DEL ANCHO EN MÓVIL */
-          sm:w-[90%] /* 💥 un poco más ancho en sm */
-          md:w-full  /* 💥 FULL cuando ya son 2 columnas */
-          mx-auto
-        "
+                h-full flex flex-col
+                relative border shadow-sm hover:shadow-md transition-all 
+                rounded-2xl bg-white overflow-hidden
+                w-[90%] sm:w-[90%] md:w-full mx-auto
+              "
             >
-              {/* Imagen */}
+              {/* IMAGE */}
               <div
                 className="cursor-pointer relative aspect-video bg-gray-100"
                 onClick={() => router.push(`/jobs/${job.id}`)}
               >
                 <Slider jobId={job.id} mini />
 
-                {/* Cantidad de fotos */}
-                <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
-                  {job.photo_count || 0} photos
+                {/* REAL PHOTO COUNT */}
+                <div
+                  className="
+                    absolute top-2 left-2 
+                    bg-black/70 text-white 
+                    text-[11px] px-2 py-1 
+                    rounded-full 
+                    backdrop-blur 
+                    z-[20]
+                  "
+                >
+                  {(photoCounts[job.id] ?? 0) + " photos"}
                 </div>
 
-                {/* Estado */}
+                {/* STATUS */}
                 <span
-                  className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm
-              ${
-                job.status === "pending"
-                  ? "bg-yellow-300/70 text-black"
-                  : job.status === "in_progress"
-                  ? "bg-blue-500/70 text-white"
-                  : "bg-green-500/70 text-white"
-              }`}
+                  className={`absolute bottom-2 left-2 px-2 py-1 rounded-full text-[11px] font-semibold shadow-md
+    ${
+      job.status === "pending"
+        ? "bg-yellow-400/90 text-black"
+        : job.status === "in_progress"
+        ? "bg-blue-500/90 text-white"
+        : "bg-green-600/90 text-white"
+    }`}
                 >
                   {job.status.replace("_", " ")}
                 </span>
               </div>
 
-              {/* Contenido */}
+              {/* CONTENT */}
               <CardHeader className="pb-1">
                 <CardTitle className="text-lg font-semibold truncate">
                   {job.title}
@@ -203,14 +272,21 @@ export default function StaffJobsView({
                 </CardDescription>
               </CardHeader>
 
-              <CardContent className="space-y-3 pt-1">
-                {/* Tipo */}
+              <CardContent className="space-y-3 pt-1 flex-grow">
+                {/* TYPE */}
                 <p className="text-sm capitalize text-gray-700">
                   <strong className="text-gray-800">Type:</strong>{" "}
                   {job.service_type}
                 </p>
 
-                {/* Timer / duration */}
+                {/* FEATURES */}
+                {job.features?.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {renderFeatureIcons(job.features)}
+                  </div>
+                )}
+
+                {/* TIMER */}
                 <div>
                   {job.status === "in_progress" && (
                     <div className="inline-block bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
@@ -227,8 +303,8 @@ export default function StaffJobsView({
                   )}
                 </div>
 
-                {/* Acciones */}
-                <div className="pt-1 flex justify-end">
+                {/* ACTIONS */}
+                <div className="pt-1 flex justify-end mt-auto">
                   {job.status === "pending" && (
                     <Button
                       size="sm"
@@ -260,7 +336,7 @@ export default function StaffJobsView({
         </div>
       )}
 
-      {/* Modal */}
+      {/* MODAL */}
       <AnimatePresence>
         {modalOpen && currentJob && (
           <JobUploadModal

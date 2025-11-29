@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// 🧠 Cliente con Service Role Key (sin RLS)
+// Service role (sin RLS)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -18,7 +18,9 @@ export async function GET(req) {
         { status: 400 }
       );
 
-    // 1️⃣ Traer fotos desde la BD
+    // ============================================================
+    // 1) FOTOS EN DB
+    // ============================================================
     const { data: dbPhotos, error } = await supabase
       .from("job_photos")
       .select("id, job_id, category, type, image_url, uploaded_by, created_at")
@@ -27,7 +29,9 @@ export async function GET(req) {
 
     if (error) throw error;
 
-    // 2️⃣ Normalizar URL absoluta
+    // ============================================================
+    // 2) Normalizar URL
+    // ============================================================
     const normalizeUrl = (url) => {
       if (!url) return null;
       if (url.startsWith("http")) return url;
@@ -41,80 +45,132 @@ export async function GET(req) {
       return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/job-photos/${encoded}`;
     };
 
-    // 3️⃣ Detectar tipo correctamente
-    const detectType = (p) => {
-      const file = p.image_url?.toLowerCase() || "";
-      const cat = p.category?.toLowerCase() || "";
-      const t = p.type?.toLowerCase() || "";
+    // ============================================================
+    // 3) Detectar tipo final correctamente
+    // ============================================================
+    const detectType = (photo) => {
+      const t = photo.type?.toLowerCase() || "";
+      const cat = photo.category?.toLowerCase() || "";
+      const file = photo.image_url?.toLowerCase() || "";
 
-      // 🟢 Si BD tiene type -> respetarlo
+      // si BD ya tiene type válido, respetarlo
       if (t === "before" || t === "after") return t;
 
-      // 🟡 categoría explícita
+      // por categoría explícita
       if (cat === "before" || cat === "after") return cat;
 
-      // 🔵 detectar imágenes antiguas
-      if (file.includes("before_")) return "before";
-      if (file.includes("after_")) return "after";
-
-      // 🔵 detectar rutas nuevas por carpeta
+      // por carpeta
       if (file.includes("/before/")) return "before";
       if (file.includes("/after/")) return "after";
+
+      // por nombre de archivo
+      if (file.includes("before_")) return "before";
+      if (file.includes("after_")) return "after";
 
       return "general";
     };
 
-    const normalized = (dbPhotos || []).map((p) => ({
+    const normalizedDb = dbPhotos.map((p) => ({
       ...p,
       image_url: normalizeUrl(p.image_url),
       type: detectType(p),
     }));
 
-    // 4️⃣ Revisar bucket por si hay fotos huérfanas
-    const { data: bucketFiles } = await supabase.storage
+    // ============================================================
+    // 4) Revisar bucket por si hay fotos huérfanas
+    // ============================================================
+    const bucketPath = jobId + "/";
+    const { data: bucketList } = await supabase.storage
       .from("job-photos")
-      .list(jobId, { limit: 200 });
+      .list(bucketPath, {
+        limit: 200,
+        offset: 0,
+        sortBy: { column: "name", order: "asc" },
+      });
 
-    const bucketList =
-      bucketFiles?.map((f) => {
-        const fullUrl = `${
+    const bucketItems =
+      bucketList?.map((file) => {
+        const url = `${
           process.env.NEXT_PUBLIC_SUPABASE_URL
         }/storage/v1/object/public/job-photos/${jobId}/${encodeURIComponent(
-          f.name
+          file.name
         )}`;
 
-        const fileLower = f.name.toLowerCase();
+        const lower = file.name.toLowerCase();
 
         return {
-          id: `bucket-${f.name}`,
+          id: `bucket-${file.name}`,
           job_id: jobId,
-          image_url: fullUrl,
+          image_url: url,
           category: "general",
           uploaded_by: "bucket-only",
-          type: fileLower.includes("before")
+          type: lower.includes("before")
             ? "before"
-            : fileLower.includes("after")
+            : lower.includes("after")
             ? "after"
             : "general",
+          created_at: file.created_at || null,
         };
       }) || [];
 
-    // 5️⃣ Combinar y deduplicar por URL
-    const all = [...normalized, ...bucketList];
+    // ============================================================
+    // 5) COMBINAR Y DEDUPLICAR POR URL
+    // ============================================================
+    const all = [...normalizedDb, ...bucketItems];
+
     const unique = Array.from(
       new Map(all.map((p) => [p.image_url, p])).values()
     );
 
-    // 6️⃣ Agrupar por type final
-    const grouped = { before: [], after: [], general: [] };
+    // ============================================================
+    // 6) FILTRAR ARCHIVOS CORRUPTOS (sin extensión válida)
+    // ============================================================
+    const validImages = unique.filter((p) => {
+      const url = p.image_url.toLowerCase();
+      return (
+        url.endsWith(".jpg") ||
+        url.endsWith(".jpeg") ||
+        url.endsWith(".png") ||
+        url.endsWith(".webp") ||
+        url.endsWith(".heic") ||
+        url.endsWith(".heif")
+      );
+    });
 
-    unique.forEach((p) => {
+    // ============================================================
+    // 7) AGRUPAR PARA EL SLIDER
+    // ============================================================
+    const grouped = {
+      before: [],
+      after: [],
+      general: [],
+    };
+
+    validImages.forEach((p) => {
       if (p.type === "before") grouped.before.push(p);
       else if (p.type === "after") grouped.after.push(p);
       else grouped.general.push(p);
     });
 
-    return NextResponse.json({ success: true, data: grouped });
+    // ============================================================
+    // 8) Ordenar: primero Compare, luego General Areas
+    // ============================================================
+    const sortCompare = (arr) =>
+      arr.sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
+
+    grouped.before = sortCompare(grouped.before);
+    grouped.after = sortCompare(grouped.after);
+    grouped.general = sortCompare(grouped.general);
+
+    // ============================================================
+    // 9) Devolver respuesta limpia
+    // ============================================================
+    return NextResponse.json({
+      success: true,
+      data: grouped,
+      total_photos:
+        grouped.before.length + grouped.after.length + grouped.general.length,
+    });
   } catch (err) {
     console.error("💥 Error en list photos:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
