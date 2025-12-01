@@ -138,8 +138,7 @@ export default function RootLayout({ children }) {
             }}
           />
         </head>
-
-        <body className="min-h-screen w-full overflow-x-hidden bg-gray-50 text-gray-900 antialiased">
+        <body className="min-h-screen w-full overflow-x-hidden overflow-y-scroll bg-gray-50 text-gray-900 antialiased">
           <SidebarProvider>
             <SupabaseProvider>
               <ConditionalNavbar />

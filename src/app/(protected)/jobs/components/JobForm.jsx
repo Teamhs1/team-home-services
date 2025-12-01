@@ -145,11 +145,15 @@ export default function JobForm({ staffList = [], fetchJobs }) {
             <SelectValue placeholder="Select staff" />
           </SelectTrigger>
 
+          {/* ⭐ FIX aplicado aquí */}
           <SelectContent
+            position="popper"
+            sideOffset={4}
             className="
+              z-[9999]
               bg-white dark:bg-gray-900
               border border-gray-200 dark:border-gray-700
-              shadow-lg rounded-md
+              shadow-xl rounded-md
             "
           >
             {staffList.map((staff) => (
@@ -180,11 +184,15 @@ export default function JobForm({ staffList = [], fetchJobs }) {
             <SelectValue />
           </SelectTrigger>
 
+          {/* ⭐ FIX aplicado aquí también */}
           <SelectContent
+            position="popper"
+            sideOffset={4}
             className="
+              z-[9999]
               bg-white dark:bg-gray-900
               border border-gray-200 dark:border-gray-700
-              shadow-lg rounded-md
+              shadow-xl rounded-md
             "
           >
             <SelectItem className="bg-white dark:bg-gray-900" value="standard">
