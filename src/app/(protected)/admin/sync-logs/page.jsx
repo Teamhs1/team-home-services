@@ -16,16 +16,14 @@ export default function SyncLogsPage() {
 
   async function fetchLogs() {
     setLoading(true);
+
     try {
-      const { data, error } = await supabase
-        .from("sync_logs")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      setLogs(data);
+      const res = await fetch("/api/admin/get-sync-logs");
+      const json = await res.json();
+
+      setLogs(json.logs || []);
     } catch (err) {
-      toast.error("Error loading logs: " + err.message);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -61,7 +59,7 @@ export default function SyncLogsPage() {
   }, []);
 
   return (
-    <main className="p-6">
+    <main className="p-6 pt-28">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-blue-700 flex items-center gap-2">
           🔄 Sync Logs

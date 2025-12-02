@@ -59,6 +59,21 @@ body {
     --chart-3: 217 91% 70%;
     --chart-4: 220 16% 93%;
     --chart-5: 0 84% 60%;
+
+    /* ======================================================
+       🌈 STATUS SYSTEM (LIGHT MODE)
+       ====================================================== */
+    --status-progress-bg: 210 100% 95%;
+    --status-progress-text: 215 90% 35%;
+
+    --status-pending-bg: 50 100% 90%;
+    --status-pending-text: 40 90% 35%;
+
+    --status-completed-bg: 140 60% 90%;
+    --status-completed-text: 140 60% 30%;
+
+    --status-canceled-bg: 220 15% 90%;
+    --status-canceled-text: 220 15% 40%;
   }
 
   /* 🌙 Modo oscuro */
@@ -96,6 +111,21 @@ body {
     --chart-3: 0 62% 50%;
     --chart-4: 220 16% 60%;
     --chart-5: 340 75% 55%;
+
+    /* ======================================================
+       🌙 STATUS SYSTEM (DARK MODE)
+       ====================================================== */
+    --status-progress-bg: 215 90% 25%;
+    --status-progress-text: 215 85% 75%;
+
+    --status-pending-bg: 40 80% 25%;
+    --status-pending-text: 45 90% 75%;
+
+    --status-completed-bg: 140 45% 20%;
+    --status-completed-text: 140 60% 70%;
+
+    --status-canceled-bg: 220 10% 25%;
+    --status-canceled-text: 220 15% 75%;
   }
 }
 
@@ -185,21 +215,31 @@ body {
            transition-all duration-200 px-4 py-2;
   }
 
-  /* ---- Badges (etiquetas de estado) ---- */
+  /* =======================================================
+     🌈 STATUS BADGES PROFESIONALES
+     ======================================================= */
   .badge {
-    @apply text-xs font-medium px-2 py-1 rounded-full;
-  }
-
-  .badge-pending {
-    @apply badge bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400;
+    @apply text-xs font-medium px-3 py-1 rounded-full inline-flex items-center;
   }
 
   .badge-progress {
-    @apply badge bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400;
+    background-color: hsl(var(--status-progress-bg));
+    color: hsl(var(--status-progress-text));
   }
 
-  .badge-complete {
-    @apply badge bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400;
+  .badge-pending {
+    background-color: hsl(var(--status-pending-bg));
+    color: hsl(var(--status-pending-text));
+  }
+
+  .badge-completed {
+    background-color: hsl(var(--status-completed-bg));
+    color: hsl(var(--status-completed-text));
+  }
+
+  .badge-canceled {
+    background-color: hsl(var(--status-canceled-bg));
+    color: hsl(var(--status-canceled-text));
   }
 
   /* ---- Tarjetas ---- */
@@ -225,10 +265,12 @@ body {
   .container-page {
     @apply max-w-6xl mx-auto px-6 py-10;
   }
+
   html {
     scroll-behavior: smooth;
   }
 }
+
 html {
   scrollbar-gutter: stable;
 }
