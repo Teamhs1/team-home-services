@@ -179,16 +179,17 @@ export default function Sidebar() {
         <button
           onClick={toggleSidebar}
           className={`absolute top-[3.1rem]
-            ${isOpen ? "right-[-10px]" : "right-[-12px]"}
-            bg-white border border-gray-300
-            rounded-full p-1.5 shadow-md hover:bg-gray-100
-            transition-all duration-300 z-[10050]`}
+${isOpen ? "right-[-10px]" : "right-[-12px]"}
+bg-blue-600 border border-blue-700
+text-white
+rounded-full p-1.5 shadow-md hover:bg-blue-700
+transition-all duration-300 z-[10050]`}
           aria-label="Toggle sidebar"
         >
           {isOpen ? (
-            <ChevronLeft size={16} className="text-gray-600" />
+            <ChevronLeft size={16} className="text-white" />
           ) : (
-            <ChevronRight size={16} className="text-gray-600" />
+            <ChevronRight size={16} className="text-white" />
           )}
         </button>
       </div>
