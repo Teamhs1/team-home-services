@@ -11,13 +11,28 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useSupabaseWithClerk } from "@/utils/supabase/useSupabaseWithClerk";
-import { CalendarDays, User, Trash2, LayoutGrid, List } from "lucide-react";
+import {
+  CalendarDays,
+  User,
+  LayoutGrid,
+  List,
+  MoreVertical,
+  RefreshCcw,
+  Trash2,
+} from "lucide-react";
 import JobForm from "./JobForm";
 import Slider from "@/components/Slider";
 import JobDuration from "./JobDuration";
 import JobTimer from "./JobTimer";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+
+// ⭐ Dropdown menu imports
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 export default function AdminJobsView({
   jobs,
@@ -25,7 +40,6 @@ export default function AdminJobsView({
   viewMode,
   setViewMode,
   fetchJobs,
-  updateStatus,
   deleteJob,
 }) {
   const { getClientWithToken } = useSupabaseWithClerk();
@@ -65,6 +79,75 @@ export default function AdminJobsView({
     }
   };
 
+  // 🧽 RESET JOB
+  const resetJob = async (jobId) => {
+    try {
+      const supabase = await getClientWithToken();
+
+      const { data: photos, error: fetchError } = await supabase
+        .from("job_photos")
+        .select("*")
+        .eq("job_id", jobId);
+
+      if (fetchError) throw fetchError;
+
+      const filePaths = (photos || [])
+        .map((p) => {
+          const raw =
+            p.file_path ||
+            p.path ||
+            p.photo_path ||
+            p.storage_path ||
+            p.url ||
+            p.photo_url;
+
+          if (!raw) return null;
+
+          if (raw.startsWith("http")) {
+            const clean = raw.split("/public/")[1];
+            return clean || null;
+          }
+
+          return raw;
+        })
+        .filter(Boolean);
+
+      if (filePaths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from("job-photos")
+          .remove(filePaths);
+
+        if (storageError) throw storageError;
+      }
+
+      const { error: deleteError } = await supabase
+        .from("job_photos")
+        .delete()
+        .eq("job_id", jobId);
+
+      if (deleteError) throw deleteError;
+
+      const { error: updateError } = await supabase
+        .from("cleaning_jobs")
+        .update({
+          status: "pending",
+          start_time: null,
+          end_time: null,
+          completed_at: null,
+          duration_minutes: null,
+        })
+        .eq("id", jobId);
+
+      if (updateError) throw updateError;
+
+      toast.success("⏳ Job reset successfully!");
+      fetchJobs();
+    } catch (err) {
+      console.error("RESET ERROR:", err);
+      toast.error("Error resetting job");
+    }
+  };
+
   return (
     <main className="px-4 sm:px-6 py-6 sm:py-10 max-w-[1600px] mx-auto space-y-8 sm:space-y-10">
       {/* HEADER */}
@@ -73,13 +156,11 @@ export default function AdminJobsView({
           🧽 Jobs Management
         </h1>
 
-        {/* BOTÓN — OCULTO EN MÓVIL */}
         <Button
           variant="outline"
           size="sm"
           onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
           className="hidden sm:flex items-center gap-2"
-          title={`Switch to ${viewMode === "grid" ? "List" : "Grid"} View`}
         >
           {viewMode === "grid" ? (
             <List className="w-4 h-4" />
@@ -89,8 +170,8 @@ export default function AdminJobsView({
         </Button>
       </div>
 
-      {/* CREAR JOB */}
-      <Card className="border border-border/50 shadow-md rounded-xl p-2 sm:p-4">
+      {/* CREATE JOB */}
+      <Card className="border shadow-md rounded-xl p-2 sm:p-4">
         <CardHeader>
           <CardTitle>Create New Job</CardTitle>
           <CardDescription>Add a new cleaning job.</CardDescription>
@@ -100,19 +181,19 @@ export default function AdminJobsView({
         </CardContent>
       </Card>
 
-      {/* VISTA LISTA */}
+      {/* LIST VIEW */}
       {viewMode === "list" ? (
-        <div className="hidden sm:block overflow-x-visible bg-white shadow rounded-lg border border-gray-200 scrollbar-thin scrollbar-thumb-gray-300">
+        <div className="hidden sm:block bg-white shadow rounded-lg border">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
               <tr>
-                <th className="px-4 py-2 text-left">Job</th>
-                <th className="px-4 py-2 text-left">Address</th>
-                <th className="px-4 py-2 text-left">Scheduled Date</th>
-                <th className="px-4 py-2 text-left">Type</th>
-                <th className="px-4 py-2 text-left">Assigned To</th>
-                <th className="px-4 py-2 text-left">Status</th>
-                <th className="px-4 py-2 text-left">Duration</th>
+                <th className="px-4 py-2">Job</th>
+                <th className="px-4 py-2">Address</th>
+                <th className="px-4 py-2">Date</th>
+                <th className="px-4 py-2">Type</th>
+                <th className="px-4 py-2">Assigned</th>
+                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2">Duration</th>
                 <th className="px-4 py-2 text-right">Actions</th>
               </tr>
             </thead>
@@ -120,10 +201,7 @@ export default function AdminJobsView({
             <tbody>
               {filteredJobs.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan="8"
-                    className="text-center py-6 text-gray-500 italic"
-                  >
+                  <td colSpan="8" className="py-6 text-center text-gray-500">
                     No jobs available.
                   </td>
                 </tr>
@@ -131,7 +209,7 @@ export default function AdminJobsView({
                 filteredJobs.map((job) => (
                   <tr
                     key={job.id}
-                    className="border-t hover:bg-gray-50 transition-colors cursor-pointer"
+                    className="border-t hover:bg-gray-50 cursor-pointer"
                     onClick={(e) => {
                       const tag = e.target.tagName.toLowerCase();
                       if (
@@ -143,21 +221,11 @@ export default function AdminJobsView({
                       window.location.href = `/jobs/${job.id}`;
                     }}
                   >
-                    {/* Job Title */}
-                    <td className="px-4 py-2 font-medium">{job.title}</td>
-
-                    {/* Address */}
-                    <td className="px-4 py-2 text-gray-700">
-                      {job.property_address || "—"}
-                    </td>
-
-                    {/* Scheduled Date */}
+                    <td className="px-4 py-2">{job.title}</td>
+                    <td className="px-4 py-2">{job.property_address}</td>
                     <td className="px-4 py-2">{job.scheduled_date}</td>
+                    <td className="px-4 py-2">{job.service_type}</td>
 
-                    {/* Type */}
-                    <td className="px-4 py-2 capitalize">{job.service_type}</td>
-
-                    {/* Assigned To */}
                     <td className="px-4 py-2">
                       <select
                         className="border rounded-md p-1 text-sm"
@@ -176,10 +244,9 @@ export default function AdminJobsView({
                       </select>
                     </td>
 
-                    {/* Status */}
                     <td className="px-4 py-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-sm font-semibold inline-block w-fit ${
+                        className={`px-2 py-1 rounded-full text-sm font-semibold ${
                           job.status === "pending"
                             ? "bg-yellow-100 text-yellow-700"
                             : job.status === "in_progress"
@@ -191,48 +258,53 @@ export default function AdminJobsView({
                       </span>
                     </td>
 
-                    {/* Duration */}
                     <td className="px-4 py-2">
                       {job.status === "in_progress" && (
-                        <div className="text-blue-600 font-semibold text-xs flex items-center gap-1">
-                          <JobTimer jobId={job.id} status="in_progress" />
-                        </div>
+                        <JobTimer jobId={job.id} status="in_progress" />
                       )}
-
                       {job.status === "completed" && (
-                        <div className="text-green-600 font-semibold text-xs flex flex-col gap-0.5">
-                          <div className="flex items-center gap-1">
-                            <JobDuration jobId={job.id} status="completed" />
-                          </div>
-
-                          <span className="text-gray-500 text-[11px]">
-                            Completed on{" "}
-                            {job.completed_at
-                              ? new Date(job.completed_at).toLocaleDateString()
-                              : "—"}
-                          </span>
-                        </div>
+                        <JobDuration jobId={job.id} status="completed" />
                       )}
-
-                      {job.status === "pending" && (
-                        <span className="text-gray-400">—</span>
-                      )}
+                      {job.status === "pending" && "—"}
                     </td>
 
-                    {/* Actions */}
+                    {/* ⭐ ACTIONS DROPDOWN */}
                     <td className="px-4 py-2 text-right">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteJob(job.id);
-                        }}
-                        className="flex gap-1 items-center"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              resetJob(job.id);
+                            }}
+                          >
+                            <RefreshCcw className="mr-2 h-4 w-4" />
+                            Reset Job
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteJob(job.id);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))
@@ -241,127 +313,115 @@ export default function AdminJobsView({
           </table>
         </div>
       ) : (
-        // 🟦 GRID VIEW
-        <div
-          className="grid gap-4 sm:gap-6 
-            grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-        >
-          {filteredJobs.length === 0 ? (
-            <p className="col-span-full text-center text-gray-500 italic">
-              No jobs available.
-            </p>
-          ) : (
-            filteredJobs.map((job) => (
-              <Card
-                key={job.id}
-                className="relative border shadow-sm hover:shadow-md transition-all rounded-2xl bg-white overflow-hidden"
+        /* GRID VIEW */
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredJobs.map((job) => (
+            <Card
+              key={job.id}
+              className="relative border shadow-sm rounded-2xl"
+            >
+              <div
+                className="relative aspect-video bg-gray-100 cursor-pointer"
+                onClick={() => (window.location.href = `/jobs/${job.id}`)}
               >
-                {/* IMAGE */}
-                <div
-                  className="cursor-pointer relative aspect-video bg-gray-100"
-                  onClick={() => (window.location.href = `/jobs/${job.id}`)}
-                >
-                  <Slider jobId={job.id} mini />
+                <Slider jobId={job.id} mini />
+              </div>
 
-                  <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
-                    {job.photo_count || 0} photos
-                  </div>
+              <CardHeader className="pb-1">
+                <CardTitle className="truncate text-lg">{job.title}</CardTitle>
+                <CardDescription className="text-xs text-gray-500 flex items-center gap-1">
+                  <CalendarDays className="w-3 h-3" />
+                  {job.scheduled_date || "No date"}
+                </CardDescription>
+              </CardHeader>
 
-                  <span
-                    className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-semibold backdrop-blur-sm
-                    ${
-                      job.status === "pending"
-                        ? "bg-yellow-300/70 text-black"
-                        : job.status === "in_progress"
-                        ? "bg-blue-500/70 text-white"
-                        : "bg-green-500/70 text-white"
-                    }`}
+              <CardContent className="space-y-3 pt-1">
+                <p className="text-sm">
+                  <strong>Type:</strong> {job.service_type}
+                </p>
+
+                <div className="flex items-center gap-2 text-sm">
+                  <User className="w-4 h-4 text-gray-500" />
+                  <select
+                    className="border rounded-md p-1 text-xs flex-1"
+                    value={job.assigned_to || ""}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) =>
+                      assignToStaff(job.id, e.target.value || null)
+                    }
                   >
-                    {job.status.replace("_", " ")}
-                  </span>
+                    <option value="">Unassigned</option>
+                    {staffList.map((staff) => (
+                      <option key={staff.id} value={staff.clerk_id}>
+                        {staff.full_name || staff.email}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* CONTENT */}
-                <CardHeader className="pb-1">
-                  <CardTitle className="text-lg font-semibold truncate">
-                    {job.title}
-                  </CardTitle>
+                <div>
+                  {job.status === "in_progress" && (
+                    <div className="bg-blue-50 text-blue-700 text-xs inline-block px-3 py-1 rounded-full shadow-sm">
+                      <JobTimer jobId={job.id} />
+                    </div>
+                  )}
 
-                  <CardDescription className="flex items-center gap-2 text-xs text-gray-500">
-                    <CalendarDays className="w-3 h-3" />
-                    {job.scheduled_date || "No date"}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="space-y-3 pt-1">
-                  <p className="text-sm capitalize text-gray-700">
-                    <strong className="text-gray-800">Type:</strong>{" "}
-                    {job.service_type}
-                  </p>
-
-                  {/* Staff */}
-                  <div className="flex items-center gap-2 text-sm text-gray-700">
-                    <User className="w-4 h-4 text-gray-500" />
-                    <select
-                      className="border rounded-md p-1 text-xs flex-1 focus:ring-primary focus:border-primary"
-                      value={job.assigned_to || ""}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) =>
-                        assignToStaff(job.id, e.target.value || null)
-                      }
-                    >
-                      <option value="">Unassigned</option>
-                      {staffList.map((staff) => (
-                        <option key={staff.id} value={staff.clerk_id}>
-                          {staff.full_name || staff.email}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* TIMER / DURATION */}
-                  <div>
-                    {job.status === "in_progress" && (
-                      <div className="inline-block bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                        <JobTimer jobId={job.id} />
+                  {job.status === "completed" && (
+                    <div className="flex flex-col text-xs text-green-700">
+                      <div className="bg-green-50 px-3 py-1 inline-block font-semibold rounded-full shadow-sm">
+                        <JobDuration jobId={job.id} />
                       </div>
-                    )}
+                      <span className="text-gray-500 text-[11px]">
+                        Done on{" "}
+                        {job.completed_at
+                          ? new Date(job.completed_at).toLocaleDateString()
+                          : "—"}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-                    {job.status === "completed" && (
-                      <div className="flex flex-col text-xs text-green-700 gap-0.5">
-                        <div className="inline-block bg-green-50 px-3 py-1 font-semibold rounded-full shadow-sm">
-                          <JobDuration jobId={job.id} />
-                        </div>
+                {/* ⭐ DROPDOWN GRID */}
+                <div className="pt-1 flex justify-end">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
 
-                        <span className="text-gray-500 text-[11px]">
-                          Completed on{" "}
-                          {job.completed_at
-                            ? new Date(job.completed_at).toLocaleDateString()
-                            : "—"}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          resetJob(job.id);
+                        }}
+                      >
+                        <RefreshCcw className="mr-2 h-4 w-4" />
+                        Reset Job
+                      </DropdownMenuItem>
 
-                  {/* DELETE BUTTON */}
-                  <div className="pt-1 flex justify-end">
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteJob(job.id);
-                      }}
-                      className="flex gap-1 items-center"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+                      <DropdownMenuItem
+                        className="text-red-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteJob(job.id);
+                        }}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </main>
