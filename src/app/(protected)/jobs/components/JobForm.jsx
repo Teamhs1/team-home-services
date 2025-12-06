@@ -17,7 +17,11 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
-export default function JobForm({ staffList = [], fetchJobs }) {
+export default function JobForm({
+  staffList = [],
+  clientList = [],
+  fetchJobs,
+}) {
   const { getToken } = useAuth();
   const { user } = useUser();
   const clerkId = user?.id ?? null;
@@ -25,6 +29,7 @@ export default function JobForm({ staffList = [], fetchJobs }) {
   // ========= STATE =========
   const [title, setTitle] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
+  const [clientId, setClientId] = useState(""); // CLIENTE AQUÍ
   const [serviceType, setServiceType] = useState("standard");
   const [scheduledDate, setScheduledDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -35,7 +40,8 @@ export default function JobForm({ staffList = [], fetchJobs }) {
   const isValid =
     title.trim().length > 0 &&
     scheduledDate.trim().length > 0 &&
-    assignedTo.trim().length > 0;
+    assignedTo.trim().length > 0 &&
+    clientId.trim().length > 0;
 
   async function createJob() {
     if (!isValid) {
@@ -57,6 +63,7 @@ export default function JobForm({ staffList = [], fetchJobs }) {
         body: JSON.stringify({
           title,
           assigned_to: assignedTo || null,
+          assigned_client: clientId || null, // ✅ AHORA SE ENVÍA CORRECTAMENTE
           service_type: serviceType,
           scheduled_date: scheduledDate,
           created_by: clerkId,
@@ -87,12 +94,14 @@ export default function JobForm({ staffList = [], fetchJobs }) {
               created_by: data?.data?.[0]?.created_by,
             },
           });
+          channel.unsubscribe();
         }
       });
 
-      // Limpieza
+      // CLEANUP
       setTitle("");
       setAssignedTo("");
+      setClientId("");
       setServiceType("standard");
       setScheduledDate(new Date().toISOString().split("T")[0]);
 
@@ -135,36 +144,47 @@ export default function JobForm({ staffList = [], fetchJobs }) {
         <Label>Staff</Label>
 
         <Select value={assignedTo} onValueChange={setAssignedTo}>
-          <SelectTrigger
-            className="
-              h-11 border
-              bg-white dark:bg-gray-900
-              text-gray-900 dark:text-gray-100
-            "
-          >
+          <SelectTrigger className="h-11 border bg-white dark:bg-gray-900">
             <SelectValue placeholder="Select staff" />
           </SelectTrigger>
 
-          {/* ⭐ FIX aplicado aquí */}
           <SelectContent
             position="popper"
             sideOffset={4}
-            className="
-              z-[9999]
-              bg-white dark:bg-gray-900
-              border border-gray-200 dark:border-gray-700
-              shadow-xl rounded-md
-            "
+            className="z-[9999] bg-white dark:bg-gray-900 shadow-xl rounded-md"
           >
             {staffList.map((staff) => (
-              <SelectItem
-                key={staff.clerk_id}
-                value={staff.clerk_id}
-                className="bg-white dark:bg-gray-900"
-              >
+              <SelectItem key={staff.clerk_id} value={staff.clerk_id}>
                 {staff.full_name}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Client */}
+      <div className="space-y-1.5">
+        <Label>Client</Label>
+
+        <Select value={clientId} onValueChange={setClientId}>
+          <SelectTrigger className="h-11 border bg-white dark:bg-gray-900">
+            <SelectValue placeholder="Select client" />
+          </SelectTrigger>
+
+          <SelectContent
+            position="popper"
+            sideOffset={4}
+            className="z-[9999] bg-white dark:bg-gray-900 shadow-xl rounded-md"
+          >
+            {clientList.length === 0 ? (
+              <div className="px-3 py-2 text-gray-500">No clients found</div>
+            ) : (
+              clientList.map((client) => (
+                <SelectItem key={client.clerk_id} value={client.clerk_id}>
+                  {client.full_name}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -174,39 +194,19 @@ export default function JobForm({ staffList = [], fetchJobs }) {
         <Label>Service Type</Label>
 
         <Select value={serviceType} onValueChange={setServiceType}>
-          <SelectTrigger
-            className="
-              h-11 capitalize border
-              bg-white dark:bg-gray-900
-              text-gray-900 dark:text-gray-100
-            "
-          >
+          <SelectTrigger className="h-11 capitalize border bg-white dark:bg-gray-900">
             <SelectValue />
           </SelectTrigger>
 
-          {/* ⭐ FIX aplicado aquí también */}
           <SelectContent
             position="popper"
             sideOffset={4}
-            className="
-              z-[9999]
-              bg-white dark:bg-gray-900
-              border border-gray-200 dark:border-gray-700
-              shadow-xl rounded-md
-            "
+            className="z-[9999] bg-white dark:bg-gray-900 shadow-xl rounded-md"
           >
-            <SelectItem className="bg-white dark:bg-gray-900" value="standard">
-              Standard
-            </SelectItem>
-            <SelectItem className="bg-white dark:bg-gray-900" value="deep">
-              Deep
-            </SelectItem>
-            <SelectItem className="bg-white dark:bg-gray-900" value="move-out">
-              Move-out
-            </SelectItem>
-            <SelectItem className="bg-white dark:bg-gray-900" value="add-ons">
-              Add-ons
-            </SelectItem>
+            <SelectItem value="standard">Standard</SelectItem>
+            <SelectItem value="deep">Deep</SelectItem>
+            <SelectItem value="move-out">Move-out</SelectItem>
+            <SelectItem value="add-ons">Add-ons</SelectItem>
           </SelectContent>
         </Select>
       </div>

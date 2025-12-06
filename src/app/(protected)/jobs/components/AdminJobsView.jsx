@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card,
   CardHeader,
@@ -26,7 +26,6 @@ import JobDuration from "./JobDuration";
 import JobTimer from "./JobTimer";
 import { useSearchParams } from "next/navigation";
 
-// ⭐ Dropdown menu imports
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -37,12 +36,41 @@ import {
 export default function AdminJobsView({
   jobs,
   staffList,
+  clientList, // legacy — ya no lo usamos
   viewMode,
   setViewMode,
   fetchJobs,
   deleteJob,
 }) {
   const { getClientWithToken } = useSupabaseWithClerk();
+
+  // *******************************
+  // 🔥 NEW: CLIENT LIST FROM DATABASE
+  // *******************************
+  const [loadedClients, setLoadedClients] = useState([]);
+
+  useEffect(() => {
+    async function fetchClients() {
+      try {
+        const supabase = await getClientWithToken();
+
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, clerk_id, full_name, email, role")
+          .eq("role", "client");
+
+        if (error) throw error;
+
+        setLoadedClients(data || []);
+      } catch (err) {
+        console.error("❌ Error fetching clients:", err);
+        toast.error("Could not load clients.");
+      }
+    }
+
+    fetchClients();
+  }, [getClientWithToken]);
+  // *******************************
 
   // ⭐ STATUS FILTER
   const searchParams = useSearchParams();
@@ -53,14 +81,14 @@ export default function AdminJobsView({
       ? jobs
       : jobs.filter((job) => job.status === statusFilter);
 
-  // 🟦 FORZAR GRID EN MÓVIL
+  // 🟦 FORCE GRID ON MOBILE
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 640) {
       if (viewMode !== "grid") setViewMode("grid");
     }
   }, [viewMode, setViewMode]);
 
-  // 🔹 Asignar staff
+  // 🔹 ASSIGN STAFF
   const assignToStaff = async (jobId, assigned_to) => {
     try {
       const supabase = await getClientWithToken();
@@ -76,6 +104,27 @@ export default function AdminJobsView({
     } catch (err) {
       console.error("💥 Error assigning staff:", err);
       toast.error("Error assigning job: " + err.message);
+    }
+  };
+
+  // 🔹 ASSIGN CLIENT
+  const assignToClient = async (jobId, client_id) => {
+    try {
+      const supabase = await getClientWithToken();
+      const cleanValue = client_id?.trim() ? client_id : null;
+
+      const { error } = await supabase
+        .from("cleaning_jobs")
+        .update({ assigned_client: cleanValue })
+        .eq("id", jobId);
+
+      if (error) throw new Error(error.message);
+
+      toast.success("✅ Cliente asignado correctamente!");
+      fetchJobs();
+    } catch (err) {
+      console.error("💥 Error assigning client:", err);
+      toast.error("Error assigning client: " + err.message);
     }
   };
 
@@ -120,12 +169,7 @@ export default function AdminJobsView({
         if (storageError) throw storageError;
       }
 
-      const { error: deleteError } = await supabase
-        .from("job_photos")
-        .delete()
-        .eq("job_id", jobId);
-
-      if (deleteError) throw deleteError;
+      await supabase.from("job_photos").delete().eq("job_id", jobId);
 
       const { error: updateError } = await supabase
         .from("cleaning_jobs")
@@ -177,7 +221,11 @@ export default function AdminJobsView({
           <CardDescription>Add a new cleaning job.</CardDescription>
         </CardHeader>
         <CardContent>
-          <JobForm staffList={staffList} fetchJobs={fetchJobs} />
+          <JobForm
+            staffList={staffList}
+            clientList={loadedClients} // ← FIXED: NOW REAL CLIENT DATA
+            fetchJobs={fetchJobs}
+          />
         </CardContent>
       </Card>
 
@@ -191,7 +239,8 @@ export default function AdminJobsView({
                 <th className="px-4 py-2">Address</th>
                 <th className="px-4 py-2">Date</th>
                 <th className="px-4 py-2">Type</th>
-                <th className="px-4 py-2">Assigned</th>
+                <th className="px-4 py-2">Assigned Staff</th>
+                <th className="px-4 py-2">Assigned Client</th>
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Duration</th>
                 <th className="px-4 py-2 text-right">Actions</th>
@@ -199,116 +248,128 @@ export default function AdminJobsView({
             </thead>
 
             <tbody>
-              {filteredJobs.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="py-6 text-center text-gray-500">
-                    No jobs available.
+              {filteredJobs.map((job) => (
+                <tr
+                  key={job.id}
+                  className="border-t hover:bg-gray-50 cursor-pointer"
+                  onClick={(e) => {
+                    const tag = e.target.tagName.toLowerCase();
+                    if (
+                      ["button", "select", "option", "svg", "path"].includes(
+                        tag
+                      )
+                    )
+                      return;
+                    window.location.href = `/jobs/${job.id}`;
+                  }}
+                >
+                  <td className="px-4 py-2">{job.title}</td>
+                  <td className="px-4 py-2">{job.property_address}</td>
+                  <td className="px-4 py-2">{job.scheduled_date}</td>
+                  <td className="px-4 py-2">{job.service_type}</td>
+
+                  {/* STAFF */}
+                  <td className="px-4 py-2">
+                    <select
+                      className="border rounded-md p-1 text-sm"
+                      value={job.assigned_to || ""}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) =>
+                        assignToStaff(job.id, e.target.value || null)
+                      }
+                    >
+                      <option value="">Unassigned</option>
+                      {staffList.map((staff) => (
+                        <option key={staff.id} value={staff.clerk_id}>
+                          {staff.full_name || staff.email}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+
+                  {/* CLIENT */}
+                  <td className="px-4 py-2">
+                    <select
+                      className="border rounded-md p-1 text-sm"
+                      value={job.assigned_client || ""}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) =>
+                        assignToClient(job.id, e.target.value || null)
+                      }
+                    >
+                      <option value="">No client assigned</option>
+                      {loadedClients.map((client) => (
+                        <option key={client.id} value={client.clerk_id}>
+                          {client.full_name || client.email}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+
+                  <td className="px-4 py-2">
+                    <span
+                      className={`px-2 py-1 rounded-full text-sm font-semibold ${
+                        job.status === "pending"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : job.status === "in_progress"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {job.status.replace("_", " ")}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-2">
+                    {job.status === "in_progress" && (
+                      <JobTimer jobId={job.id} status="in_progress" />
+                    )}
+                    {job.status === "completed" && (
+                      <JobDuration jobId={job.id} status="completed" />
+                    )}
+                    {job.status === "pending" && "—"}
+                  </td>
+
+                  {/* ACTIONS */}
+                  <td className="px-4 py-2 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 p-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            resetJob(job.id);
+                          }}
+                        >
+                          <RefreshCcw className="mr-2 h-4 w-4" />
+                          Reset Job
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteJob(job.id);
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
-              ) : (
-                filteredJobs.map((job) => (
-                  <tr
-                    key={job.id}
-                    className="border-t hover:bg-gray-50 cursor-pointer"
-                    onClick={(e) => {
-                      const tag = e.target.tagName.toLowerCase();
-                      if (
-                        ["button", "select", "option", "svg", "path"].includes(
-                          tag
-                        )
-                      )
-                        return;
-                      window.location.href = `/jobs/${job.id}`;
-                    }}
-                  >
-                    <td className="px-4 py-2">{job.title}</td>
-                    <td className="px-4 py-2">{job.property_address}</td>
-                    <td className="px-4 py-2">{job.scheduled_date}</td>
-                    <td className="px-4 py-2">{job.service_type}</td>
-
-                    <td className="px-4 py-2">
-                      <select
-                        className="border rounded-md p-1 text-sm"
-                        value={job.assigned_to || ""}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) =>
-                          assignToStaff(job.id, e.target.value || null)
-                        }
-                      >
-                        <option value="">Unassigned</option>
-                        {staffList.map((staff) => (
-                          <option key={staff.id} value={staff.clerk_id}>
-                            {staff.full_name || staff.email}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-
-                    <td className="px-4 py-2">
-                      <span
-                        className={`px-2 py-1 rounded-full text-sm font-semibold ${
-                          job.status === "pending"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : job.status === "in_progress"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        {job.status.replace("_", " ")}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-2">
-                      {job.status === "in_progress" && (
-                        <JobTimer jobId={job.id} status="in_progress" />
-                      )}
-                      {job.status === "completed" && (
-                        <JobDuration jobId={job.id} status="completed" />
-                      )}
-                      {job.status === "pending" && "—"}
-                    </td>
-
-                    {/* ⭐ ACTIONS DROPDOWN */}
-                    <td className="px-4 py-2 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 p-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              resetJob(job.id);
-                            }}
-                          >
-                            <RefreshCcw className="mr-2 h-4 w-4" />
-                            Reset Job
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteJob(job.id);
-                            }}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
@@ -340,6 +401,7 @@ export default function AdminJobsView({
                   <strong>Type:</strong> {job.service_type}
                 </p>
 
+                {/* STAFF */}
                 <div className="flex items-center gap-2 text-sm">
                   <User className="w-4 h-4 text-gray-500" />
                   <select
@@ -359,6 +421,27 @@ export default function AdminJobsView({
                   </select>
                 </div>
 
+                {/* CLIENT */}
+                <div className="flex items-center gap-2 text-sm">
+                  <User className="w-4 h-4 text-gray-500" />
+                  <select
+                    className="border rounded-md p-1 text-xs flex-1"
+                    value={job.assigned_client || ""}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) =>
+                      assignToClient(job.id, e.target.value || null)
+                    }
+                  >
+                    <option value="">No client</option>
+                    {loadedClients.map((client) => (
+                      <option key={client.id} value={client.clerk_id}>
+                        {client.full_name || client.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* STATUS */}
                 <div>
                   {job.status === "in_progress" && (
                     <div className="bg-blue-50 text-blue-700 text-xs inline-block px-3 py-1 rounded-full shadow-sm">
@@ -381,7 +464,7 @@ export default function AdminJobsView({
                   )}
                 </div>
 
-                {/* ⭐ DROPDOWN GRID */}
+                {/* DROPDOWN GRID */}
                 <div className="pt-1 flex justify-end">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

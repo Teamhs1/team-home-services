@@ -1,4 +1,5 @@
 "use client";
+import { useClients } from "./hooks/useClients";
 
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
@@ -6,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
-import { useSearchParams } from "next/navigation"; // ⭐ NUEVO
+import { useSearchParams } from "next/navigation";
 
 import { useJobs } from "./hooks/useJobs";
 import { useStaff } from "./hooks/useStaff";
@@ -23,8 +24,8 @@ export default function JobsPage() {
   const clerkId = user?.id;
   const role = user?.publicMetadata?.role || "client";
 
-  const searchParams = useSearchParams(); // ⭐
-  const activeStatus = searchParams.get("status") || "all"; // ⭐
+  const searchParams = useSearchParams();
+  const activeStatus = searchParams.get("status") || "all";
 
   const { jobs, loading, fetchJobs, updateStatus, deleteJob } = useJobs({
     clerkId,
@@ -33,6 +34,7 @@ export default function JobsPage() {
   });
 
   const { staffList, fetchStaff } = useStaff();
+  const { clientList, fetchClients } = useClients(); // ⭐ NUEVO
 
   const [customerJobs, setCustomerJobs] = useState([]);
   const [form, setForm] = useState({
@@ -44,7 +46,7 @@ export default function JobsPage() {
   const [customerLoading, setCustomerLoading] = useState(false);
   const [viewMode, setViewMode] = useState(() => "list");
 
-  // Forzar vista list si admin/staff
+  // Forzar vista list para admin/staff
   useEffect(() => {
     if (role === "admin" || role === "staff") {
       setViewMode("list");
@@ -67,7 +69,12 @@ export default function JobsPage() {
       }
 
       await fetchJobs();
-      if (role === "admin") await fetchStaff();
+
+      if (role === "admin") {
+        await fetchStaff();
+        await fetchClients(); // ⭐ NUEVO
+      }
+
       if (role === "client") await fetchCustomerJobs();
     })();
   }, [ready, clerkId, role]);
@@ -172,12 +179,13 @@ export default function JobsPage() {
         <AdminJobsView
           jobs={filteredJobs}
           staffList={staffList}
+          clientList={clientList} // ⭐ NUEVO
           viewMode={viewMode}
           setViewMode={setViewMode}
           fetchJobs={fetchJobs}
           updateStatus={updateStatus}
           deleteJob={deleteJob}
-          activeStatus={activeStatus} // ⭐
+          activeStatus={activeStatus}
         />
       ) : role === "staff" ? (
         <StaffJobsView
@@ -186,7 +194,7 @@ export default function JobsPage() {
           setViewMode={setViewMode}
           updateStatus={updateStatus}
           fetchJobs={fetchJobs}
-          activeStatus={activeStatus} // ⭐
+          activeStatus={activeStatus}
         />
       ) : (
         <ClientJobsView
@@ -200,7 +208,7 @@ export default function JobsPage() {
           viewMode={viewMode}
           setViewMode={setViewMode}
           getToken={getToken}
-          activeStatus={activeStatus} // ⭐
+          activeStatus={activeStatus}
         />
       )}
     </div>

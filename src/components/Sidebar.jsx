@@ -18,6 +18,7 @@ import {
   FileClock,
   AlertCircle,
   Mail,
+  Key, // ✅ IMPORTADO
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
@@ -42,7 +43,6 @@ export default function Sidebar() {
   const [hasSyncError, setHasSyncError] = useState(false);
 
   // 🔹 Refrescar rol desde Clerk
-  // 🔹 Refrescar rol desde Clerk (versión moderna)
   useEffect(() => {
     if (isLoaded && user) {
       const freshRole = user.publicMetadata?.role || "user";
@@ -128,8 +128,10 @@ export default function Sidebar() {
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
+  // ⭐ Agregar Keys dentro del bloque admin SIN romper nada
   if (role === "admin") {
     menuItems.push(
+      { name: "Keys", href: "/admin/keys", icon: Key }, // ✅ AÑADIDO
       { name: "Users", href: "/admin/users", icon: Users },
       { name: "Theme Preview", href: "/admin/theme-preview", icon: Palette }
     );
