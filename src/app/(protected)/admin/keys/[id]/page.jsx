@@ -1,111 +1,173 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-import QRCode from "react-qr-code";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import QRCode from "react-qr-code";
+import {
+  KeyRound,
+  Copy,
+  CheckCircle,
+  XCircle,
+  Building2,
+  MapPin,
+  Layers,
+  Home,
+  Hash,
+} from "lucide-react";
+import { toast } from "sonner";
 
-export default function KeyPage() {
-  const params = useParams();
-  const identifier = params?.id;
-
-  const { getToken } = useAuth();
-
+export default function KeyDetailPage() {
+  const { id } = useParams();
   const [keyData, setKeyData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  async function fetchKey() {
-    try {
-      const token = await getToken({ template: "supabase" });
-
-      // ✅ Cliente supabase v2 con header del token
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        }
-      );
-
-      console.log("🔍 Searching key:", identifier);
-
-      // 1️⃣ Buscar por TAG_CODE
-      let { data, error } = await supabase
-        .from("keys")
-        .select("*")
-        .eq("tag_code", identifier)
-        .maybeSingle();
-
-      // 2️⃣ Si no existe, buscar por ID
-      if (!data) {
-        console.log("🔄 Not found by tag_code, checking UUID...");
-        const uuidQuery = await supabase
-          .from("keys")
-          .select("*")
-          .eq("id", identifier)
-          .maybeSingle();
-
-        data = uuidQuery.data;
-        error = uuidQuery.error;
-      }
-
-      console.log("📥 Supabase response:", { data, error });
-
-      if (!data) {
-        setKeyData(null);
-        setLoading(false);
-        return;
-      }
-
-      setKeyData(data);
-      setLoading(false);
-    } catch (err) {
-      console.error("❌ Fetch error:", err);
-      setLoading(false);
-    }
-  }
-
+  // Fetch key
   useEffect(() => {
-    if (identifier) fetchKey();
-  }, [identifier]);
+    async function load() {
+      try {
+        const res = await fetch(`/api/keys/${id}`);
+        const json = await res.json();
 
-  if (loading) return <div className="p-6">Loading key...</div>;
+        if (!res.ok) {
+          setKeyData(null);
+        } else {
+          setKeyData(json.key);
+        }
+      } catch {
+        setKeyData(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (id) load();
+  }, [id]);
+
+  if (loading)
+    return <div className="p-10 text-gray-500 text-lg">Loading key...</div>;
 
   if (!keyData)
-    return <div className="p-6 text-red-600">Key not found: {identifier}</div>;
+    return (
+      <div className="p-10 text-red-600 font-semibold text-lg">
+        Key not found: {id}
+      </div>
+    );
+
+  // Status badge
+  const statusColors = {
+    available: "bg-green-100 text-green-700 border-green-300",
+    checked_out: "bg-yellow-100 text-yellow-700 border-yellow-300",
+    missing: "bg-red-100 text-red-700 border-red-300",
+  };
+
+  const statusLabel = {
+    available: "Available",
+    checked_out: "Checked Out",
+    missing: "Missing",
+  };
+
+  // Copy tag_code
+  function copyCode() {
+    navigator.clipboard.writeText(keyData.tag_code);
+    toast.success("Copied to clipboard!");
+  }
 
   return (
-    <div className="p-6">
-      <h1 className="mb-4 text-3xl font-bold">Key: {keyData.tag_code}</h1>
+    <div className="p-8 max-w-4xl mx-auto mt-20">
+      {/* HEADER */}
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <KeyRound className="w-7 h-7 text-primary" />
+          Key Details
+        </h1>
 
-      <div className="mb-6 inline-block rounded bg-white p-4 shadow">
-        <QRCode
-          value={`https://teamhomeservices.ca/admin/keys/${keyData.tag_code}`}
-          size={180}
-        />
+        <button
+          onClick={copyCode}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition shadow"
+        >
+          <Copy className="w-4 h-4" />
+          Copy Code
+        </button>
       </div>
 
-      <div className="mb-6 text-lg">
-        <p>
-          <strong>Property:</strong> {keyData.property_address}
-        </p>
-        <p>
-          <strong>Unit:</strong> {keyData.unit || "N/A"}
-        </p>
-        <p>
-          <strong>Building:</strong> {keyData.building || "N/A"}
-        </p>
-        <p>
-          <strong>Type:</strong> {keyData.type}
-        </p>
-        <p>
-          <strong>Status:</strong> {keyData.status}
-        </p>
+      {/* CARD */}
+      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+        {/* TAG + STATUS */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h2 className="text-2xl font-bold">{keyData.tag_code}</h2>
+            <p className="text-gray-500">Unique key identifier</p>
+          </div>
+
+          <div
+            className={`px-4 py-2 rounded-full border font-semibold capitalize text-sm ${
+              statusColors[keyData.status] || "bg-gray-100 text-gray-700"
+            }`}
+          >
+            {statusLabel[keyData.status] || keyData.status}
+          </div>
+        </div>
+
+        {/* QR CODE */}
+        <div className="flex justify-center mb-10">
+          <div className="bg-white p-4 shadow rounded-xl border">
+            <QRCode
+              value={`https://teamhomeservices.ca/admin/keys/${keyData.tag_code}`}
+              size={200}
+            />
+          </div>
+        </div>
+
+        {/* INFO GRID */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-gray-700">
+          {/* Property */}
+          <div className="flex items-start gap-3">
+            <MapPin className="w-5 h-5 text-primary mt-1" />
+            <div>
+              <p className="text-sm text-gray-500">Property Address</p>
+              <p className="font-semibold">{keyData.property_address}</p>
+            </div>
+          </div>
+
+          {/* Unit */}
+          <div className="flex items-start gap-3">
+            <Home className="w-5 h-5 text-primary mt-1" />
+            <div>
+              <p className="text-sm text-gray-500">Unit</p>
+              <p className="font-semibold">{keyData.unit || "N/A"}</p>
+            </div>
+          </div>
+
+          {/* Building */}
+          <div className="flex items-start gap-3">
+            <Building2 className="w-5 h-5 text-primary mt-1" />
+            <div>
+              <p className="text-sm text-gray-500">Building</p>
+              <p className="font-semibold">{keyData.building || "N/A"}</p>
+            </div>
+          </div>
+
+          {/* Type */}
+          <div className="flex items-start gap-3">
+            <Layers className="w-5 h-5 text-primary mt-1" />
+            <div>
+              <p className="text-sm text-gray-500">Key Type</p>
+              <p className="font-semibold">{keyData.type || "N/A"}</p>
+            </div>
+          </div>
+
+          {/* Floor */}
+          <div className="flex items-start gap-3">
+            <Hash className="w-5 h-5 text-primary mt-1" />
+            <div>
+              <p className="text-sm text-gray-500">Floor</p>
+              <p className="font-semibold">{keyData.floor || "N/A"}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Spacer */}
+        <div className="h-4" />
       </div>
     </div>
   );

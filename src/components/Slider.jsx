@@ -61,7 +61,6 @@ const shimmer = `
     <rect id="r" width="700" height="475" fill="url(#g)" />
     <animate xlink:href="#r" attributeName="x" from="-700" to="700" dur="1.2s" repeatCount="indefinite" />
   </svg>`;
-
 const toBase64 = (str) =>
   typeof window === "undefined"
     ? Buffer.from(str).toString("base64")
@@ -85,9 +84,7 @@ export default function Slider({
   const router = useRouter();
   const sliderRef = useRef(null);
 
-  // =============================================
-  //  Cargar Fotos
-  // =============================================
+  // Cargar fotos
   useEffect(() => {
     if (!jobId) return;
     const load = async () => {
@@ -113,18 +110,10 @@ export default function Slider({
     load();
   }, [jobId]);
 
-  // =============================================
-  //  Navegación suave sin frenos — FIX aplicado
-  // =============================================
-  const safeStop = (e) => {
-    if (e && typeof e.stopPropagation === "function") {
-      e.stopPropagation();
-    }
-  };
+  const safeStop = (e) => e?.stopPropagation?.();
 
   const next = (e) => {
     safeStop(e);
-
     if (index < images.length - 1) {
       setDirection(1);
       setIndex((i) => i + 1);
@@ -133,7 +122,6 @@ export default function Slider({
 
   const prev = (e) => {
     safeStop(e);
-
     if (index > 0) {
       setDirection(-1);
       setIndex((i) => i - 1);
@@ -147,18 +135,13 @@ export default function Slider({
     preventScrollOnSwipe: true,
   });
 
-  // =============================================
-  //  Escape para fullscreen
-  // =============================================
+  // Escape para fullscreen
   useEffect(() => {
     const esc = (e) => e.key === "Escape" && setIsFullscreen(false);
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
   }, []);
 
-  // =============================================
-  //  Loading
-  // =============================================
   if (loading)
     return (
       <div className="flex h-48 items-center justify-center text-gray-400 text-sm italic">
@@ -174,45 +157,25 @@ export default function Slider({
       </div>
     );
 
-  // =============================================
-  //  Render
-  // =============================================
   return (
     <>
-      {/* SLIDER */}
       <div
         ref={sliderRef}
         {...handlers}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onClick={() => {
-          if (!isFullscreen) router.push(`/jobs/${jobId}`);
-        }}
-        className={`relative w-full overflow-hidden rounded-2xl ${
+        onClick={() => !isFullscreen && router.push(`/jobs/${jobId}`)}
+        className={`relative w-full overflow-hidden rounded-t-xl ${
           mini ? "h-56" : "h-[500px]"
         } bg-black/5 cursor-pointer`}
       >
         <AnimatePresence mode="wait">
           <motion.div
             key={index}
-            initial={{
-              x: direction === 1 ? 120 : -120,
-              opacity: 1,
-            }}
-            animate={{
-              x: 0,
-              opacity: 1,
-              filter: "blur(0px)",
-            }}
-            exit={{
-              x: direction === 1 ? -120 : 120,
-              opacity: 1,
-              filter: "blur(0px)",
-            }}
-            transition={{
-              duration: 0.28,
-              ease: [0.25, 0.1, 0.25, 1],
-            }}
+            initial={{ x: direction === 1 ? 120 : -120, opacity: 1 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: direction === 1 ? -120 : 120, opacity: 1 }}
+            transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
             className="absolute inset-0"
           >
             <Image
@@ -221,7 +184,7 @@ export default function Slider({
               alt={`slide-${index}`}
               fill
               unoptimized
-              className="object-contain rounded-2xl bg-black"
+              className="object-contain rounded-t-xl bg-black"
               sizes="(max-width: 768px) 100vw, 50vw"
               placeholder="blur"
               blurDataURL={`data:image/svg+xml;base64,${toBase64(shimmer)}`}
@@ -229,7 +192,6 @@ export default function Slider({
           </motion.div>
         </AnimatePresence>
 
-        {/* Contador */}
         <div className="absolute left-2 top-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
           {index + 1} / {images.length}
         </div>
@@ -263,7 +225,6 @@ export default function Slider({
           </>
         )}
 
-        {/* Fullscreen */}
         {!disableFullscreen && (
           <motion.button
             initial={{ opacity: 0 }}
@@ -280,7 +241,6 @@ export default function Slider({
         )}
       </div>
 
-      {/* Fullscreen */}
       {isFullscreen && (
         <FullscreenViewer
           images={images}

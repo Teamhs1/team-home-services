@@ -218,11 +218,11 @@ export default function StaffJobsView({
             <Card
               key={job.id}
               className="
-                h-full flex flex-col
-                relative border shadow-sm hover:shadow-md transition-all 
-                rounded-2xl bg-white overflow-hidden
-                w-[90%] sm:w-[90%] md:w-full mx-auto
-              "
+    h-full flex flex-col
+    relative border shadow-sm hover:shadow-md transition-all 
+    rounded-xl bg-white overflow-hidden
+    w-[90%] sm:w-[90%] md:w-full mx-auto
+  "
             >
               {/* IMAGE */}
               <div

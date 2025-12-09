@@ -315,9 +315,11 @@ export default function ClientJobsView({
                     <CardDescription className="text-sm text-muted-foreground">
                       <CalendarDays className="w-4 h-4 inline mr-1" />
                       {job.scheduled_date}
-                      <div className="text-xs text-gray-600 mt-1">
+
+                      {/* ⭐ FIX HYDRATION — CAMBIAR div → span */}
+                      <span className="block text-xs text-gray-600 mt-1">
                         📍 {job.property_address || "No address provided"}
-                      </div>
+                      </span>
                     </CardDescription>
                   </CardHeader>
 
