@@ -8,6 +8,18 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+
 import {
   Loader2,
   ClipboardList,
@@ -15,11 +27,14 @@ import {
   List,
   LayoutGrid,
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+
+// ⭐ IMPORTANTE → Slider igual que Admin
+import Slider from "@/components/Slider";
 
 export default function ClientJobsView({
   customerJobs,
@@ -27,7 +42,6 @@ export default function ClientJobsView({
   form,
   setForm,
   createCustomerJob,
-  fetchCustomerJobs,
   handleRealtimeUpdate,
   clerkId,
   getToken,
@@ -37,14 +51,22 @@ export default function ClientJobsView({
   const searchParams = useSearchParams();
   const status = searchParams.get("status") || "all";
 
-  // ⭐ Forzar GRID en móviles como StaffJobsView
+  // ⭐ Forzar GRID en móviles
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 640) {
       setViewMode("grid");
     }
   }, [setViewMode]);
 
-  // ⭐ Realtime
+  // ⭐ Friendly Display Name
+  const getFriendlyName = (type) => {
+    if (type === "deep") return "Deep Cleaning";
+    if (type === "standard") return "Standard Cleaning";
+    if (type === "move-out") return "Move-out Cleaning";
+    return type;
+  };
+
+  // ⭐ Realtime Updates
   useEffect(() => {
     if (!clerkId) return;
 
@@ -72,43 +94,10 @@ export default function ClientJobsView({
             },
             (payload) => {
               const { eventType, new: newJob, old: oldJob } = payload;
-
               if (eventType === "INSERT" || eventType === "UPDATE") {
                 handleRealtimeUpdate?.(newJob);
               } else if (eventType === "DELETE") {
                 handleRealtimeUpdate?.({ ...oldJob, deleted: true });
-              }
-
-              switch (eventType) {
-                case "INSERT":
-                  toast.success("🧾 New cleaning request created!", {
-                    description:
-                      newJob?.title || "Your cleaning request is now active.",
-                  });
-                  break;
-                case "UPDATE":
-                  if (newJob.status === "in_progress") {
-                    toast.info("🧽 Your cleaning has started!", {
-                      description:
-                        newJob?.title || "A cleaner has started your job.",
-                    });
-                  } else if (newJob.status === "completed") {
-                    toast.success("✨ Cleaning completed!", {
-                      description:
-                        newJob?.title || "Your cleaning job is done!",
-                    });
-                  } else {
-                    toast.message("🔔 Job updated", {
-                      description: `${newJob.title} is now ${newJob.status}`,
-                    });
-                  }
-                  break;
-                case "DELETE":
-                  toast.warning("🗑️ A job was removed.", {
-                    description:
-                      oldJob?.title || "One of your jobs was deleted.",
-                  });
-                  break;
               }
             }
           )
@@ -123,84 +112,106 @@ export default function ClientJobsView({
     initRealtime();
   }, [clerkId, getToken, handleRealtimeUpdate]);
 
-  // ⭐ Quitar duplicados
+  // ⭐ Remove duplicates
   const uniqueJobs = Array.from(
     new Map(customerJobs.map((j) => [j.id, j])).values()
   );
 
-  // ⭐ FILTRO POR STATUS
   const filteredJobs =
     status === "all"
       ? uniqueJobs
       : uniqueJobs.filter((job) => job.status === status);
 
-  // ⭐ Detectar mobile
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
 
-  // ⭐ Render
   return (
     <main className="px-6 md:px-12 lg:px-16 xl:px-20 py-10 max-w-[1600px] mx-auto space-y-10">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          🧽 My Cleaning Requests
-        </h1>
+        <h1 className="text-3xl font-bold">🧽 My Cleaning Requests</h1>
       </div>
 
-      {/* Request a Cleaning */}
+      {/* ⭐ FORM REQUEST */}
       <Card className="border border-border/50 shadow-md">
         <CardHeader>
           <CardTitle>Request a Cleaning</CardTitle>
-          <CardDescription>Add a new cleaning request below.</CardDescription>
+          <CardDescription>
+            Fill out the form below to request a cleaning.
+          </CardDescription>
         </CardHeader>
+
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              className="border rounded-md p-2 w-full"
-              placeholder="Cleaning Title (e.g. Deep Cleaning)"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
-            <input
-              className="border rounded-md p-2 w-full"
-              placeholder="Property Address"
-              value={form.property_address}
-              onChange={(e) =>
-                setForm({ ...form, property_address: e.target.value })
-              }
-            />
-            <select
-              className="border rounded-md p-2 w-full text-gray-700"
-              value={form.service_type}
-              onChange={(e) =>
-                setForm({ ...form, service_type: e.target.value })
-              }
-            >
-              <option value="">Select service type</option>
-              <option value="standard">Standard Cleaning</option>
-              <option value="deep">Deep Cleaning</option>
-              <option value="move-out">Move-out Cleaning</option>
-              <option value="add-ons">Add-ons</option>
-            </select>
-            <input
-              type="date"
-              min={new Date().toISOString().split("T")[0]}
-              className="border rounded-md p-2 w-full"
-              value={form.scheduled_date || ""}
-              onChange={(e) =>
-                setForm({ ...form, scheduled_date: e.target.value })
-              }
-            />
-            <textarea
-              className="border rounded-md p-2 text-sm md:col-span-2"
-              placeholder="Additional notes (optional)"
-              value={form.notes || ""}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="text-sm font-medium block mb-1">
+                Cleaning Title (optional)
+              </label>
+              <Input
+                placeholder="Deep Cleaning, Standard Cleaning..."
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">
+                Property Address
+              </label>
+              <Input
+                placeholder="123 Main St, Unit 2"
+                value={form.property_address}
+                onChange={(e) =>
+                  setForm({ ...form, property_address: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">
+                Service Type
+              </label>
+              <Select
+                value={form.service_type}
+                onValueChange={(v) => setForm({ ...form, service_type: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose service type" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border shadow-md">
+                  <SelectItem value="standard">Standard Cleaning</SelectItem>
+                  <SelectItem value="deep">Deep Cleaning</SelectItem>
+                  <SelectItem value="move-out">Move-out Cleaning</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium block mb-1">
+                Preferred Date
+              </label>
+              <Input
+                type="date"
+                min={new Date().toISOString().split("T")[0]}
+                value={form.scheduled_date || ""}
+                onChange={(e) =>
+                  setForm({ ...form, scheduled_date: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium block mb-1">
+                Additional Notes
+              </label>
+              <Textarea
+                placeholder="Anything you'd like us to know?"
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              />
+            </div>
+
             <div className="md:col-span-2 flex justify-end">
               <Button
-                disabled={
-                  !form.title || !form.service_type || !form.scheduled_date
-                }
+                disabled={!form.service_type || !form.scheduled_date}
                 onClick={createCustomerJob}
                 className="px-8"
               >
@@ -211,69 +222,63 @@ export default function ClientJobsView({
         </CardContent>
       </Card>
 
-      {/* Job List */}
+      {/* ⭐ JOBS LIST */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-semibold">My Requests</h2>
 
-          {/* 🔒 En móvil el botón está desactivado */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
-            className={`flex items-center gap-2 ${isMobile ? "hidden" : ""}`}
-          >
-            {viewMode === "grid" ? (
-              <List className="w-4 h-4" />
-            ) : (
-              <LayoutGrid className="w-4 h-4" />
-            )}
-          </Button>
+          {!isMobile && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")}
+              className="flex items-center gap-2"
+            >
+              {viewMode === "list" ? (
+                <LayoutGrid className="w-4 h-4" />
+              ) : (
+                <List className="w-4 h-4" />
+              )}
+            </Button>
+          )}
         </div>
 
-        {customerLoading ? (
-          <div className="flex justify-center py-10">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-          </div>
-        ) : filteredJobs.length === 0 ? (
-          <p className="text-gray-500 text-sm">
-            No cleaning requests found for this filter.
-          </p>
-        ) : viewMode === "list" && !isMobile ? (
-          /* SOLO LISTA EN DESKTOP */
-          <div className="overflow-x-auto bg-white shadow rounded-lg border border-gray-200">
+        {viewMode === "list" && !isMobile ? (
+          /* ⭐ LIST VIEW */
+          <div className="overflow-x-auto bg-white shadow rounded-lg border">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
                   <th className="px-4 py-2 text-left">Job</th>
+                  <th className="px-4 py-2 text-left">Address</th>
                   <th className="px-4 py-2 text-left">Date</th>
-                  <th className="px-4 py-2 text-left">Type</th>
                   <th className="px-4 py-2 text-left">Status</th>
                 </tr>
               </thead>
+
               <tbody>
-                {filteredJobs.map((job, idx) =>
+                {filteredJobs.map((job) =>
                   job.deleted ? null : (
                     <tr
-                      key={`${job.id}-${idx}`}
-                      className="border-t hover:bg-gray-50 cursor-pointer transition-colors"
+                      key={job.id}
+                      className="border-t hover:bg-gray-50 cursor-pointer"
                       onClick={() => (window.location.href = `/jobs/${job.id}`)}
                     >
-                      <td className="px-4 py-2 font-medium">{job.title}</td>
+                      <td className="px-4 py-2 font-medium">
+                        {getFriendlyName(job.service_type)}
+                      </td>
+                      <td className="px-4 py-2">{job.property_address}</td>
                       <td className="px-4 py-2">
                         {new Date(job.scheduled_date).toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-2 text-gray-600">
-                        {job.service_type}
-                      </td>
                       <td className="px-4 py-2">
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            job.status === "pending"
-                              ? "bg-yellow-100 text-yellow-700"
+                          className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            job.status === "completed"
+                              ? "bg-green-100 text-green-700"
                               : job.status === "in_progress"
                               ? "bg-blue-100 text-blue-700"
-                              : "bg-green-100 text-green-700"
+                              : "bg-yellow-100 text-yellow-700"
                           }`}
                         >
                           {job.status.replace("_", " ")}
@@ -286,42 +291,50 @@ export default function ClientJobsView({
             </table>
           </div>
         ) : (
-          /* SIEMPRE GRID EN MÓVIL */
+          /* ⭐ GRID VIEW — SAME STYLE AS ADMIN */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredJobs
               .filter((j) => !j.deleted)
-              .map((job, idx) => (
-                <Link
-                  key={`${job.id}-${idx}`}
-                  href={`/jobs/${job.id}`}
-                  className="block group"
+              .map((job) => (
+                <Card
+                  key={job.id}
+                  className="border shadow-sm rounded-xl hover:shadow-lg transition cursor-pointer"
+                  onClick={() => (window.location.href = `/jobs/${job.id}`)}
                 >
-                  <Card className="hover:shadow-lg border border-border/50 transition-transform hover:scale-[1.02]">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <ClipboardList className="w-5 h-5 text-primary" />
-                        {job.title}
-                      </CardTitle>
-                      <CardDescription className="text-sm text-muted-foreground">
-                        <CalendarDays className="w-4 h-4 inline mr-1" />
-                        {job.scheduled_date} • {job.service_type}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full font-semibold ${
-                          job.status === "completed"
-                            ? "bg-green-100 text-green-700"
-                            : job.status === "in_progress"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-yellow-100 text-yellow-700"
-                        }`}
-                      >
-                        {job.status.replace("_", " ")}
-                      </span>
-                    </CardContent>
-                  </Card>
-                </Link>
+                  {/* ⭐ PHOTO */}
+                  <div className="rounded-t-xl overflow-hidden bg-gray-200 aspect-video">
+                    <Slider jobId={job.id} mini />
+                  </div>
+
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2 truncate">
+                      <ClipboardList className="w-5 h-5 text-primary" />
+                      {getFriendlyName(job.service_type)}
+                    </CardTitle>
+
+                    <CardDescription className="text-sm text-muted-foreground">
+                      <CalendarDays className="w-4 h-4 inline mr-1" />
+                      {job.scheduled_date}
+                      <div className="text-xs text-gray-600 mt-1">
+                        📍 {job.property_address || "No address provided"}
+                      </div>
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent>
+                    <span
+                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        job.status === "completed"
+                          ? "bg-green-100 text-green-700"
+                          : job.status === "in_progress"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      {job.status.replace("_", " ")}
+                    </span>
+                  </CardContent>
+                </Card>
               ))}
           </div>
         )}
