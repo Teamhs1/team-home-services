@@ -36,7 +36,7 @@ import {
 export default function AdminJobsView({
   jobs,
   staffList,
-  clientList, // legacy — ya no lo usamos
+  clientList,
   viewMode,
   setViewMode,
   fetchJobs,
@@ -44,35 +44,29 @@ export default function AdminJobsView({
 }) {
   const { getClientWithToken } = useSupabaseWithClerk();
 
-  // *******************************
-  // 🔥 NEW: CLIENT LIST FROM DATABASE
-  // *******************************
+  // LOAD CLIENTS
   const [loadedClients, setLoadedClients] = useState([]);
 
   useEffect(() => {
     async function fetchClients() {
       try {
         const supabase = await getClientWithToken();
-
         const { data, error } = await supabase
           .from("profiles")
           .select("id, clerk_id, full_name, email, role")
           .eq("role", "client");
 
         if (error) throw error;
-
         setLoadedClients(data || []);
       } catch (err) {
         console.error("❌ Error fetching clients:", err);
         toast.error("Could not load clients.");
       }
     }
-
     fetchClients();
   }, [getClientWithToken]);
-  // *******************************
 
-  // ⭐ STATUS FILTER
+  // STATUS FILTER
   const searchParams = useSearchParams();
   const statusFilter = searchParams.get("status") || "all";
 
@@ -81,14 +75,54 @@ export default function AdminJobsView({
       ? jobs
       : jobs.filter((job) => job.status === statusFilter);
 
-  // 🟦 FORCE GRID ON MOBILE
+  // ⭐ DATE FILTER (ALL / WEEK / MONTH)
+  const [dateFilter, setDateFilter] = useState("all");
+
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const dateFilteredJobs = filteredJobs.filter((job) => {
+    if (!job.scheduled_date) return false;
+
+    const jobDate = new Date(job.scheduled_date);
+
+    if (dateFilter === "week") return jobDate >= startOfWeek;
+    if (dateFilter === "month") return jobDate >= startOfMonth;
+
+    return true;
+  });
+
+  // ⭐ NEW: CLIENT FILTER
+  const [clientFilter, setClientFilter] = useState("all");
+  // ⭐ NEW: STAFF FILTER
+  const [staffFilter, setStaffFilter] = useState("all");
+
+  // ⭐ APPLY CLIENT + STAFF FILTERS
+  const finalFilteredJobs = dateFilteredJobs
+    // filter by client
+    .filter((job) => {
+      if (clientFilter === "all") return true;
+      return job.assigned_client === clientFilter;
+    })
+    // filter by staff
+    .filter((job) => {
+      if (staffFilter === "all") return true;
+      if (staffFilter === "unassigned") return !job.assigned_to;
+      return job.assigned_to === staffFilter;
+    });
+
+  // FORCE GRID ON MOBILE
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 640) {
       if (viewMode !== "grid") setViewMode("grid");
     }
   }, [viewMode, setViewMode]);
 
-  // 🔹 ASSIGN STAFF
+  // ASSIGN STAFF
   const assignToStaff = async (jobId, assigned_to) => {
     try {
       const supabase = await getClientWithToken();
@@ -102,12 +136,11 @@ export default function AdminJobsView({
       if (error) throw new Error(error.message);
       toast.success("✅ Job assigned successfully!");
     } catch (err) {
-      console.error("💥 Error assigning staff:", err);
       toast.error("Error assigning job: " + err.message);
     }
   };
 
-  // 🔹 ASSIGN CLIENT
+  // ASSIGN CLIENT
   const assignToClient = async (jobId, client_id) => {
     try {
       const supabase = await getClientWithToken();
@@ -123,22 +156,18 @@ export default function AdminJobsView({
       toast.success("✅ Cliente asignado correctamente!");
       fetchJobs();
     } catch (err) {
-      console.error("💥 Error assigning client:", err);
       toast.error("Error assigning client: " + err.message);
     }
   };
 
-  // 🧽 RESET JOB
+  // RESET JOB
   const resetJob = async (jobId) => {
     try {
       const supabase = await getClientWithToken();
-
-      const { data: photos, error: fetchError } = await supabase
+      const { data: photos } = await supabase
         .from("job_photos")
         .select("*")
         .eq("job_id", jobId);
-
-      if (fetchError) throw fetchError;
 
       const filePaths = (photos || [])
         .map((p) => {
@@ -151,27 +180,21 @@ export default function AdminJobsView({
             p.photo_url;
 
           if (!raw) return null;
-
           if (raw.startsWith("http")) {
             const clean = raw.split("/public/")[1];
             return clean || null;
           }
-
           return raw;
         })
         .filter(Boolean);
 
       if (filePaths.length > 0) {
-        const { error: storageError } = await supabase.storage
-          .from("job-photos")
-          .remove(filePaths);
-
-        if (storageError) throw storageError;
+        await supabase.storage.from("job-photos").remove(filePaths);
       }
 
       await supabase.from("job_photos").delete().eq("job_id", jobId);
 
-      const { error: updateError } = await supabase
+      await supabase
         .from("cleaning_jobs")
         .update({
           status: "pending",
@@ -182,12 +205,9 @@ export default function AdminJobsView({
         })
         .eq("id", jobId);
 
-      if (updateError) throw updateError;
-
       toast.success("⏳ Job reset successfully!");
       fetchJobs();
     } catch (err) {
-      console.error("RESET ERROR:", err);
       toast.error("Error resetting job");
     }
   };
@@ -200,18 +220,61 @@ export default function AdminJobsView({
           🧽 Jobs Management
         </h1>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
-          className="hidden sm:flex items-center gap-2"
-        >
-          {viewMode === "grid" ? (
-            <List className="w-4 h-4" />
-          ) : (
-            <LayoutGrid className="w-4 h-4" />
-          )}
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* ⭐ DATE FILTER */}
+          <select
+            className="border rounded-md p-2 text-sm"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+          >
+            <option value="all">All Jobs</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+          </select>
+          {/* ⭐ STAFF FILTER */}
+          <select
+            className="border rounded-md p-2 text-sm"
+            value={staffFilter}
+            onChange={(e) => setStaffFilter(e.target.value)}
+          >
+            <option value="all">All Staff</option>
+            <option value="unassigned">Unassigned</option>
+
+            {staffList.map((s) => (
+              <option key={s.clerk_id} value={s.clerk_id}>
+                {s.full_name ? s.full_name : s.email}
+              </option>
+            ))}
+          </select>
+
+          {/* ⭐ NEW CLIENT FILTER */}
+          <select
+            className="border rounded-md p-2 text-sm"
+            value={clientFilter}
+            onChange={(e) => setClientFilter(e.target.value)}
+          >
+            <option value="all">All Clients</option>
+            {loadedClients.map((c) => (
+              <option key={c.clerk_id} value={c.clerk_id}>
+                {c.full_name ? c.full_name : c.email}
+              </option>
+            ))}
+          </select>
+
+          {/* VIEW MODE BUTTON */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+            className="hidden sm:flex items-center gap-2"
+          >
+            {viewMode === "grid" ? (
+              <List className="w-4 h-4" />
+            ) : (
+              <LayoutGrid className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* CREATE JOB */}
@@ -223,7 +286,7 @@ export default function AdminJobsView({
         <CardContent>
           <JobForm
             staffList={staffList}
-            clientList={loadedClients} // ← FIXED: NOW REAL CLIENT DATA
+            clientList={loadedClients}
             fetchJobs={fetchJobs}
           />
         </CardContent>
@@ -239,8 +302,8 @@ export default function AdminJobsView({
                 <th className="px-4 py-2">Address</th>
                 <th className="px-4 py-2">Date</th>
                 <th className="px-4 py-2">Type</th>
-                <th className="px-4 py-2">Assigned Staff</th>
-                <th className="px-4 py-2">Assigned Client</th>
+                <th className="px-4 py-2">Staff</th>
+                <th className="px-4 py-2">Client</th>
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Duration</th>
                 <th className="px-4 py-2 text-right">Actions</th>
@@ -248,7 +311,7 @@ export default function AdminJobsView({
             </thead>
 
             <tbody>
-              {filteredJobs.map((job) => (
+              {finalFilteredJobs.map((job) => (
                 <tr
                   key={job.id}
                   className="border-t hover:bg-gray-50 cursor-pointer"
@@ -322,10 +385,10 @@ export default function AdminJobsView({
 
                   <td className="px-4 py-2">
                     {job.status === "in_progress" && (
-                      <JobTimer jobId={job.id} status="in_progress" />
+                      <JobTimer jobId={job.id} />
                     )}
                     {job.status === "completed" && (
-                      <JobDuration jobId={job.id} status="completed" />
+                      <JobDuration jobId={job.id} />
                     )}
                     {job.status === "pending" && "—"}
                   </td>
@@ -376,7 +439,7 @@ export default function AdminJobsView({
       ) : (
         /* GRID VIEW */
         <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredJobs.map((job) => (
+          {finalFilteredJobs.map((job) => (
             <Card
               key={job.id}
               className="relative border shadow-sm rounded-2xl"
@@ -464,7 +527,7 @@ export default function AdminJobsView({
                   )}
                 </div>
 
-                {/* DROPDOWN GRID */}
+                {/* ACTIONS */}
                 <div className="pt-1 flex justify-end">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
