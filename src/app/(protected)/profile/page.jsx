@@ -10,7 +10,6 @@ export default function ProfilePage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🔹 Sincronizar datos cuando Clerk haya cargado completamente
   useEffect(() => {
     if (isLoaded && isSignedIn && user) {
       setName(user.fullName || "");
@@ -18,15 +17,15 @@ export default function ProfilePage() {
     }
   }, [isLoaded, isSignedIn, user]);
 
-  // 🔹 Mostrar mensaje si Clerk aún no cargó
   if (!isLoaded) {
-    return <div className="p-6 text-gray-500">Loading profile...</div>;
+    return (
+      <div className="p-6 text-gray-500 pt-[130px]">Loading profile...</div>
+    );
   }
 
-  // 🔹 Mostrar aviso si no hay sesión
   if (!isSignedIn) {
     return (
-      <div className="p-6 text-red-500">
+      <div className="p-6 text-red-500 pt-[130px]">
         You must be signed in to view this page.
       </div>
     );
@@ -44,7 +43,7 @@ export default function ProfilePage() {
       if (!res.ok) throw new Error("Update failed");
 
       toast.success("✅ Profile updated successfully!");
-      await user.reload(); // 🔄 refresca datos desde Clerk
+      await user.reload();
     } catch (err) {
       toast.error("❌ Error updating profile");
       console.error(err);
@@ -54,7 +53,9 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="container-page space-y-6">
+    <div className="container-page space-y-6 pt-[130px]">
+      {/* 👆 FIX: evita que el navbar tape el contenido */}
+
       <h1 className="heading flex items-center gap-2">👤 Profile</h1>
 
       <div className="card space-y-4">
@@ -84,11 +85,10 @@ export default function ProfilePage() {
           <p className="font-semibold text-gray-700 dark:text-gray-200">
             Role:
           </p>
-          {/* ✅ Acceso seguro a metadata */}
           <p>{user?.publicMetadata?.role || "user"}</p>
         </div>
 
-        {/* Botón guardar */}
+        {/* Botón */}
         <button
           onClick={handleSave}
           disabled={loading}

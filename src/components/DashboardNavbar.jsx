@@ -15,6 +15,8 @@ export default function DashboardNavbar() {
 
   // Resolver sección actual
   const getSection = () => {
+    if (pathname.startsWith("/admin/properties")) return "admin_properties";
+    if (pathname.startsWith("/admin/keys")) return "admin_keys"; // ⭐ NUEVO
     if (pathname.startsWith("/admin")) return "admin";
     if (pathname.startsWith("/settings")) return "settings";
     if (pathname.startsWith("/jobs")) return "jobs";
@@ -49,6 +51,20 @@ export default function DashboardNavbar() {
       { label: "Users", href: "/admin/users" },
       { label: "Theme Preview", href: "/admin/theme-preview" },
       { label: "Staff Applications", href: "/admin/staff-applications" },
+      { label: "Properties", href: "/admin/properties" },
+      { label: "Keys", href: "/admin/keys" }, // ⭐ AGREGADO AQUÍ TAMBIÉN (ADMIN GENERAL)
+    ],
+
+    // ⭐ Sub menu específico para Properties
+    admin_properties: [
+      { label: "All Properties", href: "/admin/properties" },
+      { label: "Add New", href: "/admin/properties/create" },
+    ],
+
+    // ⭐⭐⭐ NUEVO SUBNAV ESPECÍFICO PARA KEYS ⭐⭐⭐
+    admin_keys: [
+      { label: "All Keys", href: "/admin/keys" },
+      { label: "Add New", href: "/admin/keys/create" },
     ],
   };
 
@@ -57,7 +73,6 @@ export default function DashboardNavbar() {
   // No subnav → no navbar
   if (!activeTabs.length) return null;
 
-  // Leer ?status=
   const status = searchParams.get("status");
 
   // Estilos según sidebar
@@ -73,32 +88,14 @@ export default function DashboardNavbar() {
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="fixed top-[4.5rem] right-0 flex items-center gap-6 
+      className="fixed top-[5.3rem] right-0 flex items-center gap-6 
         border-b border-gray-200 bg-white/80 backdrop-blur-md
         px-4 md:px-10 py-3 shadow-sm z-[30] transition-all duration-300"
       style={{ marginLeft, width }}
     >
       {activeTabs.map((tab) => {
-        let isActive = false;
-
-        // ⭐ LÓGICA ESPECIAL PARA JOBS
-        if (section === "jobs") {
-          const qs = status;
-
-          // /jobs → active = all
-          if (!qs && tab.key === "all") {
-            isActive = true;
-          }
-
-          // /jobs?status=completed (etc)
-          if (qs === tab.key) {
-            isActive = true;
-          }
-        } else {
-          // ⭐ Lógica normal para admin/settings
-          isActive =
-            pathname === tab.href || pathname.startsWith(`${tab.href}/`);
-        }
+        const isActive =
+          pathname === tab.href || pathname.startsWith(`${tab.href}/`);
 
         return (
           <Link

@@ -25,10 +25,16 @@ export default function AdminKeysList() {
   }, []);
 
   if (loading)
-    return <div className="p-10 text-center text-gray-500">Loading keys…</div>;
+    return (
+      <div className="p-10 text-center text-gray-500 pt-[130px]">
+        Loading keys…
+      </div>
+    );
 
   return (
-    <div className="p-8 mt-10">
+    <div className="p-8 pt-[130px]">
+      {/* 👆 FIX: evita que el navbar tape la página */}
+
       {/* HEADER */}
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">🔑 Keys Manager</h1>

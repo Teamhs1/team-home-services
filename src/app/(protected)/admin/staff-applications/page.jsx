@@ -16,7 +16,6 @@ export default function StaffApplicationsPage() {
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(false);
 
-  // 🧩 Cargar datos
   async function fetchApplications() {
     setLoading(true);
     const { data, error } = await supabase
@@ -35,7 +34,6 @@ export default function StaffApplicationsPage() {
   useEffect(() => {
     fetchApplications();
 
-    // 🔄 Realtime updates
     const channel = supabase
       .channel("realtime:staff_applications")
       .on(
@@ -50,7 +48,6 @@ export default function StaffApplicationsPage() {
     };
   }, []);
 
-  // 🟢 Marcar como revisada
   async function markReviewed(id, reviewed) {
     const { error } = await supabase
       .from("staff_applications")
@@ -73,12 +70,15 @@ export default function StaffApplicationsPage() {
       : applications.filter((a) => !!a.reviewed === (filter === "reviewed"));
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
+    <main className="min-h-screen bg-gray-50 p-6 pt-[140px]">
+      {/* 👆 FIX: evita que el navbar tape la página */}
+
       <div className="max-w-6xl mx-auto bg-white shadow rounded-2xl p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <h1 className="text-2xl font-bold text-blue-600">
             Staff Applications
           </h1>
+
           <div className="flex gap-3">
             <button
               onClick={() => setFilter("all")}
@@ -90,6 +90,7 @@ export default function StaffApplicationsPage() {
             >
               All
             </button>
+
             <button
               onClick={() => setFilter("pending")}
               className={`px-4 py-2 rounded-lg border ${
@@ -100,6 +101,7 @@ export default function StaffApplicationsPage() {
             >
               Pending
             </button>
+
             <button
               onClick={() => setFilter("reviewed")}
               className={`px-4 py-2 rounded-lg border ${
@@ -110,6 +112,7 @@ export default function StaffApplicationsPage() {
             >
               Reviewed
             </button>
+
             <button
               onClick={fetchApplications}
               className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center gap-2"
@@ -143,6 +146,7 @@ export default function StaffApplicationsPage() {
                   <th className="p-3 border-b text-center">Status</th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredApps.map((app) => (
                   <motion.tr
@@ -155,14 +159,19 @@ export default function StaffApplicationsPage() {
                     <td className="p-3 font-medium text-gray-800">
                       {app.full_name}
                     </td>
+
                     <td className="p-3 text-gray-600">{app.email}</td>
+
                     <td className="p-3 text-gray-600">{app.phone}</td>
+
                     <td className="p-3 text-gray-600">
                       {app.availability || "—"}
                     </td>
+
                     <td className="p-3 text-gray-600 max-w-xs truncate">
                       {app.message || "—"}
                     </td>
+
                     <td className="p-3 text-center">
                       {app.reviewed ? (
                         <button

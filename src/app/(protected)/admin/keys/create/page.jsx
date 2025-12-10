@@ -14,14 +14,12 @@ export default function CreateKeyPage() {
   const [form, setForm] = useState({
     property_id: "",
     unit: "",
-    floor: "",
     type: "",
-    tag_code: "",
     status: "available",
   });
 
   // ============================
-  // Load properties from Supabase
+  // Load properties
   // ============================
   useEffect(() => {
     fetchProperties();
@@ -35,15 +33,13 @@ export default function CreateKeyPage() {
       .select("*")
       .order("name", { ascending: true });
 
-    console.log("PROPERTIES RESULT:", data, error);
-
     if (error) {
       console.error("Supabase SELECT error:", error);
       toast.error("Error loading properties");
       return;
     }
 
-    // 🔥 Remove duplicates by name
+    // Remove duplicates by name
     const unique = [];
     const names = new Set();
 
@@ -65,49 +61,57 @@ export default function CreateKeyPage() {
   }
 
   // ============================
-  // Generate tag_code automatically
+  // Safe Tag Code Generator
   // ============================
   function generateTagCode() {
     const property = properties.find((p) => p.id === form.property_id);
     if (!property) return "";
 
-    const cleanName = property.name.replace(/\s+/g, "");
-    const unit = form.unit ? `-U${form.unit}` : "";
-    const type = form.type.toUpperCase();
+    // Clean property name (remove accents, spaces, symbols)
+    const cleanName = property.name.replace(/[^a-zA-Z0-9]/g, "");
 
-    return `${cleanName}${unit}-${type}`;
+    const unit = form.unit ? `-U${form.unit}` : "";
+    const typePart = form.type.toUpperCase();
+
+    return `${cleanName}${unit}-${typePart}`;
   }
 
   // ============================
-  // SUBMIT
+  // SUBMIT (FINAL VERSION)
   // ============================
   async function handleSubmit(e) {
     e.preventDefault();
 
     const finalTagCode = generateTagCode();
+
     console.log("FINAL TAG CODE:", finalTagCode);
+
+    if (!form.property_id) return toast.error("Select a property");
+    if (!form.type) return toast.error("Select a key type");
+
+    if (form.unit && isNaN(Number(form.unit))) {
+      return toast.error("Unit must be a number");
+    }
 
     const payload = {
       property_id: form.property_id,
-      unit: form.unit,
-      floor: form.floor,
+      unit: form.unit ? Number(form.unit) : null,
       type: form.type,
       tag_code: finalTagCode,
       status: "available",
     };
 
-    console.log("PAYLOAD:", payload);
+    console.log("PAYLOAD SENT:", payload);
 
     const { error } = await supabase.from("keys").insert([payload]);
 
     if (error) {
-      console.error("SUPABASE INSERT ERROR:", error);
+      console.error("SUPABASE INSERT ERROR:", JSON.stringify(error, null, 2));
       toast.error("Error inserting key");
       return;
     }
 
     toast.success("Key created successfully!");
-
     router.push("/admin/keys");
   }
 
@@ -126,10 +130,6 @@ export default function CreateKeyPage() {
         >
           <option value="">Select property</option>
 
-          {properties.length === 0 && (
-            <option disabled>No properties found</option>
-          )}
-
           {properties.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -140,18 +140,9 @@ export default function CreateKeyPage() {
         {/* UNIT */}
         <input
           name="unit"
-          placeholder="Unit (ex: 2)"
+          placeholder="Unit (ex: 101)"
           className="w-full border p-2"
           value={form.unit}
-          onChange={handleChange}
-        />
-
-        {/* FLOOR */}
-        <input
-          name="floor"
-          placeholder="Floor"
-          className="w-full border p-2"
-          value={form.floor}
           onChange={handleChange}
         />
 
@@ -164,16 +155,16 @@ export default function CreateKeyPage() {
           required
         >
           <option value="">Select key type</option>
-          <option value="FD">Front Door</option>
-          <option value="MBX">Mailbox</option>
-          <option value="STG">Storage</option>
-          <option value="LDR">Laundry</option>
-          <option value="ELEC">Electrical Room</option>
-          <option value="MECH">Mechanical Room</option>
-          <option value="MSTR">Master Key</option>
+          <option value="master">Master Key</option>
+          <option value="mail">Mailbox</option>
+          <option value="electrical">Electrical Room</option>
+          <option value="mechanical">Mechanical Room</option>
+          <option value="laundry">Laundry</option>
+          <option value="storage">Storage</option>
+          <option value="frontdoor">Front Door</option>
         </select>
 
-        {/* PREVIEW TAG */}
+        {/* TAG PREVIEW */}
         <div className="rounded border bg-gray-50 p-3 text-gray-700">
           <strong>Tag Code Preview:</strong>{" "}
           {generateTagCode() || "Select property, unit & type"}

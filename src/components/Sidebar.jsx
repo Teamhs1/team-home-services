@@ -131,7 +131,8 @@ export default function Sidebar() {
   // ⭐ Agregar Keys dentro del bloque admin SIN romper nada
   if (role === "admin") {
     menuItems.push(
-      { name: "Keys", href: "/admin/keys", icon: Key }, // ✅ AÑADIDO
+      { name: "Properties", href: "/admin/properties", icon: ClipboardList }, // 🆕 AÑADIDO
+      { name: "Keys", href: "/admin/keys", icon: Key },
       { name: "Users", href: "/admin/users", icon: Users },
       { name: "Theme Preview", href: "/admin/theme-preview", icon: Palette }
     );
