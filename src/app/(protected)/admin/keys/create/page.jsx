@@ -43,7 +43,18 @@ export default function CreateKeyPage() {
       return;
     }
 
-    setProperties(data);
+    // 🔥 Remove duplicates by name
+    const unique = [];
+    const names = new Set();
+
+    data.forEach((p) => {
+      if (!names.has(p.name)) {
+        names.add(p.name);
+        unique.push(p);
+      }
+    });
+
+    setProperties(unique);
   }
 
   // ============================
@@ -57,7 +68,7 @@ export default function CreateKeyPage() {
   // Generate tag_code automatically
   // ============================
   function generateTagCode() {
-    const property = properties.find(p => p.id === form.property_id);
+    const property = properties.find((p) => p.id === form.property_id);
     if (!property) return "";
 
     const cleanName = property.name.replace(/\s+/g, "");
@@ -96,7 +107,8 @@ export default function CreateKeyPage() {
     }
 
     toast.success("Key created successfully!");
-    router.push("/keys");
+
+    router.push("/admin/keys");
   }
 
   return (
@@ -114,10 +126,11 @@ export default function CreateKeyPage() {
         >
           <option value="">Select property</option>
 
-          {/* DEBUG */}
-          {properties.length === 0 && <option disabled>No properties found</option>}
+          {properties.length === 0 && (
+            <option disabled>No properties found</option>
+          )}
 
-          {properties.map(p => (
+          {properties.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
@@ -162,10 +175,14 @@ export default function CreateKeyPage() {
 
         {/* PREVIEW TAG */}
         <div className="rounded border bg-gray-50 p-3 text-gray-700">
-          <strong>Tag Code Preview:</strong> {generateTagCode() || "Select property, unit & type"}
+          <strong>Tag Code Preview:</strong>{" "}
+          {generateTagCode() || "Select property, unit & type"}
         </div>
 
-        <button className="w-full rounded bg-blue-600 px-4 py-2 text-white" type="submit">
+        <button
+          className="w-full rounded bg-blue-600 px-4 py-2 text-white"
+          type="submit"
+        >
           Add Key
         </button>
       </form>

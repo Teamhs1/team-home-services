@@ -1,22 +1,23 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-export async function GET(req, { params }) {
-  const { id } = params;
+export async function GET(req, context) {
+  // 🔥 params ahora es un Promise → se debe hacer await
+  const { id } = await context.params;
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY // 🔥 usa service role
+    process.env.SUPABASE_SERVICE_ROLE_KEY // service role para lectura segura
   );
 
-  // Buscar por tag_code
+  // Buscar por tag_code primero
   let { data, error } = await supabase
     .from("keys")
     .select("*")
     .eq("tag_code", id)
     .maybeSingle();
 
-  // Si no existe por tag_code → buscar por id
+  // Si no existe → buscar por id (UUID)
   if (!data) {
     const uuidQuery = await supabase
       .from("keys")
