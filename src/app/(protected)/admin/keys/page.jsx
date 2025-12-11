@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KeyRound, MapPin, Home, Tag, Plus } from "lucide-react";
+import { KeyRound, MapPin, Home, Tag, Plus, AlertTriangle } from "lucide-react";
 
 export default function AdminKeysList() {
   const [keys, setKeys] = useState([]);
@@ -33,8 +33,6 @@ export default function AdminKeysList() {
 
   return (
     <div className="p-8 pt-[130px]">
-      {/* 👆 FIX: evita que el navbar tape la página */}
-
       {/* HEADER */}
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">🔑 Keys Manager</h1>
@@ -64,20 +62,26 @@ export default function AdminKeysList() {
               ? "bg-red-100 text-red-700"
               : "bg-yellow-100 text-yellow-700";
 
+          /* 🔥 Fondo rojo si la llave fue reportada */
+          const reportedStyle = key.is_reported
+            ? "border-red-300 bg-red-50"
+            : "border-gray-200 bg-white";
+
           return (
             <div
               key={key.id}
               onClick={() =>
                 (window.location.href = `/admin/keys/${key.tag_code}`)
               }
-              className="
+              className={`
                 cursor-pointer
-                border rounded-xl shadow-sm bg-white p-5 
+                border rounded-xl shadow-sm p-5 
                 hover:shadow-md hover:-translate-y-1 
                 transition-all duration-200
-              "
+                ${reportedStyle}
+              `}
             >
-              {/* TAG CODE */}
+              {/* TOP ROW */}
               <div className="flex items-center justify-between mb-4">
                 <div className="text-xl font-bold flex items-center gap-2">
                   <KeyRound className="text-primary" size={20} />
@@ -91,6 +95,14 @@ export default function AdminKeysList() {
                   {key.status}
                 </span>
               </div>
+
+              {/* 🔥 Reported Badge */}
+              {key.is_reported && (
+                <div className="flex items-center gap-2 mb-3 text-red-700 text-sm font-semibold">
+                  <AlertTriangle size={16} />
+                  Reported Issue
+                </div>
+              )}
 
               {/* DETAILS */}
               <div className="space-y-2 text-sm text-gray-600">
@@ -113,6 +125,18 @@ export default function AdminKeysList() {
                   </p>
                 )}
               </div>
+
+              {/* REPORT BUTTON */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // evita abrir la card
+                  window.location.href = `/admin/keys/${key.tag_code}/report`;
+                }}
+                className="mt-4 w-full text-center text-xs px-3 py-2 rounded-lg 
+                  bg-red-100 text-red-700 hover:bg-red-200 transition"
+              >
+                Report Issue
+              </button>
             </div>
           );
         })}

@@ -64,6 +64,7 @@ export default function DashboardNavbar() {
     // ⭐⭐⭐ NUEVO SUBNAV ESPECÍFICO PARA KEYS ⭐⭐⭐
     admin_keys: [
       { label: "All Keys", href: "/admin/keys" },
+      { label: "Reported Issues", href: "/admin/keys/reported" }, // ⭐ NEW
       { label: "Add New", href: "/admin/keys/create" },
     ],
   };
