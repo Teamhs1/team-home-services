@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,7 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
@@ -22,14 +21,12 @@ export default function JobForm({
   clientList = [],
   fetchJobs,
 }) {
-  const { getToken } = useAuth();
   const { user } = useUser();
-  const clerkId = user?.id ?? null;
 
   // ========= STATE =========
   const [title, setTitle] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
-  const [clientId, setClientId] = useState(""); // CLIENTE AQUÍ
+  const [clientId, setClientId] = useState("");
   const [serviceType, setServiceType] = useState("standard");
   const [scheduledDate, setScheduledDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -38,10 +35,10 @@ export default function JobForm({
 
   // ========= VALIDACIONES =========
   const isValid =
-    title.trim().length > 0 &&
-    scheduledDate.trim().length > 0 &&
-    assignedTo.trim().length > 0 &&
-    clientId.trim().length > 0;
+    title.trim() &&
+    scheduledDate.trim() &&
+    assignedTo.trim() &&
+    clientId.trim();
 
   async function createJob() {
     if (!isValid) {
@@ -51,22 +48,17 @@ export default function JobForm({
 
     setCreating(true);
     try {
-      const token = await getToken();
-      if (!token) throw new Error("No authentication token found.");
-
       const res = await fetch("/api/jobs/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title,
-          assigned_to: assignedTo || null,
-          assigned_client: clientId || null, // ✅ AHORA SE ENVÍA CORRECTAMENTE
+          assigned_to: assignedTo,
+          assigned_client: clientId,
           service_type: serviceType,
           scheduled_date: scheduledDate,
-          created_by: clerkId,
         }),
       });
 
@@ -75,7 +67,7 @@ export default function JobForm({
 
       toast.success("Job created successfully!");
 
-      // 🔔 Realtime broadcast
+      // 🔔 Realtime broadcast (solo UI, no seguridad)
       const anonClient = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -91,7 +83,6 @@ export default function JobForm({
               title,
               service_type: serviceType,
               created_at: new Date().toISOString(),
-              created_by: data?.data?.[0]?.created_by,
             },
           });
           channel.unsubscribe();
@@ -142,17 +133,11 @@ export default function JobForm({
       {/* Staff */}
       <div className="space-y-1.5">
         <Label>Staff</Label>
-
         <Select value={assignedTo} onValueChange={setAssignedTo}>
-          <SelectTrigger className="h-11 border bg-white dark:bg-gray-900">
+          <SelectTrigger className="h-11">
             <SelectValue placeholder="Select staff" />
           </SelectTrigger>
-
-          <SelectContent
-            position="popper"
-            sideOffset={4}
-            className="z-[9999] bg-white dark:bg-gray-900 shadow-xl rounded-md"
-          >
+          <SelectContent>
             {staffList.map((staff) => (
               <SelectItem key={staff.clerk_id} value={staff.clerk_id}>
                 {staff.full_name}
@@ -165,26 +150,16 @@ export default function JobForm({
       {/* Client */}
       <div className="space-y-1.5">
         <Label>Client</Label>
-
         <Select value={clientId} onValueChange={setClientId}>
-          <SelectTrigger className="h-11 border bg-white dark:bg-gray-900">
+          <SelectTrigger className="h-11">
             <SelectValue placeholder="Select client" />
           </SelectTrigger>
-
-          <SelectContent
-            position="popper"
-            sideOffset={4}
-            className="z-[9999] bg-white dark:bg-gray-900 shadow-xl rounded-md"
-          >
-            {clientList.length === 0 ? (
-              <div className="px-3 py-2 text-gray-500">No clients found</div>
-            ) : (
-              clientList.map((client) => (
-                <SelectItem key={client.clerk_id} value={client.clerk_id}>
-                  {client.full_name}
-                </SelectItem>
-              ))
-            )}
+          <SelectContent>
+            {clientList.map((client) => (
+              <SelectItem key={client.clerk_id} value={client.clerk_id}>
+                {client.full_name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -192,17 +167,11 @@ export default function JobForm({
       {/* Service Type */}
       <div className="space-y-1.5">
         <Label>Service Type</Label>
-
         <Select value={serviceType} onValueChange={setServiceType}>
-          <SelectTrigger className="h-11 capitalize border bg-white dark:bg-gray-900">
+          <SelectTrigger className="h-11 capitalize">
             <SelectValue />
           </SelectTrigger>
-
-          <SelectContent
-            position="popper"
-            sideOffset={4}
-            className="z-[9999] bg-white dark:bg-gray-900 shadow-xl rounded-md"
-          >
+          <SelectContent>
             <SelectItem value="standard">Standard</SelectItem>
             <SelectItem value="deep">Deep</SelectItem>
             <SelectItem value="move-out">Move-out</SelectItem>
