@@ -42,7 +42,45 @@ export default function AdminJobsView({
   fetchJobs,
   deleteJob,
 }) {
+  const deleteJobsBulk = async (ids) => {
+    try {
+      const res = await fetch("/api/jobs/delete-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      toast.success(`🗑️ ${data.count} jobs deleted`);
+      clearSelection();
+      fetchJobs();
+    } catch (err) {
+      console.error(err);
+      toast.error("Error deleting jobs");
+    }
+  };
+
   const { getClientWithToken } = useSupabaseWithClerk();
+
+  // Seleccion Multiple
+  const [selectedJobs, setSelectedJobs] = useState(new Set());
+
+  // Cambia el estado de selección de un job
+  const toggleJobSelection = (jobId) => {
+    setSelectedJobs((prev) => {
+      const next = new Set(prev);
+      next.has(jobId) ? next.delete(jobId) : next.add(jobId);
+      return next;
+    });
+  };
+
+  // Verifica si un job está seleccionado
+  const isSelected = (jobId) => selectedJobs.has(jobId);
+
+  // Desmarcar todas las selecciones
+  const clearSelection = () => setSelectedJobs(new Set());
 
   // LOAD CLIENTS
   const [loadedClients, setLoadedClients] = useState([]);
@@ -154,7 +192,7 @@ export default function AdminJobsView({
       if (error) throw new Error(error.message);
 
       toast.success("✅ Cliente asignado correctamente!");
-      fetchJobs();
+      // Realtime se encarga de sincronizar
     } catch (err) {
       toast.error("Error assigning client: " + err.message);
     }
@@ -206,7 +244,7 @@ export default function AdminJobsView({
         .eq("id", jobId);
 
       toast.success("⏳ Job reset successfully!");
-      fetchJobs();
+      // Realtime se encarga de sincronizar
     } catch (err) {
       toast.error("Error resetting job");
     }
@@ -278,6 +316,41 @@ export default function AdminJobsView({
         </div>
       </div>
 
+      {/* MULTI-SELECTION ACTION BAR */}
+      {selectedJobs.size > 0 && (
+        <div className="sticky top-2 z-20 bg-white border shadow-sm rounded-lg px-4 py-2 flex items-center justify-between">
+          <span className="text-sm font-medium">
+            {selectedJobs.size} job(s) selected
+          </span>
+
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-red-600 border-red-200"
+              onClick={(e) => {
+                e.stopPropagation(); // 🔥 CLAVE ABSOLUTA
+
+                if (
+                  confirm(
+                    `Delete ${selectedJobs.size} selected job(s)? This action cannot be undone.`
+                  )
+                ) {
+                  deleteJobsBulk(Array.from(selectedJobs));
+                }
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Delete
+            </Button>
+
+            <Button size="sm" variant="ghost" onClick={clearSelection}>
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* CREATE JOB */}
       <Card className="border shadow-md rounded-xl p-2 sm:p-4">
         <CardHeader>
@@ -299,6 +372,26 @@ export default function AdminJobsView({
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
               <tr>
+                {/* SELECT ALL */}
+                <th className="px-4 py-2 w-10">
+                  <input
+                    type="checkbox"
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedJobs(
+                          new Set(finalFilteredJobs.map((j) => j.id))
+                        );
+                      } else {
+                        clearSelection();
+                      }
+                    }}
+                    checked={
+                      finalFilteredJobs.length > 0 &&
+                      finalFilteredJobs.every((j) => selectedJobs.has(j.id))
+                    }
+                  />
+                </th>
+
                 <th className="px-4 py-2">Job</th>
                 <th className="px-4 py-2">Address</th>
                 <th className="px-4 py-2">Date</th>
@@ -317,16 +410,36 @@ export default function AdminJobsView({
                   key={job.id}
                   className="border-t hover:bg-gray-50 cursor-pointer"
                   onClick={(e) => {
+                    // 🔥 SI HAY SELECCIÓN, NO HAGAS NADA
+                    if (selectedJobs.size > 0) return;
+
                     const tag = e.target.tagName.toLowerCase();
                     if (
-                      ["button", "select", "option", "svg", "path"].includes(
-                        tag
-                      )
+                      [
+                        "button",
+                        "select",
+                        "option",
+                        "svg",
+                        "path",
+                        "input",
+                      ].includes(tag)
                     )
                       return;
+
                     window.location.href = `/jobs/${job.id}`;
                   }}
                 >
+                  <td
+                    className="px-4 py-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected(job.id)}
+                      onChange={() => toggleJobSelection(job.id)}
+                    />
+                  </td>
+
                   <td className="px-4 py-2">{job.title}</td>
                   <td className="px-4 py-2">{job.property_address}</td>
                   <td className="px-4 py-2">{job.scheduled_date}</td>
@@ -423,6 +536,25 @@ export default function AdminJobsView({
                           className="text-red-600"
                           onClick={(e) => {
                             e.stopPropagation();
+
+                            // 🚫 Más de uno seleccionado → usar bulk
+                            if (selectedJobs.size > 1) {
+                              toast.info(
+                                "Use bulk actions to delete multiple jobs"
+                              );
+                              return;
+                            }
+
+                            // 🟡 Uno seleccionado pero NO es este job
+                            if (
+                              selectedJobs.size === 1 &&
+                              !selectedJobs.has(job.id)
+                            ) {
+                              toast.info("This job is not the selected one");
+                              return;
+                            }
+
+                            // ✅ Borrado individual permitido
                             deleteJob(job.id);
                           }}
                         >

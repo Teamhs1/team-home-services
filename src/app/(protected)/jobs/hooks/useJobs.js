@@ -61,6 +61,8 @@ export function useJobs({ clerkId, role, getToken }) {
       }));
 
       setJobs(normalizedData);
+
+      setJobs(normalizedData);
     } catch (err) {
       console.error("❌ Error loading jobs:", err.message);
       toast.error("Error loading jobs: " + err.message);
@@ -122,11 +124,7 @@ export function useJobs({ clerkId, role, getToken }) {
               console.log("📢 Broadcast recibido:", payload);
 
               // ✅ Detectar rol y título dinámicamente
-              const jobRole =
-                payload?.role ||
-                payload?.created_by_role ||
-                payload?.created_byRole ||
-                "unknown";
+              const jobRole = role || "admin";
 
               const jobTitle = payload?.title || "Untitled Job";
 
