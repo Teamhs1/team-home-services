@@ -2,23 +2,26 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabase/supabaseClient";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 
 export default function CompanyPortfolioPage() {
   const { id } = useParams();
-  const router = useRouter();
 
   const [company, setCompany] = useState(null);
   const [properties, setProperties] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load company info, properties, users
+  /* =====================
+     LOAD COMPANY DATA
+  ===================== */
   useEffect(() => {
     async function loadCompanyData() {
-      // load company
+      setLoading(true);
+
+      // COMPANY
       const { data: comp, error: cErr } = await supabase
         .from("companies")
         .select("*")
@@ -28,43 +31,57 @@ export default function CompanyPortfolioPage() {
       if (cErr) {
         toast.error("Error loading company");
         console.error(cErr);
+        setLoading(false);
         return;
       }
+
       setCompany(comp);
 
-      // load properties linked to this company
+      // PROPERTIES
       const { data: props, error: pErr } = await supabase
         .from("properties")
-        .select(
-          `
-          id,
-          name,
-          address,
-          unit
-        `
-        )
+        .select("id, name, address, unit")
         .eq("company_id", id)
         .order("name", { ascending: true });
 
       if (pErr) console.error(pErr);
       setProperties(props || []);
 
-      // load users linked to this company
-      const { data: profs, error: uErr } = await supabase
-        .from("profiles")
+      // USERS (via company_members) ✅
+      const { data: members, error: mErr } = await supabase
+        .from("company_members")
         .select(
           `
-          id,
-          full_name,
-          email,
-          company_role
-        `
+    id,
+    role,
+    profiles (
+      id,
+      full_name,
+      email
+    )
+  `
         )
-        .eq("company_id", id)
-        .order("full_name", { ascending: true });
+        .eq("company_id", id);
 
-      if (uErr) console.error(uErr);
-      setUsers(profs || []);
+      if (mErr) {
+        console.error("❌ Error loading company members:", mErr);
+      }
+
+      // Normalizamos + ordenamos para la UI
+      const normalizedUsers = (members || [])
+        .map((m) => ({
+          id: m.profiles?.id,
+          full_name: m.profiles?.full_name || "",
+          email: m.profiles?.email || "",
+          company_role: m.role,
+        }))
+        .sort((a, b) =>
+          a.full_name.localeCompare(b.full_name, undefined, {
+            sensitivity: "base",
+          })
+        );
+
+      setUsers(normalizedUsers);
 
       setLoading(false);
     }
@@ -72,27 +89,42 @@ export default function CompanyPortfolioPage() {
     loadCompanyData();
   }, [id]);
 
+  /* =====================
+     LOADING / ERROR
+  ===================== */
   if (loading) {
     return (
-      <div className="p-10 text-center pt-[130px] text-gray-500">
-        Loading company portfolio...
+      <div className="p-10 pt-[130px] text-center text-gray-500">
+        Loading company portfolio…
       </div>
     );
   }
 
   if (!company) {
     return (
-      <div className="p-10 text-center pt-[130px] text-gray-500">
+      <div className="p-10 pt-[130px] text-center text-gray-500">
         Company not found.
       </div>
     );
   }
 
   return (
-    <div className="p-8 pt-[130px]">
+    <div className="p-8 pt-[130px] max-w-6xl mx-auto space-y-10">
+      {/* BREADCRUMB */}
+      <div className="text-sm text-gray-500">
+        <Link href="/admin/companies" className="hover:underline">
+          Companies
+        </Link>
+        <span className="mx-2">/</span>
+        <span className="text-gray-700 font-medium">{company.name}</span>
+      </div>
+
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">{company.name} — Portfolio</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">{company.name}</h1>
+          <p className="text-gray-500 text-sm">Company portfolio overview</p>
+        </div>
 
         <Link
           href={`/admin/companies/${id}/edit`}
@@ -102,71 +134,49 @@ export default function CompanyPortfolioPage() {
         </Link>
       </div>
 
-      {/* QUICK STATS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
-        <div className="p-5 border rounded-xl bg-white shadow-sm">
-          <h3 className="text-lg font-semibold">Properties</h3>
-          <p className="text-3xl font-bold mt-2">{properties.length}</p>
-        </div>
-
-        <div className="p-5 border rounded-xl bg-white shadow-sm">
-          <h3 className="text-lg font-semibold">Users</h3>
-          <p className="text-3xl font-bold mt-2">{users.length}</p>
-        </div>
-
-        <div className="p-5 border rounded-xl bg-white shadow-sm">
-          <h3 className="text-lg font-semibold">Created</h3>
-          <p className="text-lg mt-2">
-            {new Date(company.created_at).toLocaleDateString()}
-          </p>
-        </div>
+      {/* STATS */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <StatCard label="Properties" value={properties.length} />
+        <StatCard label="Users" value={users.length} />
+        <StatCard
+          label="Created"
+          value={new Date(company.created_at).toLocaleDateString()}
+        />
       </div>
 
       {/* COMPANY DETAILS */}
-      <div className="mb-10 p-6 border bg-white rounded-xl shadow-sm">
-        <h2 className="text-xl font-semibold mb-3">Company Details</h2>
+      <Section title="Company Details">
+        <Detail label="Email" value={company.email} />
+        <Detail label="Phone" value={company.phone} />
+        <Detail
+          label="Notes"
+          value={company.notes}
+          emptyText="No notes added"
+        />
+      </Section>
 
-        <p>
-          <strong>Email:</strong>{" "}
-          {company.email || <span className="text-gray-500">Not provided</span>}
-        </p>
-        <p>
-          <strong>Phone:</strong>{" "}
-          {company.phone || <span className="text-gray-500">Not provided</span>}
-        </p>
-        <p className="mt-2">
-          <strong>Notes:</strong>
-          <br />
-          {company.notes || (
-            <span className="text-gray-500">No notes added</span>
-          )}
-        </p>
-      </div>
-
-      {/* USERS LIST */}
-      <div className="mb-10">
-        <h2 className="text-xl font-semibold mb-3">Users in this Company</h2>
-
+      {/* USERS */}
+      <Section title="Users in this Company">
         {users.length === 0 ? (
-          <p className="text-gray-500">No users assigned to this company.</p>
+          <Empty text="No users assigned to this company." />
         ) : (
           <div className="space-y-3">
             {users.map((u) => (
               <div
                 key={u.id}
-                className="border p-4 rounded-lg bg-white shadow-sm flex justify-between"
+                className="flex justify-between items-center border rounded-lg p-4 bg-white hover:shadow-sm transition"
               >
                 <div>
                   <p className="font-semibold">{u.full_name}</p>
                   <p className="text-sm text-gray-600">{u.email}</p>
-                  <p className="text-sm text-gray-500">
-                    Role: {u.company_role || "Not assigned"}
+                  <p className="text-xs text-gray-500 capitalize">
+                    Role: {u.company_role || "not assigned"}
                   </p>
                 </div>
 
                 <Link
                   href={`/admin/profiles/${u.id}/edit`}
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-600 text-sm hover:underline"
                 >
                   Edit →
                 </Link>
@@ -174,30 +184,28 @@ export default function CompanyPortfolioPage() {
             ))}
           </div>
         )}
-      </div>
+      </Section>
 
-      {/* PROPERTIES LIST */}
-      <div>
-        <h2 className="text-xl font-semibold mb-3">Properties</h2>
-
+      {/* PROPERTIES */}
+      <Section title="Properties">
         {properties.length === 0 ? (
-          <p className="text-gray-500">This company has no properties.</p>
+          <Empty text="This company has no properties." />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {properties.map((p) => (
               <div
                 key={p.id}
-                className="border rounded-lg bg-white p-5 shadow-sm hover:shadow-md transition"
+                className="border rounded-xl bg-white p-5 shadow-sm hover:shadow-md transition"
               >
-                <h3 className="text-lg font-semibold">{p.name}</h3>
+                <h3 className="font-semibold">{p.name}</h3>
                 <p className="text-sm text-gray-600">{p.address}</p>
                 {p.unit && (
-                  <p className="text-sm text-gray-500">Unit {p.unit}</p>
+                  <p className="text-xs text-gray-500">Unit {p.unit}</p>
                 )}
 
                 <Link
                   href={`/admin/properties/${p.id}/edit`}
-                  className="text-blue-600 hover:underline text-sm mt-3 inline-block"
+                  className="inline-block mt-3 text-blue-600 text-sm hover:underline"
                 >
                   Edit Property →
                 </Link>
@@ -205,7 +213,41 @@ export default function CompanyPortfolioPage() {
             ))}
           </div>
         )}
-      </div>
+      </Section>
     </div>
   );
+}
+
+/* =====================
+   UI HELPERS
+===================== */
+function Section({ title, children }) {
+  return (
+    <div className="bg-white border rounded-xl p-6 shadow-sm space-y-4">
+      <h2 className="text-xl font-semibold">{title}</h2>
+      {children}
+    </div>
+  );
+}
+
+function StatCard({ label, value }) {
+  return (
+    <div className="border rounded-xl bg-white p-5 shadow-sm">
+      <p className="text-sm text-gray-500">{label}</p>
+      <p className="text-3xl font-bold mt-1">{value}</p>
+    </div>
+  );
+}
+
+function Detail({ label, value, emptyText = "Not provided" }) {
+  return (
+    <p className="text-sm">
+      <strong>{label}:</strong>{" "}
+      {value || <span className="text-gray-500">{emptyText}</span>}
+    </p>
+  );
+}
+
+function Empty({ text }) {
+  return <p className="text-gray-500 text-sm">{text}</p>;
 }

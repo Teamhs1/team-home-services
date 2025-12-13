@@ -25,6 +25,19 @@ export default function GlobalNavbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const dropdownRef = useRef(null);
+  // 🎨 Sidebar Theme (light / dark) — sin romper darkMode
+  const [sidebarTheme, setSidebarTheme] = useState("light");
+
+  useEffect(() => {
+    const syncSidebarTheme = () => {
+      const stored = localStorage.getItem("sidebarTheme") || "light";
+      setSidebarTheme(stored);
+    };
+
+    syncSidebarTheme();
+    const interval = setInterval(syncSidebarTheme, 500);
+    return () => clearInterval(interval);
+  }, []);
 
   const role = isLoaded ? user?.publicMetadata?.role || "user" : "user";
 
@@ -195,9 +208,14 @@ export default function GlobalNavbar() {
   const bgClass =
     pathname === "/"
       ? navBg
-        ? "bg-white/90 backdrop-blur-md border-gray-200 text-gray-900 shadow-sm dark:bg-gray-900/90 dark:border-gray-700 dark:text-white"
+        ? "backdrop-blur-md shadow-sm " +
+          (sidebarTheme === "dark"
+            ? "bg-slate-900/90 border-slate-800 text-white"
+            : "bg-white/90 border-gray-200 text-gray-900")
         : "bg-transparent border-transparent text-white"
-      : "bg-white border-gray-200 text-gray-900 shadow-sm dark:bg-gray-900 dark:border-gray-700 dark:text-white";
+      : sidebarTheme === "dark"
+      ? "bg-slate-900 border-slate-800 text-white shadow-sm"
+      : "bg-white border-gray-200 text-gray-900 shadow-sm";
 
   const isPrivatePage =
     pathname?.startsWith("/dashboard") ||
@@ -258,12 +276,14 @@ export default function GlobalNavbar() {
 
         {/* 🔹 CENTRO */}
         <div
-          className={`hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 text-sm font-medium 
-  ${
-    pathname === "/" && !navBg
-      ? "text-white"
-      : "text-gray-800 dark:text-gray-200"
-  }`}
+          className={`hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 text-sm font-medium transition-colors
+${
+  pathname === "/" && !navBg
+    ? "text-white"
+    : sidebarTheme === "dark"
+    ? "text-white"
+    : "text-gray-800"
+}`}
         >
           <a href="/#about" className="hover:text-blue-600 transition-colors">
             About
@@ -297,7 +317,9 @@ export default function GlobalNavbar() {
                   className={`transition ${
                     pathname === "/" && !navBg
                       ? "text-white"
-                      : "text-gray-700 dark:text-gray-300 hover:text-blue-600"
+                      : sidebarTheme === "dark"
+                      ? "text-slate-300 hover:text-blue-400"
+                      : "text-gray-700 hover:text-blue-600"
                   }`}
                 />
                 {pendingCount > 0 && (

@@ -1,9 +1,17 @@
 "use client";
+import { MoreVertical } from "lucide-react";
+
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Image from "next/image";
-import { Loader2, Search, RefreshCcw } from "lucide-react";
+import { Loader2, Search, RefreshCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
 
@@ -32,7 +40,7 @@ export default function AdminUsersPage() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, clerk_id, full_name, email, avatar_url, role, status, created_at"
+          "id, clerk_id, full_name, email, avatar_url, role, status, created_at, is_property_manager, company_id"
         )
         .order("created_at", { ascending: false });
 
@@ -139,6 +147,46 @@ export default function AdminUsersPage() {
       setChanging(false);
     }
   };
+  // 🗑️ Eliminar usuario (admin only)
+  const handleDeleteUser = async (userRow) => {
+    if (!userRow?.clerk_id || !userRow?.id) {
+      toast.error("Invalid user");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete:\n\n${
+        userRow.full_name || userRow.email
+      }\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      toast.loading("Deleting user...");
+
+      const res = await fetch("/api/admin/delete-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clerkId: userRow.clerk_id,
+          profileId: userRow.id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Delete failed");
+      }
+
+      toast.success("User deleted successfully");
+      await fetchUsers();
+    } catch (err) {
+      console.error("❌ Delete user error:", err);
+      toast.error(err.message);
+    }
+  };
 
   // 🔍 Filtro y búsqueda
   const filteredUsers = useMemo(() => {
@@ -237,8 +285,13 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-2">Role</th>
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Joined</th>
+
+                {currentRole === "admin" && (
+                  <th className="px-4 py-2 text-right">Actions</th>
+                )}
               </tr>
             </thead>
+
             <tbody>
               {filteredUsers.map((user) => (
                 <tr
@@ -276,24 +329,38 @@ export default function AdminUsersPage() {
 
                   <td className="px-4 py-2">{user.email || "—"}</td>
 
-                  <td className="px-4 py-2 capitalize">
-                    {currentRole === "admin" ? (
-                      <select
-                        value={user.role || "client"}
-                        onClick={(e) => e.stopPropagation()} // ✅ evita redirección
-                        onChange={(e) =>
-                          handleRoleChange(user.clerk_id, e.target.value)
-                        }
-                        className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                        disabled={changing}
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="staff">Staff</option>
-                        <option value="client">Client</option>
-                      </select>
-                    ) : (
-                      user.role
-                    )}
+                  <td className="px-4 py-2">
+                    <div className="flex flex-col text-sm leading-tight">
+                      {/* Rol principal */}
+                      <span className="capitalize font-medium">
+                        {currentRole === "admin" ? (
+                          <select
+                            value={user.role || "client"}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) =>
+                              handleRoleChange(user.clerk_id, e.target.value)
+                            }
+                            className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                            disabled={changing}
+                          >
+                            <option value="admin">Admin</option>
+                            <option value="staff">Staff</option>
+                            <option value="client">Client</option>
+                          </select>
+                        ) : (
+                          user.role
+                        )}
+                      </span>
+
+                      {/* Contexto SOLO para clientes */}
+                      {user.role === "client" && (
+                        <span className="text-xs text-gray-500">
+                          {user.is_property_manager && user.company_id
+                            ? "Company client"
+                            : "Individual owner"}
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   <td className="px-4 py-2">
@@ -311,6 +378,38 @@ export default function AdminUsersPage() {
                   <td className="px-4 py-2 text-sm text-gray-500">
                     {new Date(user.created_at).toLocaleDateString()}
                   </td>
+                  {currentRole === "admin" && (
+                    <td
+                      className="px-4 py-2 text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                            <MoreVertical size={16} />
+                          </button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem
+                            onClick={() =>
+                              (window.location.href = `/admin/profiles/${user.id}`)
+                            }
+                          >
+                            View profile
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onClick={() => handleDeleteUser(user)}
+                          >
+                            <Trash2 size={14} className="mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

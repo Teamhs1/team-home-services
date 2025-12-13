@@ -4,19 +4,40 @@ import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useSidebar } from "@/components/SidebarContext";
+import { useState, useEffect } from "react";
 
 export default function DashboardNavbar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isSidebarOpen } = useSidebar?.() || {};
 
-  // Detectar mobile
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const status = searchParams.get("status");
 
-  // Resolver sección actual
+  /* =========================
+     🔹 THEME (SIN ROMPER)
+  ========================= */
+  const [sidebarTheme, setSidebarTheme] = useState("light");
+
+  useEffect(() => {
+    const syncTheme = () => {
+      const stored = localStorage.getItem("sidebarTheme") || "light";
+      setSidebarTheme(stored);
+    };
+
+    syncTheme();
+    const interval = setInterval(syncTheme, 400);
+    return () => clearInterval(interval);
+  }, []);
+
+  /* =========================
+     RESOLVER SECCIÓN
+  ========================= */
   const getSection = () => {
+    if (pathname === "/admin/companies") return null;
+    if (pathname.startsWith("/admin/companies/")) return "admin_company";
     if (pathname.startsWith("/admin/properties")) return "admin_properties";
-    if (pathname.startsWith("/admin/keys")) return "admin_keys"; // ⭐ NUEVO
+    if (pathname.startsWith("/admin/keys")) return "admin_keys";
     if (pathname.startsWith("/admin")) return "admin";
     if (pathname.startsWith("/settings")) return "settings";
     if (pathname.startsWith("/jobs")) return "jobs";
@@ -26,18 +47,28 @@ export default function DashboardNavbar() {
 
   const section = getSection();
 
-  // Tabs por sección
+  const companyBase = pathname.startsWith("/admin/companies/")
+    ? pathname.split("/").slice(0, 4).join("/")
+    : null;
+
+  /* =========================
+     SUB NAV CONFIG
+  ========================= */
   const subNav = {
     dashboard: [],
 
     jobs: [
-      { label: "All Jobs", href: "/jobs", key: "all" },
-      { label: "Completed", href: "/jobs?status=completed", key: "completed" },
-      { label: "Pending", href: "/jobs?status=pending", key: "pending" },
+      { label: "All Jobs", href: "/jobs", status: null },
+      {
+        label: "Completed",
+        href: "/jobs?status=completed",
+        status: "completed",
+      },
+      { label: "Pending", href: "/jobs?status=pending", status: "pending" },
       {
         label: "In Progress",
         href: "/jobs?status=in_progress",
-        key: "in_progress",
+        status: "in_progress",
       },
     ],
 
@@ -52,31 +83,35 @@ export default function DashboardNavbar() {
       { label: "Theme Preview", href: "/admin/theme-preview" },
       { label: "Staff Applications", href: "/admin/staff-applications" },
       { label: "Properties", href: "/admin/properties" },
-      { label: "Keys", href: "/admin/keys" }, // ⭐ AGREGADO AQUÍ TAMBIÉN (ADMIN GENERAL)
+      { label: "Keys", href: "/admin/keys" },
     ],
 
-    // ⭐ Sub menu específico para Properties
     admin_properties: [
       { label: "All Properties", href: "/admin/properties" },
       { label: "Add New", href: "/admin/properties/create" },
     ],
 
-    // ⭐⭐⭐ NUEVO SUBNAV ESPECÍFICO PARA KEYS ⭐⭐⭐
     admin_keys: [
       { label: "All Keys", href: "/admin/keys" },
-      { label: "Reported Issues", href: "/admin/keys/reported" }, // ⭐ NEW
+      { label: "Reported Issues", href: "/admin/keys/reported" },
       { label: "Add New", href: "/admin/keys/create" },
     ],
+
+    admin_company: companyBase
+      ? [
+          { label: "Overview", href: companyBase },
+          { label: "Members", href: `${companyBase}/members` },
+          { label: "Settings", href: `${companyBase}/edit` },
+        ]
+      : [],
   };
 
   const activeTabs = subNav[section] || [];
-
-  // No subnav → no navbar
   if (!activeTabs.length) return null;
 
-  const status = searchParams.get("status");
-
-  // Estilos según sidebar
+  /* =========================
+     LAYOUT
+  ========================= */
   const marginLeft = isMobile ? "0" : isSidebarOpen ? "16rem" : "5rem";
   const width = isMobile
     ? "100%"
@@ -84,26 +119,53 @@ export default function DashboardNavbar() {
     ? "calc(100% - 16rem)"
     : "calc(100% - 5rem)";
 
+  /* =========================
+     RENDER
+  ========================= */
   return (
     <motion.nav
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className="fixed top-[5.3rem] right-0 flex items-center gap-6 
-        border-b border-gray-200 bg-white/80 backdrop-blur-md
-        px-4 md:px-10 py-3 shadow-sm z-[30] transition-all duration-300"
+      transition={{ duration: 0.25 }}
+      className={`
+        fixed top-[5.3rem] right-0 z-[30]
+        flex items-center gap-6
+        backdrop-blur-md
+        px-4 md:px-10 py-3
+        shadow-sm
+        transition-colors duration-300
+        ${
+          sidebarTheme === "dark"
+            ? "bg-slate-900/80 border-b border-slate-800 text-slate-200"
+            : "bg-white/80 border-b border-gray-200 text-gray-700"
+        }
+      `}
       style={{ marginLeft, width }}
     >
       {activeTabs.map((tab) => {
-        const isActive =
-          pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+        let isActive = false;
+
+        if (section === "jobs") {
+          isActive =
+            pathname === "/jobs" &&
+            (tab.status === status || (tab.status === null && status === null));
+        } else {
+          isActive =
+            pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+        }
 
         return (
           <Link
             key={tab.href}
             href={tab.href}
             className={`relative text-sm font-medium transition-colors ${
-              isActive ? "text-blue-600" : "text-gray-600 hover:text-blue-500"
+              isActive
+                ? sidebarTheme === "dark"
+                  ? "text-blue-400"
+                  : "text-blue-600"
+                : sidebarTheme === "dark"
+                ? "text-slate-400 hover:text-white"
+                : "text-gray-600 hover:text-blue-500"
             }`}
           >
             {tab.label}
@@ -111,7 +173,9 @@ export default function DashboardNavbar() {
             {isActive && (
               <motion.div
                 layoutId="activeTab"
-                className="absolute -bottom-1 left-0 right-0 h-[2px] bg-blue-600 rounded-full"
+                className={`absolute -bottom-1 left-0 right-0 h-[2px] rounded-full ${
+                  sidebarTheme === "dark" ? "bg-blue-400" : "bg-blue-600"
+                }`}
               />
             )}
           </Link>

@@ -47,6 +47,9 @@ export default function ThemePreviewPage() {
   const [theme, setTheme] = useState(defaultTheme);
   const [darkMode, setDarkMode] = useState(false);
 
+  // 🆕 ADD: sidebar theme
+  const [sidebarTheme, setSidebarTheme] = useState("dark");
+
   /* =======================================================
      Load saved theme
      ======================================================= */
@@ -61,6 +64,12 @@ export default function ThemePreviewPage() {
     const savedMode = localStorage.getItem("darkMode") === "true";
     setDarkMode(savedMode);
     document.documentElement.classList.toggle("dark", savedMode);
+
+    // 🆕 ADD: load sidebar theme
+    const savedSidebar = localStorage.getItem("sidebarTheme");
+    if (savedSidebar) {
+      setSidebarTheme(savedSidebar);
+    }
   }, []);
 
   /* =======================================================
@@ -89,6 +98,12 @@ export default function ThemePreviewPage() {
     localStorage.setItem("darkMode", newMode);
   };
 
+  // 🆕 ADD: update sidebar theme
+  const updateSidebarTheme = (value) => {
+    setSidebarTheme(value);
+    localStorage.setItem("sidebarTheme", value);
+  };
+
   /* =======================================================
      UI
      ======================================================= */
@@ -111,6 +126,31 @@ export default function ThemePreviewPage() {
           {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
         </button>
       </div>
+
+      {/* 🆕 ADD: SIDEBAR THEME */}
+      <section className="mb-14">
+        <h2 className="text-xl font-semibold mb-4 text-[hsl(var(--primary))]">
+          Sidebar Theme
+        </h2>
+
+        <div className="flex gap-4">
+          {["dark", "light"].map((opt) => (
+            <button
+              key={opt}
+              onClick={() => updateSidebarTheme(opt)}
+              className={`px-4 py-2 rounded-md border font-medium transition ${
+                sidebarTheme === opt
+                  ? "border-blue-600 bg-blue-50 text-blue-600"
+                  : "border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              {opt.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* ================= EXISTING CONTENT BELOW (UNTOUCHED) ================= */}
 
       {/* PAGE HEADER */}
       <header className="mb-10">

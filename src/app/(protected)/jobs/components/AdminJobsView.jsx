@@ -1,5 +1,5 @@
 "use client";
-
+import AdminEditDuration from "@/components/jobs/AdminEditDuration";
 import React, { useEffect, useState } from "react";
 import {
   Card,
@@ -66,6 +66,7 @@ export default function AdminJobsView({
 
   // Seleccion Multiple
   const [selectedJobs, setSelectedJobs] = useState(new Set());
+  const [editingJob, setEditingJob] = useState(null);
 
   // Cambia el estado de selección de un job
   const toggleJobSelection = (jobId) => {
@@ -501,9 +502,16 @@ export default function AdminJobsView({
                     {job.status === "in_progress" && (
                       <JobTimer jobId={job.id} />
                     )}
-                    {job.status === "completed" && (
-                      <JobDuration jobId={job.id} />
-                    )}
+
+                    {job.status === "completed" &&
+                      (job.duration_minutes != null ? (
+                        <span className="flex items-center gap-1 text-green-700 font-semibold">
+                          ⏱️ {job.duration_minutes} min total
+                        </span>
+                      ) : (
+                        <JobDuration jobId={job.id} />
+                      ))}
+
                     {job.status === "pending" && "—"}
                   </td>
 
@@ -522,6 +530,17 @@ export default function AdminJobsView({
                       </DropdownMenuTrigger>
 
                       <DropdownMenuContent align="end">
+                        {/* ⏱️ EDIT DURATION */}
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingJob(job);
+                          }}
+                        >
+                          ⏱️ Edit duration
+                        </DropdownMenuItem>
+
+                        {/* 🔄 RESET */}
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
@@ -532,12 +551,12 @@ export default function AdminJobsView({
                           Reset Job
                         </DropdownMenuItem>
 
+                        {/* 🗑️ DELETE */}
                         <DropdownMenuItem
                           className="text-red-600"
                           onClick={(e) => {
                             e.stopPropagation();
 
-                            // 🚫 Más de uno seleccionado → usar bulk
                             if (selectedJobs.size > 1) {
                               toast.info(
                                 "Use bulk actions to delete multiple jobs"
@@ -545,7 +564,6 @@ export default function AdminJobsView({
                               return;
                             }
 
-                            // 🟡 Uno seleccionado pero NO es este job
                             if (
                               selectedJobs.size === 1 &&
                               !selectedJobs.has(job.id)
@@ -554,7 +572,6 @@ export default function AdminJobsView({
                               return;
                             }
 
-                            // ✅ Borrado individual permitido
                             deleteJob(job.id);
                           }}
                         >
@@ -701,6 +718,27 @@ export default function AdminJobsView({
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+      {editingJob && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 w-80 space-y-4">
+            <h3 className="font-semibold text-lg">Edit duration</h3>
+
+            <AdminEditDuration
+              job={editingJob}
+              onUpdated={() => {
+                fetchJobs();
+                setEditingJob(null);
+              }}
+            />
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditingJob(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </main>

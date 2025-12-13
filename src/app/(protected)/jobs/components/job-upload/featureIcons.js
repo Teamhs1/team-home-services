@@ -1,7 +1,7 @@
 import {
   Wind,
   WashingMachine,
-  Dishwasher,
+  Utensils, // ✅ reemplazo de Dishwasher
   Microwave,
   Refrigerator,
   Sun,
@@ -17,7 +17,7 @@ import {
 
 export const FEATURE_ICONS = {
   air_conditioner: Wind,
-  dishwasher: Dishwasher,
+  dishwasher: Utensils, // ✅ FIX
   microwave: Microwave,
   laundry: WashingMachine,
   freezer: Refrigerator,

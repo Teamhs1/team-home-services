@@ -12,33 +12,72 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { Loader2, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+
+/* =======================
+   SERVICE TYPES (UX PRO)
+======================= */
+const SERVICE_TYPES = [
+  {
+    value: "light",
+    label: "Light Cleaning",
+    description: "Quick maintenance or touch-up cleaning",
+  },
+  {
+    value: "standard",
+    label: "Standard Cleaning",
+    description: "Regular residential cleaning",
+  },
+  {
+    value: "deep",
+    label: "Deep Cleaning",
+    description: "Detailed deep clean (kitchen, baths, baseboards)",
+  },
+  {
+    value: "heavy",
+    label: "Heavy / Intensive Cleaning",
+    description: "Full scrubbing of walls, cabinets, windows & extreme dirt",
+  },
+  {
+    value: "move-out",
+    label: "Move-out / Move-in",
+    description: "Full clean for vacant units",
+  },
+  {
+    value: "post-construction",
+    label: "Post-Construction",
+    description: "Dust & debris after construction work",
+  },
+  {
+    value: "restoration",
+    label: "Restoration Cleaning",
+    description: "After water, fire or damage restoration",
+  },
+  {
+    value: "renovation",
+    label: "Renovation Cleaning",
+    description: "After renovation or remodeling",
+  },
+  {
+    value: "add-ons",
+    label: "Add-ons Only",
+    description: "Oven, fridge, windows, extras",
+  },
+];
 
 export default function JobForm({ staffList = [], clientList = [] }) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
   // ========= STATE =========
   const [title, setTitle] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
   const [clientId, setClientId] = useState("");
   const [serviceType, setServiceType] = useState("standard");
-
-  // ✅ FECHA COMO Date (NO string)
   const [scheduledDate, setScheduledDate] = useState("");
 
   const [creating, setCreating] = useState(false);
   const toastShownRef = useRef(false);
 
-  // ========= VALIDACIONES =========
+  // ========= VALIDATION =========
   const isValid =
     title.trim() && scheduledDate && assignedTo.trim() && clientId.trim();
 
@@ -58,9 +97,7 @@ export default function JobForm({ staffList = [], clientList = [] }) {
           assigned_to: assignedTo,
           assigned_client: clientId,
           service_type: serviceType,
-
-          // ✅ convertir SOLO al enviar
-          scheduled_date: format(scheduledDate, "yyyy-MM-dd"),
+          scheduled_date: format(new Date(scheduledDate), "yyyy-MM-dd"),
         }),
       });
 
@@ -77,7 +114,7 @@ export default function JobForm({ staffList = [], clientList = [] }) {
         toastShownRef.current = true;
       }
 
-      // CLEANUP UX
+      // RESET FORM
       setTitle("");
       setAssignedTo("");
       setClientId("");
@@ -152,18 +189,30 @@ export default function JobForm({ staffList = [], clientList = [] }) {
         </Select>
       </div>
 
-      {/* Service Type */}
+      {/* Service Type (IMPROVED UX) */}
       <div className="space-y-1.5">
         <Label>Service Type</Label>
         <Select value={serviceType} onValueChange={setServiceType}>
-          <SelectTrigger className="h-11 capitalize">
-            <SelectValue />
+          <SelectTrigger className="h-11">
+            <SelectValue placeholder="Select service type" />
           </SelectTrigger>
           <SelectContent className={dropdownClass}>
-            <SelectItem value="standard">Standard</SelectItem>
-            <SelectItem value="deep">Deep</SelectItem>
-            <SelectItem value="move-out">Move-out</SelectItem>
-            <SelectItem value="add-ons">Add-ons</SelectItem>
+            {SERVICE_TYPES.map((service) => (
+              <SelectItem
+                key={service.value}
+                value={service.value}
+                className="group"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-medium text-gray-900 group-hover:text-gray-900">
+                    {service.label}
+                  </span>
+                  <span className="text-xs text-gray-600 group-hover:text-gray-700">
+                    {service.description}
+                  </span>
+                </div>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

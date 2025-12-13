@@ -32,6 +32,7 @@ export default function CompaniesListPage() {
 
   return (
     <div className="p-8 pt-[130px]">
+      {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-semibold">Companies</h1>
 
@@ -52,8 +53,10 @@ export default function CompaniesListPage() {
               key={c.id}
               className="border rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition"
             >
+              {/* NAME */}
               <h2 className="text-xl font-semibold mb-1">{c.name}</h2>
 
+              {/* CONTACT */}
               <p className="text-sm text-gray-600">
                 Email: {c.email || "Not provided"}
               </p>
@@ -62,20 +65,32 @@ export default function CompaniesListPage() {
                 Phone: {c.phone || "Not provided"}
               </p>
 
-              <p className="text-sm">
-                <strong>Properties:</strong> {c.properties?.[0]?.count ?? 0}
-              </p>
+              {/* STATS */}
+              <div className="text-sm space-y-1 mb-4">
+                <p>
+                  <strong>Properties:</strong> {c.properties?.[0]?.count ?? 0}
+                </p>
 
-              <p className="text-sm mb-4">
-                <strong>Users:</strong> {c.users?.[0]?.count ?? 0}
-              </p>
+                <p>
+                  <strong>Users:</strong> {c.users?.[0]?.count ?? 0}
+                </p>
+              </div>
 
+              {/* ACTIONS */}
               <div className="flex flex-col gap-2">
                 <Link
                   href={`/admin/companies/${c.id}`}
                   className="text-blue-600 hover:underline text-sm"
                 >
                   View Portfolio →
+                </Link>
+
+                {/* 🔹 NUEVO: miembros / correos */}
+                <Link
+                  href={`/admin/companies/${c.id}/members`}
+                  className="text-blue-600 hover:underline text-sm"
+                >
+                  View Members →
                 </Link>
 
                 <Link

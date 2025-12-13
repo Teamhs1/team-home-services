@@ -6,26 +6,33 @@ import Link from "next/link";
 
 export default function PropertiesListPage() {
   const [properties, setProperties] = useState([]);
-  const [managers, setManagers] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [selectedManager, setSelectedManager] = useState("all");
+  // 🔒 mantenemos esto EXACTO para no romper
+  const [selectedCompany, setSelectedCompany] = useState("all");
 
-  // Load property managers
+  /* =====================
+     LOAD COMPANIES
+     (sin cambios)
+  ===================== */
   useEffect(() => {
-    async function loadManagers() {
+    async function loadCompanies() {
       const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .eq("is_property_manager", true);
+        .from("companies")
+        .select("id, name")
+        .order("name");
 
-      if (!error) setManagers(data);
+      if (!error) setCompanies(data || []);
     }
 
-    loadManagers();
+    loadCompanies();
   }, []);
 
-  // Load properties with joined profile info
+  /* =====================
+     LOAD PROPERTIES
+     + owner READY (no obligatorio)
+  ===================== */
   useEffect(() => {
     async function loadProperties() {
       const { data, error } = await supabase
@@ -38,16 +45,21 @@ export default function PropertiesListPage() {
           unit,
           street_number,
           street_name,
-          client_id,
-          profiles:client_id (
+          company_id,
+          owner_id,
+          companies:company_id (
+            id,
+            name
+          ),
+          owners:owner_id (
+            id,
             full_name
           )
         `
         )
         .order("street_name", { ascending: true });
 
-      if (!error) setProperties(data);
-
+      if (!error) setProperties(data || []);
       setLoading(false);
     }
 
@@ -62,15 +74,18 @@ export default function PropertiesListPage() {
     );
   }
 
-  // Filter logic
+  /* =====================
+     FILTER BY COMPANY
+     (SIN CAMBIOS → SAFE)
+  ===================== */
   const filteredProperties =
-    selectedManager === "all"
+    selectedCompany === "all"
       ? properties
-      : properties.filter((p) => p.client_id === selectedManager);
+      : properties.filter((p) => p.company_id === selectedCompany);
 
   return (
     <div className="p-8 pt-[130px]">
-      {/* HEADER ROW */}
+      {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Properties</h1>
 
@@ -82,57 +97,59 @@ export default function PropertiesListPage() {
         </Link>
       </div>
 
-      {/* FILTER DROPDOWN */}
+      {/* FILTER (Company only, safe) */}
       <div className="mb-6 max-w-xs">
         <label className="block text-sm font-medium mb-1">
-          Filter by Property Manager
+          Filter by Company
         </label>
 
         <select
-          value={selectedManager}
-          onChange={(e) => setSelectedManager(e.target.value)}
+          value={selectedCompany}
+          onChange={(e) => setSelectedCompany(e.target.value)}
           className="w-full border rounded p-2"
         >
-          <option value="all">All Managers</option>
+          <option value="all">All Companies</option>
 
-          {managers.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.full_name}
+          {companies.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
             </option>
           ))}
         </select>
       </div>
 
-      {/* PROPERTIES GRID */}
+      {/* GRID */}
       {filteredProperties.length === 0 ? (
         <div className="mt-20 text-center text-gray-500">
-          No properties found for this manager.
+          No properties found for this company.
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProperties.map((p) => (
             <div
               key={p.id}
-              className="border rounded-lg p-5 bg-white shadow-sm hover:shadow-md transition cursor-pointer"
+              className="border rounded-lg p-5 bg-white shadow-sm hover:shadow-md transition"
             >
-              {/* Address */}
               <h2 className="text-xl font-semibold mb-2">{p.name}</h2>
 
-              <p className="text-gray-600 text-sm mb-1">Address: {p.address}</p>
+              <p className="text-gray-600 text-sm">Address: {p.address}</p>
 
               {p.unit && (
                 <p className="text-gray-600 text-sm">Unit: {p.unit}</p>
               )}
 
-              {/* Manager */}
+              {/* OWNER (Company OR Individual) */}
               <p className="mt-3 text-sm">
-                <strong>Manager:</strong>{" "}
-                {p.profiles?.full_name || (
+                <strong>Owner:</strong>{" "}
+                {p.companies?.name ? (
+                  <span>🏢 {p.companies.name}</span>
+                ) : p.owners?.full_name ? (
+                  <span>👤 {p.owners.full_name}</span>
+                ) : (
                   <span className="text-gray-500">Not assigned</span>
                 )}
               </p>
 
-              {/* Edit Button */}
               <Link
                 href={`/admin/properties/${p.id}/edit`}
                 className="inline-block mt-4 text-blue-600 font-medium hover:underline"

@@ -19,7 +19,7 @@ import {
   AlertCircle,
   Mail,
   Key,
-  Building, // correcto
+  Building,
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
@@ -32,6 +32,22 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
+// 🎨 Sidebar themes (no rompe nada)
+const SIDEBAR_THEMES = {
+  light: {
+    aside: "bg-white border-gray-200 text-gray-800",
+    hover:
+      "hover:bg-gradient-to-r hover:from-blue-50 hover:to-transparent hover:text-blue-600",
+    active: "bg-blue-50 text-blue-600 border-blue-600",
+  },
+  dark: {
+    aside: "bg-slate-900 border-slate-800 text-slate-200",
+    hover:
+      "hover:bg-gradient-to-r hover:from-slate-800 hover:to-transparent hover:text-white",
+    active: "bg-slate-800 text-white border-blue-500",
+  },
+};
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { isSidebarOpen: isOpen, toggleSidebar } = useSidebar();
@@ -40,6 +56,22 @@ export default function Sidebar() {
 
   const [role, setRole] = useState("user");
   const [hasSyncError, setHasSyncError] = useState(false);
+
+  // ✅ ACTUALIZADO: sidebar theme reactivo
+  const [sidebarTheme, setSidebarTheme] = useState("dark");
+
+  // 🆕 LISTENER DE THEME (NO ROMPE NADA)
+  useEffect(() => {
+    const syncTheme = () => {
+      const stored = localStorage.getItem("sidebarTheme") || "dark";
+      setSidebarTheme(stored);
+    };
+
+    syncTheme(); // inicial
+    const interval = setInterval(syncTheme, 400);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (isLoaded && user) {
@@ -129,13 +161,14 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`hidden md:flex fixed top-0 left-0 h-screen bg-white border-r border-gray-200
-      flex-col justify-between shadow-sm transition-all duration-300 z-[50]`}
+      className={`hidden md:flex fixed top-0 left-0 h-screen
+      ${SIDEBAR_THEMES[sidebarTheme].aside}
+      border-r flex-col justify-between shadow-xl transition-all duration-300 z-[50]`}
       style={{ width: isOpen ? "16rem" : "5rem" }}
     >
       {/* HEADER */}
       <div className="relative">
-        <div className="flex items-center justify-between px-6 py-5 border-b">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-inherit">
           <Link href="/dashboard" className="flex items-center gap-3">
             <motion.div animate={{ rotate: isOpen ? 0 : 360 }}>
               <Image
@@ -151,7 +184,7 @@ export default function Sidebar() {
               <motion.span
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="text-lg font-semibold text-gray-800"
+                className="text-lg font-semibold"
               >
                 Team Home Services
               </motion.span>
@@ -173,16 +206,17 @@ export default function Sidebar() {
       <nav className="flex flex-col mt-6 space-y-1 flex-1 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const active = pathname === item.href;
+          const active =
+            pathname === item.href || pathname.startsWith(item.href + "/");
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`group relative flex items-center justify-between px-6 py-2.5 text-sm transition-all ${
+              className={`group relative flex items-center justify-between px-6 py-2.5 text-sm transition-all duration-200 ${
                 active
-                  ? "bg-blue-50 text-blue-600 border-r-4 border-blue-600"
-                  : "text-gray-700 hover:bg-gray-50"
+                  ? `${SIDEBAR_THEMES[sidebarTheme].active} border-r-4`
+                  : SIDEBAR_THEMES[sidebarTheme].hover
               }`}
             >
               <div className="flex items-center gap-3">
@@ -193,38 +227,20 @@ export default function Sidebar() {
               {item.hasError && (
                 <AlertCircle size={16} className="text-red-500 animate-pulse" />
               )}
-
-              {/* ⭐ Tooltip cuando está cerrado */}
-              {!isOpen && (
-                <span
-                  className="
-                    fixed left-[72px]
-                    bg-gray-900 text-white text-xs py-1 px-2
-                    rounded-md shadow-lg
-                    whitespace-nowrap
-                    opacity-0 group-hover:opacity-100
-                    transition-opacity duration-150
-                    pointer-events-none
-                    z-[99999]
-                  "
-                >
-                  {item.name}
-                </span>
-              )}
             </Link>
           );
         })}
       </nav>
 
       {/* FOOTER */}
-      <div className="px-6 py-4 border-t flex items-center justify-center">
+      <div className="px-6 py-4 border-t border-inherit flex items-center justify-center">
         <span
           className={`text-[10px] font-semibold px-3 py-1 rounded-full ${
             role === "admin"
-              ? "bg-blue-100 text-blue-700"
+              ? "bg-blue-600/20 text-blue-400"
               : role === "staff"
-              ? "bg-green-100 text-green-700"
-              : "bg-gray-200 text-gray-700"
+              ? "bg-green-600/20 text-green-400"
+              : "bg-gray-600/20 text-gray-300"
           }`}
         >
           {role.toUpperCase()}
