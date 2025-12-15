@@ -67,8 +67,9 @@ export default function Sidebar() {
       setSidebarTheme(stored);
     };
 
-    syncTheme();
+    syncTheme(); // inicial
     const interval = setInterval(syncTheme, 400);
+
     return () => clearInterval(interval);
   }, []);
 
@@ -117,9 +118,6 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, [role]);
 
-  /* =========================
-     MENU BASE (NO TOCADO)
-  ========================= */
   const menuItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Jobs", href: "/jobs", icon: ClipboardList },
@@ -157,15 +155,6 @@ export default function Sidebar() {
       { name: "Theme Preview", href: "/admin/theme-preview", icon: Palette }
     );
   }
-
-  // 🔹 Buildium-style split (NUEVO, seguro)
-  const footerItems = menuItems.filter(
-    (item) => item.href === "/profile" || item.href === "/settings"
-  );
-
-  const navItems = menuItems.filter(
-    (item) => item.href !== "/profile" && item.href !== "/settings"
-  );
 
   const publicRoutes = ["/", "/sign-in", "/sign-up"];
   if (publicRoutes.includes(pathname)) return null;
@@ -215,7 +204,7 @@ export default function Sidebar() {
 
       {/* NAV */}
       <nav className="flex flex-col mt-6 space-y-1 flex-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {menuItems.map((item) => {
           const Icon = item.icon;
           const active =
             pathname === item.href || pathname.startsWith(item.href + "/");
@@ -244,41 +233,18 @@ export default function Sidebar() {
       </nav>
 
       {/* FOOTER */}
-      <div className="px-4 py-3 border-t border-inherit space-y-2">
-        {footerItems.map((item) => {
-          const Icon = item.icon;
-          const active =
-            pathname === item.href || pathname.startsWith(item.href + "/");
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-2 py-2 text-sm rounded transition-colors ${
-                active
-                  ? SIDEBAR_THEMES[sidebarTheme].active
-                  : SIDEBAR_THEMES[sidebarTheme].hover
-              }`}
-            >
-              <Icon size={16} />
-              {isOpen && <span>{item.name}</span>}
-            </Link>
-          );
-        })}
-
-        <div className="flex justify-center pt-2">
-          <span
-            className={`text-[10px] font-semibold px-3 py-1 rounded-full ${
-              role === "admin"
-                ? "bg-blue-600/20 text-blue-400"
-                : role === "staff"
-                ? "bg-green-600/20 text-green-400"
-                : "bg-gray-600/20 text-gray-300"
-            }`}
-          >
-            {role.toUpperCase()}
-          </span>
-        </div>
+      <div className="px-6 py-4 border-t border-inherit flex items-center justify-center">
+        <span
+          className={`text-[10px] font-semibold px-3 py-1 rounded-full ${
+            role === "admin"
+              ? "bg-blue-600/20 text-blue-400"
+              : role === "staff"
+              ? "bg-green-600/20 text-green-400"
+              : "bg-gray-600/20 text-gray-300"
+          }`}
+        >
+          {role.toUpperCase()}
+        </span>
       </div>
     </aside>
   );

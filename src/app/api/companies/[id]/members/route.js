@@ -27,7 +27,7 @@ export async function GET(req, context) {
         `
         id,
         role,
-        profiles (
+        profiles:profile_id (
           id,
           full_name,
           email

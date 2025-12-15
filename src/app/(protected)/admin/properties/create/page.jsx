@@ -8,17 +8,40 @@ import { toast } from "sonner";
 export default function CreatePropertyPage() {
   const router = useRouter();
 
-  const [managers, setManagers] = useState([]); // Property managers
+  const [managers, setManagers] = useState([]);
   const [loadingManagers, setLoadingManagers] = useState(true);
+
+  const [companies, setCompanies] = useState([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
 
   const [form, setForm] = useState({
     street_number: "",
     street_name: "",
     unit: "",
-    client_id: "", // Property manager
+    client_id: "",
+    company_id: "",
   });
 
-  // Load Property Managers
+  /* =====================
+     LOAD COMPANIES
+  ===================== */
+  useEffect(() => {
+    async function loadCompanies() {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id, name")
+        .order("name");
+
+      if (!error) setCompanies(data || []);
+      setLoadingCompanies(false);
+    }
+
+    loadCompanies();
+  }, []);
+
+  /* =====================
+     LOAD MANAGERS
+  ===================== */
   useEffect(() => {
     async function loadManagers() {
       const { data, error } = await supabase
@@ -30,7 +53,7 @@ export default function CreatePropertyPage() {
         console.error("ERROR LOADING MANAGERS:", error);
         toast.error("Error loading property managers");
       } else {
-        setManagers(data);
+        setManagers(data || []);
       }
 
       setLoadingManagers(false);
@@ -41,7 +64,7 @@ export default function CreatePropertyPage() {
 
   function handleChange(e) {
     const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
+    setForm((prev) => ({ ...prev, [name]: value }));
   }
 
   function buildAddress() {
@@ -63,16 +86,20 @@ export default function CreatePropertyPage() {
       return;
     }
 
+    if (!form.company_id) {
+      toast.error("Please select a company");
+      return;
+    }
+
     const payload = {
       street_number: form.street_number.trim(),
       street_name: form.street_name.trim(),
       unit: form.unit.trim() || null,
       name: address,
-      address: address,
-      client_id: form.client_id || null, // SAVE PROPERTY MANAGER
+      address,
+      company_id: form.company_id, // ✅ CLAVE
+      client_id: form.client_id || null,
     };
-
-    console.log("PAYLOAD SENT:", payload);
 
     const { error } = await supabase.from("properties").insert([payload]);
 
@@ -100,7 +127,6 @@ export default function CreatePropertyPage() {
           </label>
           <input
             name="street_number"
-            placeholder="ex: 31"
             className="w-full border rounded p-2"
             value={form.street_number}
             onChange={handleChange}
@@ -113,7 +139,6 @@ export default function CreatePropertyPage() {
           <label className="block text-sm font-medium mb-1">Street Name</label>
           <input
             name="street_name"
-            placeholder="ex: McKenzie"
             className="w-full border rounded p-2"
             value={form.street_name}
             onChange={handleChange}
@@ -128,21 +153,42 @@ export default function CreatePropertyPage() {
           </label>
           <input
             name="unit"
-            placeholder="ex: 1A"
             className="w-full border rounded p-2"
             value={form.unit}
             onChange={handleChange}
           />
         </div>
 
-        {/* PROPERTY MANAGER SELECT */}
+        {/* COMPANY */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Company</label>
+          {loadingCompanies ? (
+            <p className="text-sm text-gray-500">Loading companies...</p>
+          ) : (
+            <select
+              name="company_id"
+              className="w-full border rounded p-2"
+              value={form.company_id}
+              onChange={handleChange}
+              required
+            >
+              <option value="">-- Select Company --</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* MANAGER */}
         <div>
           <label className="block text-sm font-medium mb-1">
             Assign to Property Manager
           </label>
-
           {loadingManagers ? (
-            <p className="text-gray-500 text-sm">Loading managers...</p>
+            <p className="text-sm text-gray-500">Loading managers...</p>
           ) : (
             <select
               name="client_id"
@@ -161,7 +207,7 @@ export default function CreatePropertyPage() {
         </div>
 
         {/* PREVIEW */}
-        <div className="rounded border bg-gray-50 p-4 text-gray-700">
+        <div className="rounded border bg-gray-50 p-4">
           <strong className="block mb-1">Preview Address</strong>
           <span className="text-lg font-medium">
             {buildAddress() || "Waiting for address..."}
@@ -170,7 +216,7 @@ export default function CreatePropertyPage() {
 
         <button
           type="submit"
-          className="w-full rounded bg-blue-600 py-2 text-white text-lg font-medium shadow-sm hover:bg-blue-700 transition"
+          className="w-full rounded bg-blue-600 py-2 text-white text-lg font-medium hover:bg-blue-700"
         >
           Add Property
         </button>

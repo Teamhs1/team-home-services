@@ -21,7 +21,7 @@ export default function CompanyPortfolioPage() {
     async function loadCompanyData() {
       setLoading(true);
 
-      // COMPANY
+      /* ---------- COMPANY ---------- */
       const { data: comp, error: cErr } = await supabase
         .from("companies")
         .select("*")
@@ -37,7 +37,7 @@ export default function CompanyPortfolioPage() {
 
       setCompany(comp);
 
-      // PROPERTIES
+      /* ---------- PROPERTIES ---------- */
       const { data: props, error: pErr } = await supabase
         .from("properties")
         .select("id, name, address, unit")
@@ -47,46 +47,42 @@ export default function CompanyPortfolioPage() {
       if (pErr) console.error(pErr);
       setProperties(props || []);
 
-      // USERS (via company_members) ✅
-      const { data: members, error: mErr } = await supabase
-        .from("company_members")
-        .select(
-          `
-    id,
-    role,
-    profiles (
-      id,
-      full_name,
-      email
-    )
-  `
-        )
-        .eq("company_id", id);
+      /* ---------- USERS (via API / service role) ---------- */
+      try {
+        const res = await fetch(`/api/companies/${id}/members`, {
+          cache: "no-store",
+        });
 
-      if (mErr) {
-        console.error("❌ Error loading company members:", mErr);
+        if (!res.ok) {
+          console.error("❌ Error fetching company members");
+          setUsers([]);
+        } else {
+          const json = await res.json();
+
+          const normalizedUsers = (json.members || [])
+            .map((m) => ({
+              id: m.profiles?.id,
+              full_name: m.profiles?.full_name || "",
+              email: m.profiles?.email || "",
+              company_role: m.role,
+            }))
+            .sort((a, b) =>
+              a.full_name.localeCompare(b.full_name, undefined, {
+                sensitivity: "base",
+              })
+            );
+
+          setUsers(normalizedUsers);
+        }
+      } catch (err) {
+        console.error("❌ Members fetch failed:", err);
+        setUsers([]);
       }
-
-      // Normalizamos + ordenamos para la UI
-      const normalizedUsers = (members || [])
-        .map((m) => ({
-          id: m.profiles?.id,
-          full_name: m.profiles?.full_name || "",
-          email: m.profiles?.email || "",
-          company_role: m.role,
-        }))
-        .sort((a, b) =>
-          a.full_name.localeCompare(b.full_name, undefined, {
-            sensitivity: "base",
-          })
-        );
-
-      setUsers(normalizedUsers);
 
       setLoading(false);
     }
 
-    loadCompanyData();
+    if (id) loadCompanyData();
   }, [id]);
 
   /* =====================

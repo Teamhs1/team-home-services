@@ -1,11 +1,24 @@
 "use client";
+import { MoreVertical } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { LayoutGrid, List } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function CompaniesListPage() {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState("list");
+  const router = useRouter();
 
   useEffect(() => {
     async function loadCompanies() {
@@ -15,11 +28,17 @@ export default function CompaniesListPage() {
       if (Array.isArray(data)) {
         setCompanies(data);
       }
-
       setLoading(false);
     }
 
     loadCompanies();
+  }, []);
+
+  // 🔒 Force grid on mobile (igual que admin)
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setViewMode("grid");
+    }
   }, []);
 
   if (loading) {
@@ -31,71 +50,154 @@ export default function CompaniesListPage() {
   }
 
   return (
-    <div className="p-8 pt-[130px]">
+    <main className="px-4 sm:px-6 pt-[130px] max-w-[1600px] mx-auto space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-semibold">Companies</h1>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h1 className="text-3xl font-bold">🏢 Companies</h1>
 
-        <Link
-          href="/admin/companies/create"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
-        >
-          + Add Company
-        </Link>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
+            className="hidden sm:flex items-center gap-2"
+          >
+            {viewMode === "grid" ? (
+              <List className="w-4 h-4" />
+            ) : (
+              <LayoutGrid className="w-4 h-4" />
+            )}
+          </Button>
+
+          <Link
+            href="/admin/companies/create"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
+          >
+            + Add Company
+          </Link>
+        </div>
       </div>
 
-      {companies.length === 0 ? (
+      {/* EMPTY */}
+      {companies.length === 0 && (
         <p className="text-gray-500 mt-20 text-center">No companies found.</p>
+      )}
+
+      {/* LIST VIEW */}
+      {viewMode === "list" && companies.length > 0 ? (
+        <div className="hidden sm:block bg-white border rounded-xl shadow-sm overflow-hidden">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-100 text-gray-700">
+              <tr>
+                <th className="px-4 py-3 text-left">Company</th>
+                <th className="px-4 py-3 text-left">Email</th>
+                <th className="px-4 py-3 text-left">Phone</th>
+                <th className="px-4 py-3 text-center">Properties</th>
+                <th className="px-4 py-3 text-center">Users</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {companies.map((c) => (
+                <tr
+                  key={c.id}
+                  onClick={() => router.push(`/admin/companies/${c.id}`)}
+                  className="border-t hover:bg-gray-50 cursor-pointer"
+                >
+                  <td className="px-4 py-3 font-medium">{c.name}</td>
+                  <td className="px-4 py-3 text-gray-600">{c.email || "—"}</td>
+                  <td className="px-4 py-3 text-gray-600">{c.phone || "—"}</td>
+                  <td className="px-4 py-3 text-center">
+                    {c.properties?.[0]?.count ?? 0}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {c.users?.[0]?.count ?? 0}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 p-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/companies/${c.id}`}>
+                            View Company
+                          </Link>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/companies/${c.id}/members`}>
+                            View Members
+                          </Link>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/companies/${c.id}/edit`}>
+                            Edit Company
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        /* GRID VIEW */
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {companies.map((c) => (
             <div
               key={c.id}
-              className="border rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition"
+              className="border rounded-2xl bg-white shadow-sm hover:shadow-md transition p-5 flex flex-col justify-between"
             >
-              {/* NAME */}
-              <h2 className="text-xl font-semibold mb-1">{c.name}</h2>
+              <div>
+                <h2 className="text-lg font-semibold mb-1 truncate">
+                  {c.name}
+                </h2>
 
-              {/* CONTACT */}
-              <p className="text-sm text-gray-600">
-                Email: {c.email || "Not provided"}
-              </p>
-
-              <p className="text-sm text-gray-600 mb-3">
-                Phone: {c.phone || "Not provided"}
-              </p>
-
-              {/* STATS */}
-              <div className="text-sm space-y-1 mb-4">
-                <p>
-                  <strong>Properties:</strong> {c.properties?.[0]?.count ?? 0}
+                <p className="text-sm text-gray-600">{c.email || "No email"}</p>
+                <p className="text-sm text-gray-600 mb-3">
+                  {c.phone || "No phone"}
                 </p>
 
-                <p>
-                  <strong>Users:</strong> {c.users?.[0]?.count ?? 0}
-                </p>
+                <div className="text-sm space-y-1">
+                  <p>
+                    <strong>Properties:</strong> {c.properties?.[0]?.count ?? 0}
+                  </p>
+                  <p>
+                    <strong>Users:</strong> {c.users?.[0]?.count ?? 0}
+                  </p>
+                </div>
               </div>
 
               {/* ACTIONS */}
-              <div className="flex flex-col gap-2">
+              <div className="pt-4 flex flex-col gap-2 text-sm">
                 <Link
                   href={`/admin/companies/${c.id}`}
-                  className="text-blue-600 hover:underline text-sm"
+                  className="text-blue-600 hover:underline"
                 >
                   View Portfolio →
                 </Link>
-
-                {/* 🔹 NUEVO: miembros / correos */}
                 <Link
                   href={`/admin/companies/${c.id}/members`}
-                  className="text-blue-600 hover:underline text-sm"
+                  className="text-blue-600 hover:underline"
                 >
                   View Members →
                 </Link>
-
                 <Link
                   href={`/admin/companies/${c.id}/edit`}
-                  className="text-blue-600 hover:underline text-sm"
+                  className="text-blue-600 hover:underline"
                 >
                   Edit Company →
                 </Link>
@@ -104,6 +206,6 @@ export default function CompaniesListPage() {
           ))}
         </div>
       )}
-    </div>
+    </main>
   );
 }

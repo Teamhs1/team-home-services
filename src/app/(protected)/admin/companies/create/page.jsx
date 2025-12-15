@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/utils/supabase/supabaseClient";
 import { toast } from "sonner";
 
 export default function CreateCompanyPage() {
@@ -34,16 +33,35 @@ export default function CreateCompanyPage() {
       notes: form.notes.trim() || null,
     };
 
-    const { error } = await supabase.from("companies").insert([payload]);
+    try {
+      const res = await fetch("/api/companies/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
-    if (error) {
-      console.error("INSERT ERROR:", error);
-      toast.error("Error creating company");
-      return;
+      // 🛡️ PROTECCIÓN CLAVE (evita <!DOCTYPE> crash)
+      const contentType = res.headers.get("content-type");
+      let json = {};
+
+      if (contentType && contentType.includes("application/json")) {
+        json = await res.json();
+      }
+
+      if (!res.ok) {
+        console.error("CREATE COMPANY ERROR:", json);
+        toast.error(json?.error || "Error creating company");
+        return;
+      }
+
+      toast.success("Company created successfully!");
+      router.push("/admin/companies");
+    } catch (err) {
+      console.error("REQUEST ERROR:", err);
+      toast.error("Unexpected error creating company");
     }
-
-    toast.success("Company created successfully!");
-    router.push("/admin/companies");
   }
 
   return (
@@ -51,7 +69,7 @@ export default function CreateCompanyPage() {
       <h1 className="text-3xl font-semibold mb-6">Add New Company</h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* COMPANY NAME */}
+        {/* NAME */}
         <div>
           <label className="block text-sm font-medium mb-1">Company Name</label>
           <input
@@ -100,7 +118,6 @@ export default function CreateCompanyPage() {
           />
         </div>
 
-        {/* SUBMIT */}
         <button
           type="submit"
           className="w-full rounded bg-blue-600 py-2 text-white text-lg font-medium shadow-sm hover:bg-blue-700 transition"
