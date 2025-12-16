@@ -15,8 +15,11 @@ const supabase = createClient(
 export default function AdminContentPage() {
   const { user } = useUser();
   const { getToken } = useAuth();
+
   const [about, setAbout] = useState({ title: "", text: "" });
   const [services, setServices] = useState([]);
+  const [serviceDetails, setServiceDetails] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -27,54 +30,52 @@ export default function AdminContentPage() {
       const { data, error } = await supabase.from("site_content").select("*");
       if (error) throw error;
 
-      console.log("✅ Data loaded:", data);
-
       const aboutData = data.find((x) => x.section === "about");
       const servicesData = data.find((x) => x.section === "services");
+      const serviceDetailsData = data.find(
+        (x) => x.section === "service_details"
+      );
 
       setAbout(aboutData?.content || { title: "", text: "" });
       setServices(servicesData?.content?.items || []);
+      setServiceDetails(serviceDetailsData?.content?.items || []);
     } catch (err) {
-      console.error("❌ Error loading content:", err.message);
-      toast.error("Error loading content: " + err.message);
+      console.error(err);
+      toast.error("Error loading content");
     } finally {
       setLoading(false);
     }
   }
 
-  // 🧩 Ejecutar carga inicial + suscripción realtime
   useEffect(() => {
-    // 🔹 1. Cargar contenido inicial
     fetchContent();
 
-    // 🔹 2. Suscribirse a cambios en tiempo real
     const channel = supabase
       .channel("site_content_changes")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "site_content" },
-        (payload) => {
-          console.log("🔄 Realtime update detected:", payload);
-          fetchContent(); // recargar al detectar cambios
-        }
+        fetchContent
       )
       .subscribe();
 
-    // cleanup
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => supabase.removeChannel(channel);
   }, []);
 
-  // 💾 Guardar cambios
+  // 💾 Guardar cambios — FIX DEFINITIVO (JWT)
   async function handleSave() {
     setSaving(true);
     try {
-      const res = await fetch("/api/update-site-content", {
+      const res = await fetch("/api/admin/content", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ about, services }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          about,
+          services,
+          serviceDetails,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -82,18 +83,18 @@ export default function AdminContentPage() {
 
       toast.success("✅ Content updated successfully!");
     } catch (err) {
-      console.error("❌ Error saving changes:", err.message);
-      toast.error("Error saving changes: " + err.message);
+      console.error(err);
+      toast.error(err.message || "Error saving changes");
     } finally {
       setSaving(false);
     }
   }
 
-  // ➕ Añadir servicio
+  // ➕ Añadir landing service
   const addService = () =>
     setServices([...services, { title: "🧹 New Service", desc: "" }]);
 
-  // ❌ Eliminar servicio
+  // ❌ Eliminar landing service
   const removeService = (i) =>
     setServices(services.filter((_, idx) => idx !== i));
 
@@ -108,13 +109,8 @@ export default function AdminContentPage() {
   const role = user?.publicMetadata?.role || "user";
   if (role !== "admin") {
     return (
-      <div className="flex flex-col items-center justify-center h-screen text-center">
-        <h1 className="text-2xl font-semibold text-gray-700 mb-2">
-          Access Denied
-        </h1>
-        <p className="text-gray-500">
-          You need admin privileges to access this page.
-        </p>
+      <div className="flex items-center justify-center h-screen text-gray-500">
+        Access denied
       </div>
     );
   }
@@ -124,94 +120,146 @@ export default function AdminContentPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="max-w-5xl mx-auto bg-white p-8 rounded-2xl shadow"
+        className="max-w-6xl mx-auto bg-white p-8 rounded-2xl shadow space-y-14"
       >
-        <div className="flex justify-between items-center mb-8">
+        {/* HEADER */}
+        <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-blue-700">
             Website Content Manager
           </h1>
           <div className="flex gap-3">
             <button
               onClick={fetchContent}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-200 rounded-lg"
             >
-              <RefreshCcw size={18} /> Refresh
+              <RefreshCcw size={16} /> Refresh
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg"
             >
-              <Save size={18} /> {saving ? "Saving..." : "Save Changes"}
+              <Save size={16} /> {saving ? "Saving..." : "Save"}
             </button>
           </div>
         </div>
 
-        {/* 🔹 ABOUT SECTION */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-            About Section
-          </h2>
+        {/* ABOUT */}
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">About</h2>
           <input
-            type="text"
+            className="w-full border rounded-lg p-3 mb-3"
             value={about.title}
             onChange={(e) => setAbout({ ...about, title: e.target.value })}
-            className="w-full border rounded-lg p-3 mb-3 text-gray-700 font-semibold"
           />
           <textarea
             rows={5}
+            className="w-full border rounded-lg p-3"
             value={about.text}
             onChange={(e) => setAbout({ ...about, text: e.target.value })}
-            className="w-full border rounded-lg p-3 text-gray-700"
           />
         </section>
 
-        {/* 🔹 SERVICES SECTION */}
+        {/* LANDING SERVICES */}
         <section>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold text-gray-800">
-              Services Section
-            </h2>
+          <div className="flex justify-between mb-4">
+            <h2 className="text-2xl font-semibold">Landing Services</h2>
             <button
               onClick={addService}
-              className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              className="px-3 py-1 bg-green-600 text-white rounded-lg"
             >
-              + Add Service
+              + Add
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-6">
             {services.map((srv, i) => (
               <div
                 key={i}
-                className="border rounded-xl p-4 shadow-sm bg-gray-50 relative"
+                className="border rounded-xl p-4 bg-gray-50 relative"
               >
                 <button
                   onClick={() => removeService(i)}
-                  className="absolute top-2 right-3 text-red-500 hover:text-red-700"
+                  className="absolute top-2 right-3 text-red-500"
                 >
                   ✕
                 </button>
                 <input
-                  type="text"
+                  className="w-full border rounded p-2 mb-2"
                   value={srv.title}
                   onChange={(e) => {
                     const updated = [...services];
                     updated[i].title = e.target.value;
                     setServices(updated);
                   }}
-                  className="w-full border rounded-lg p-2 mb-2 text-gray-700 font-semibold"
                 />
                 <textarea
-                  rows={4}
+                  rows={3}
+                  className="w-full border rounded p-2"
                   value={srv.desc}
                   onChange={(e) => {
                     const updated = [...services];
                     updated[i].desc = e.target.value;
                     setServices(updated);
                   }}
-                  className="w-full border rounded-lg p-2 text-gray-700"
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* SERVICE DETAILS */}
+        <section>
+          <h2 className="text-2xl font-semibold mb-6">Service Detail Pages</h2>
+
+          <div className="space-y-10">
+            {serviceDetails.map((srv, i) => (
+              <div key={srv.slug} className="border rounded-xl p-6 bg-gray-50">
+                <h3 className="font-bold mb-4">
+                  {srv.title} ({srv.slug})
+                </h3>
+
+                <input
+                  className="w-full border rounded p-2 mb-3"
+                  value={srv.title}
+                  onChange={(e) => {
+                    const updated = [...serviceDetails];
+                    updated[i].title = e.target.value;
+                    setServiceDetails(updated);
+                  }}
+                />
+
+                <textarea
+                  className="w-full border rounded p-2 mb-3"
+                  value={srv.description}
+                  onChange={(e) => {
+                    const updated = [...serviceDetails];
+                    updated[i].description = e.target.value;
+                    setServiceDetails(updated);
+                  }}
+                />
+
+                <textarea
+                  rows={6}
+                  className="w-full border rounded p-2 mb-3"
+                  value={srv.includes.join("\n")}
+                  onChange={(e) => {
+                    const updated = [...serviceDetails];
+                    updated[i].includes = e.target.value
+                      .split("\n")
+                      .filter(Boolean);
+                    setServiceDetails(updated);
+                  }}
+                />
+
+                <textarea
+                  className="w-full border rounded p-2"
+                  value={srv.idealFor}
+                  onChange={(e) => {
+                    const updated = [...serviceDetails];
+                    updated[i].idealFor = e.target.value;
+                    setServiceDetails(updated);
+                  }}
                 />
               </div>
             ))}

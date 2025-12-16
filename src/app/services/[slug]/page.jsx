@@ -1,58 +1,30 @@
-export default function ServiceDetailPage({ params }) {
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+export default async function ServiceDetailPage({ params }) {
   const { slug } = params;
 
-  const servicesConfig = {
-    "standard-cleaning": {
-      title: "Standard Cleaning",
-      description:
-        "Reliable, routine cleaning to keep your home or rental fresh, organized, and comfortable — without the stress.",
-      includes: [
-        "Cleaning and sanitizing kitchen surfaces",
-        "Full bathroom cleaning and disinfection",
-        "Vacuuming carpets and mopping hard floors",
-        "Dusting furniture, shelves, and surfaces",
-        "Wiping baseboards, doors, and light switches",
-        "Garbage removal and final touch-up",
-      ],
-      idealFor:
-        "Busy homeowners, tenants, Airbnb hosts, and property managers who want a consistently clean space on a regular schedule.",
-    },
+  // 🔹 Traer service_details desde Supabase
+  const { data, error } = await supabase
+    .from("site_content")
+    .select("content")
+    .eq("section", "service_details")
+    .single();
 
-    "deep-cleaning": {
-      title: "Deep Cleaning",
-      description:
-        "A detailed, top-to-bottom cleaning designed to eliminate built-up dirt, grease, and hidden grime throughout the home.",
-      includes: [
-        "Cleaning inside cabinets and drawers",
-        "Deep scrubbing and descaling bathrooms",
-        "Detailed baseboards, trim, and edges",
-        "Exterior cleaning of kitchen appliances",
-        "Oven interior cleaning (grease and buildup removal)",
-        "Disinfection of high-touch areas",
-        "Removal of heavy dust and stubborn buildup",
-      ],
-      idealFor:
-        "Move-ins, move-outs, seasonal resets, post-renovation cleanups, or homes that require a deeper level of attention.",
-    },
+  if (error || !data?.content?.items) {
+    return (
+      <main className="min-h-screen flex items-center justify-center text-gray-600">
+        <p>Service not found.</p>
+      </main>
+    );
+  }
 
-    "maintenance-support": {
-      title: "Maintenance Support",
-      description:
-        "Ongoing property support to keep everything running smoothly — small fixes, inspections, and preventive care.",
-      includes: [
-        "Minor repairs and small fixes",
-        "Door, lock, and hardware adjustments",
-        "Light fixture and bulb replacements",
-        "Basic plumbing issue troubleshooting",
-        "Routine property inspections",
-        "Preventive maintenance checks",
-      ],
-      idealFor:
-        "Landlords and property managers who want reliable, all-in-one support without coordinating multiple contractors.",
-    },
-  };
-
-  const service = servicesConfig[slug];
+  // 🔹 Buscar servicio por slug
+  const service = data.content.items.find((item) => item.slug === slug);
 
   if (!service) {
     return (
@@ -81,7 +53,6 @@ export default function ServiceDetailPage({ params }) {
 
       {/* CONTENT */}
       <section className="max-w-6xl mx-auto px-6 py-20 space-y-20">
-        {/* GRID */}
         <div className="grid md:grid-cols-2 gap-12">
           {/* INCLUDED */}
           <div className="bg-white rounded-2xl shadow-sm p-8">
