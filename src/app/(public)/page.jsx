@@ -7,6 +7,7 @@ import { ArrowUp, Edit3, Check, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import Link from "next/link";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -222,37 +223,71 @@ export default function HomePage() {
           </div>
         )}
       </section>
-
       {/* 🔹 Services */}
       <section
         id="services"
         className="bg-gray-50 py-20 text-gray-800 text-center px-6"
       >
         <h2 className="text-3xl font-bold mb-10 text-blue-600">Our Services</h2>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-5xl mx-auto">
-          {services.map((srv, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 25 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              className="p-6 bg-white rounded-2xl shadow hover:shadow-lg transition"
-            >
-              <h3 className="text-xl font-semibold mb-2">{srv.title}</h3>
-              {editing ? (
-                <textarea
-                  value={srv.desc}
-                  onChange={(e) => {
-                    const updated = [...services];
-                    updated[i].desc = e.target.value;
-                    setServices(updated);
-                  }}
-                  className="w-full text-gray-600 border rounded-md p-2"
-                />
-              ) : (
-                <p className="text-gray-600">{srv.desc}</p>
-              )}
-            </motion.div>
-          ))}
+          {services.map((srv, i) => {
+            const slug =
+              srv.slug ||
+              srv.title
+                ?.toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/(^-|-$)/g, "");
+
+            const canNavigate = !editing && slug;
+            const Wrapper = canNavigate ? Link : "div";
+
+            if (!srv.slug) {
+              console.warn("⚠️ Service missing slug:", srv);
+            }
+
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 25 }}
+                whileInView={{ opacity: 1, y: 0 }}
+              >
+                <Wrapper
+                  href={canNavigate ? `/services/${slug}` : undefined}
+                  className={`block p-6 bg-white rounded-2xl shadow transition
+          ${
+            canNavigate
+              ? "hover:shadow-xl hover:-translate-y-1 cursor-pointer"
+              : ""
+          }
+        `}
+                >
+                  <h3 className="text-xl font-semibold mb-2">{srv.title}</h3>
+
+                  {editing ? (
+                    <textarea
+                      value={srv.desc}
+                      onChange={(e) => {
+                        const updated = [...services];
+                        updated[i].desc = e.target.value;
+                        setServices(updated);
+                      }}
+                      className="w-full text-gray-600 border rounded-md p-2"
+                    />
+                  ) : (
+                    <>
+                      <p className="text-gray-600">{srv.desc}</p>
+                      {canNavigate && (
+                        <span className="inline-block mt-4 text-blue-600 font-medium">
+                          Learn more →
+                        </span>
+                      )}
+                    </>
+                  )}
+                </Wrapper>
+              </motion.div>
+            );
+          })}
         </div>
       </section>
 
