@@ -5,47 +5,50 @@ export default function ServiceDetailPage({ params }) {
     "standard-cleaning": {
       title: "Standard Cleaning",
       description:
-        "Regular cleaning for homes and apartments — spotless kitchens, bathrooms, and living spaces.",
+        "Reliable, routine cleaning to keep your home or rental fresh, organized, and comfortable — without the stress.",
       includes: [
-        "Kitchen surface cleaning",
-        "Bathroom sanitation",
-        "Vacuum & mop floors",
-        "Dusting furniture and surfaces",
-        "Baseboards and doors",
-        "Trash removal",
+        "Cleaning and sanitizing kitchen surfaces",
+        "Full bathroom cleaning and disinfection",
+        "Vacuuming carpets and mopping hard floors",
+        "Dusting furniture, shelves, and surfaces",
+        "Wiping baseboards, doors, and light switches",
+        "Garbage removal and final touch-up",
       ],
       idealFor:
-        "Homeowners, tenants, Airbnb hosts and property managers who need consistent and reliable cleaning.",
+        "Busy homeowners, tenants, Airbnb hosts, and property managers who want a consistently clean space on a regular schedule.",
     },
+
     "deep-cleaning": {
       title: "Deep Cleaning",
       description:
-        "Perfect for move-ins, move-outs, or seasonal refreshes. Every detail counts.",
+        "A detailed, top-to-bottom cleaning designed to eliminate built-up dirt, grease, and hidden grime throughout the home.",
       includes: [
-        "Inside cabinets & drawers",
-        "Deep bathroom descaling",
-        "Baseboards & trim detailing",
-        "Appliance exterior cleaning",
-        "High-touch area disinfection",
-        "Heavy dust & grime removal",
+        "Cleaning inside cabinets and drawers",
+        "Deep scrubbing and descaling bathrooms",
+        "Detailed baseboards, trim, and edges",
+        "Exterior cleaning of kitchen appliances",
+        "Oven interior cleaning (grease and buildup removal)",
+        "Disinfection of high-touch areas",
+        "Removal of heavy dust and stubborn buildup",
       ],
       idealFor:
-        "Move-ins, move-outs, post-renovation cleanups, and properties that need extra attention.",
+        "Move-ins, move-outs, seasonal resets, post-renovation cleanups, or homes that require a deeper level of attention.",
     },
+
     "maintenance-support": {
       title: "Maintenance Support",
       description:
-        "Keep your property in top shape — small repairs, inspections, and preventive care included.",
+        "Ongoing property support to keep everything running smoothly — small fixes, inspections, and preventive care.",
       includes: [
-        "Minor repairs & fixes",
-        "Door and lock adjustments",
-        "Light fixture replacement",
-        "Basic plumbing issues",
-        "Property inspections",
+        "Minor repairs and small fixes",
+        "Door, lock, and hardware adjustments",
+        "Light fixture and bulb replacements",
+        "Basic plumbing issue troubleshooting",
+        "Routine property inspections",
         "Preventive maintenance checks",
       ],
       idealFor:
-        "Landlords and property managers who want ongoing support without dealing with multiple contractors.",
+        "Landlords and property managers who want reliable, all-in-one support without coordinating multiple contractors.",
     },
   };
 
