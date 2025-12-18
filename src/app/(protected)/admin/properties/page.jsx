@@ -99,6 +99,32 @@ export default function PropertiesListPage() {
     selectedCompany === "all"
       ? properties
       : properties.filter((p) => p.company_id === selectedCompany);
+  async function handleDeleteProperty(id, name) {
+    const confirmed = confirm(
+      `Are you sure you want to delete "${name}"?\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/properties/${id}`, {
+        method: "DELETE",
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(json?.error || "Unable to delete property");
+        return;
+      }
+
+      // ✅ quitar de la lista sin recargar
+      setProperties((prev) => prev.filter((p) => p.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Unexpected error deleting property");
+    }
+  }
 
   return (
     <main className="px-4 sm:px-6 pt-[130px] max-w-[1600px] mx-auto space-y-6">
@@ -207,10 +233,22 @@ export default function PropertiesListPage() {
                             View Property
                           </Link>
                         </DropdownMenuItem>
+
                         <DropdownMenuItem asChild>
                           <Link href={`/admin/properties/${p.id}/edit`}>
                             Edit Property
                           </Link>
+                        </DropdownMenuItem>
+
+                        {/* 🗑️ DELETE */}
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProperty(p.id, p.name);
+                          }}
+                        >
+                          Delete Property
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

@@ -20,6 +20,9 @@ export default function CompaniesListPage() {
   const [viewMode, setViewMode] = useState("list");
   const router = useRouter();
 
+  /* =====================
+     LOAD COMPANIES
+  ===================== */
   useEffect(() => {
     async function loadCompanies() {
       const res = await fetch("/api/companies", { cache: "no-store" });
@@ -34,12 +37,42 @@ export default function CompaniesListPage() {
     loadCompanies();
   }, []);
 
-  // 🔒 Force grid on mobile (igual que admin)
+  // 🔒 Force grid on mobile
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 640) {
       setViewMode("grid");
     }
   }, []);
+
+  /* =====================
+     DELETE COMPANY
+  ===================== */
+  async function handleDeleteCompany(id, name) {
+    const confirmed = confirm(
+      `Are you sure you want to delete "${name}"?\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/companies/${id}`, {
+        method: "DELETE",
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(json?.error || "Unable to delete company");
+        return;
+      }
+
+      // ✅ Update UI without reload
+      setCompanies((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Unexpected error deleting company");
+    }
+  }
 
   if (loading) {
     return (
@@ -99,62 +132,89 @@ export default function CompaniesListPage() {
             </thead>
 
             <tbody>
-              {companies.map((c) => (
-                <tr
-                  key={c.id}
-                  onClick={() => router.push(`/admin/companies/${c.id}`)}
-                  className="border-t hover:bg-gray-50 cursor-pointer"
-                >
-                  <td className="px-4 py-3 font-medium">{c.name}</td>
-                  <td className="px-4 py-3 text-gray-600">{c.email || "—"}</td>
-                  <td className="px-4 py-3 text-gray-600">{c.phone || "—"}</td>
-                  <td className="px-4 py-3 text-center">
-                    {c.properties?.[0]?.count ?? 0}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {c.users?.[0]?.count ?? 0}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 p-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
+              {companies.map((c) => {
+                const propertiesCount = c.properties?.[0]?.count ?? 0;
+                const usersCount = c.users?.[0]?.count ?? 0;
+                const canDelete = propertiesCount === 0 && usersCount === 1; // ← solo el admin creador
 
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/companies/${c.id}`}>
-                            View Company
-                          </Link>
-                        </DropdownMenuItem>
+                return (
+                  <tr
+                    key={c.id}
+                    onClick={() => router.push(`/admin/companies/${c.id}`)}
+                    className="border-t hover:bg-gray-50 cursor-pointer"
+                  >
+                    <td className="px-4 py-3 font-medium">{c.name}</td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {c.email || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {c.phone || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-center">{propertiesCount}</td>
+                    <td className="px-4 py-3 text-center">{usersCount}</td>
 
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/companies/${c.id}/members`}>
-                            View Members
-                          </Link>
-                        </DropdownMenuItem>
+                    <td className="px-4 py-3 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
 
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/companies/${c.id}/edit`}>
-                            Edit Company
-                          </Link>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/companies/${c.id}`}>
+                              View Company
+                            </Link>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/companies/${c.id}/members`}>
+                              View Members
+                            </Link>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/companies/${c.id}/edit`}>
+                              Edit Company
+                            </Link>
+                          </DropdownMenuItem>
+
+                          {/* DELETE */}
+                          {canDelete ? (
+                            <DropdownMenuItem
+                              className="text-red-600 focus:text-red-600"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCompany(c.id, c.name);
+                              }}
+                            >
+                              Delete Company
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              disabled
+                              className="opacity-50 cursor-not-allowed"
+                            >
+                              Delete (has users or properties)
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       ) : (
-        /* GRID VIEW */
+        /* GRID VIEW (sin delete para no duplicar UX) */
         <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {companies.map((c) => (
             <div
@@ -181,7 +241,6 @@ export default function CompaniesListPage() {
                 </div>
               </div>
 
-              {/* ACTIONS */}
               <div className="pt-4 flex flex-col gap-2 text-sm">
                 <Link
                   href={`/admin/companies/${c.id}`}

@@ -15,14 +15,18 @@ import {
 
 import JobForm from "../components/JobForm";
 import { useStaff } from "../hooks/useStaff";
+import { useClients } from "../hooks/useClients"; // ✅ NUEVO
 
 export default function NewJobPage() {
   const router = useRouter();
-  const { staffList, fetchStaff } = useStaff();
 
-  // Cargar staff
+  const { staffList, fetchStaff } = useStaff();
+  const { clientList, fetchClients } = useClients(); // ✅ NUEVO
+
+  // Cargar staff y clients
   useEffect(() => {
     fetchStaff();
+    fetchClients();
   }, []);
 
   return (
@@ -43,14 +47,19 @@ export default function NewJobPage() {
         Completa la información para crear un nuevo job.
       </p>
 
-      {/* FORMULARIO EXACTO DEL ADMIN */}
+      {/* FORMULARIO */}
       <Card className="border border-border/50 shadow-md rounded-xl p-2 sm:p-4">
         <CardHeader>
           <CardTitle>Create New Job</CardTitle>
           <CardDescription>Add a new cleaning job.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <JobForm staffList={staffList} />
+
+        {/* ✅ IMPORTANTE PARA MOBILE */}
+        <CardContent className="overflow-visible">
+          <JobForm
+            staffList={staffList}
+            clientList={clientList} // ✅ CLAVE
+          />
         </CardContent>
       </Card>
     </main>
