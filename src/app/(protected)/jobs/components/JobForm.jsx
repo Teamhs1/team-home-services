@@ -162,7 +162,7 @@ export default function JobForm({ staffList = [], clientList = [] }) {
           <SelectTrigger className="h-11">
             <SelectValue placeholder="Select staff" />
           </SelectTrigger>
-          <SelectContent className={dropdownClass}>
+          <SelectContent position="popper" className={`${dropdownClass} z-50`}>
             {staffList.map((staff) => (
               <SelectItem key={staff.clerk_id} value={staff.clerk_id}>
                 {staff.full_name}
