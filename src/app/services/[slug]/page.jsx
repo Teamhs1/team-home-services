@@ -6,7 +6,7 @@ const supabase = createClient(
 );
 
 export default async function ServiceDetailPage({ params }) {
-  const { slug } = params;
+  const { slug } = await params; // ✅ FIX NEXT 15
 
   // 🔹 Traer service_details desde Supabase
   const { data, error } = await supabase
@@ -54,7 +54,6 @@ export default async function ServiceDetailPage({ params }) {
       {/* CONTENT */}
       <section className="max-w-6xl mx-auto px-6 py-20 space-y-20">
         <div className="grid md:grid-cols-2 gap-12">
-          {/* INCLUDED */}
           <div className="bg-white rounded-2xl shadow-sm p-8">
             <h2 className="text-2xl font-semibold mb-6">What’s Included</h2>
             <ul className="space-y-4">
@@ -69,7 +68,6 @@ export default async function ServiceDetailPage({ params }) {
             </ul>
           </div>
 
-          {/* IDEAL FOR */}
           <div className="bg-white rounded-2xl shadow-sm p-8 flex flex-col justify-between">
             <div>
               <h2 className="text-2xl font-semibold mb-6">Ideal For</h2>
@@ -77,27 +75,14 @@ export default async function ServiceDetailPage({ params }) {
                 {service.idealFor}
               </p>
             </div>
-
-            <div className="mt-10">
-              <div className="rounded-xl bg-blue-50 p-6">
-                <p className="text-sm text-blue-700 font-medium mb-2">
-                  Not sure if this service fits your needs?
-                </p>
-                <p className="text-sm text-blue-600">
-                  Contact us and we’ll help you choose the right option.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* CTA */}
         <div className="text-center">
           <div className="inline-flex flex-col items-center gap-6 bg-white rounded-2xl shadow-sm px-10 py-12">
             <h3 className="text-2xl font-semibold">Ready to get started?</h3>
             <p className="text-gray-600 max-w-md">
-              Request a personalized quote for <strong>{service.title}</strong>{" "}
-              and let our team take care of the rest.
+              Request a personalized quote for <strong>{service.title}</strong>.
             </p>
             <a
               href="/#contact"

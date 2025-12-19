@@ -2,11 +2,16 @@ import { clerkMiddleware } from "@clerk/nextjs/server";
 
 export default clerkMiddleware({
   publicRoutes: [
-    "/",
+    "/", // Home
+    "/about",
+    "/services",
+    "/services/(.*)", // services dinámicos
+    "/contact",
+
     "/sign-in",
     "/sign-up",
 
-    // ✅ SOLO APIs públicas reales
+    // APIs públicas
     "/api/robots",
     "/api/sitemap",
   ],
