@@ -1,91 +1,131 @@
 "use client";
 console.log("🔴 CLIENT COMPONENT LOADED 🔥");
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/utils/supabase/supabaseClient";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 export default function CreateKeyPage() {
   const router = useRouter();
 
+  const [companies, setCompanies] = useState([]);
   const [properties, setProperties] = useState([]);
+  const [loadingProperties, setLoadingProperties] = useState(false);
 
   const [form, setForm] = useState({
+    company_id: "",
     property_id: "",
     unit: "",
     type: "",
     status: "available",
   });
 
-  // ============================
-  // Load properties
-  // ============================
+  /* ============================
+     LOAD COMPANIES (API)
+  ============================ */
   useEffect(() => {
-    fetchProperties();
+    loadCompanies();
   }, []);
 
-  async function fetchProperties() {
-    console.log("Fetching properties...");
+  async function loadCompanies() {
+    try {
+      const res = await fetch("/api/companies", {
+        cache: "no-store",
+        credentials: "include",
+      });
 
-    const { data, error } = await supabase
-      .from("properties")
-      .select("*")
-      .order("name", { ascending: true });
+      if (!res.ok) throw new Error("Failed to load companies");
 
-    if (error) {
-      console.error("Supabase SELECT error:", error);
-      toast.error("Error loading properties");
+      const data = await res.json();
+      setCompanies(data || []);
+    } catch (err) {
+      console.error(err);
+      toast.error("Error loading companies");
+    }
+  }
+
+  /* ============================
+     LOAD PROPERTIES BY COMPANY (API)
+  ============================ */
+  useEffect(() => {
+    if (!form.company_id) {
+      setProperties([]);
       return;
     }
 
-    // Remove duplicates by name
-    const unique = [];
-    const names = new Set();
+    loadProperties(form.company_id);
+  }, [form.company_id]);
 
-    data.forEach((p) => {
-      if (!names.has(p.name)) {
-        names.add(p.name);
-        unique.push(p);
-      }
-    });
+  async function loadProperties(companyId) {
+    setLoadingProperties(true);
 
-    setProperties(unique);
+    try {
+      const res = await fetch(`/api/admin/properties?company_id=${companyId}`, {
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error("Failed to load properties");
+
+      const data = await res.json();
+      setProperties(data || []);
+    } catch (err) {
+      console.error(err);
+      toast.error("Error loading properties");
+      setProperties([]);
+    } finally {
+      setLoadingProperties(false);
+    }
   }
 
-  // ============================
-  // Update form fields
-  // ============================
+  /* ============================
+     HANDLERS
+  ============================ */
   function handleChange(e) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    if (name === "company_id") {
+      setForm({
+        company_id: value,
+        property_id: "",
+        unit: "",
+        type: form.type,
+        status: "available",
+      });
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, [name]: value }));
   }
 
-  // ============================
-  // Safe Tag Code Generator
-  // ============================
+  /* ============================
+     DERIVED
+  ============================ */
+  const selectedProperty = useMemo(
+    () => properties.find((p) => String(p.id) === String(form.property_id)),
+    [properties, form.property_id]
+  );
+
+  /* ============================
+     TAG CODE
+  ============================ */
   function generateTagCode() {
-    const property = properties.find((p) => p.id === form.property_id);
-    if (!property) return "";
+    if (!selectedProperty || !form.type) return "";
 
-    // Clean property name (remove accents, spaces, symbols)
-    const cleanName = property.name.replace(/[^a-zA-Z0-9]/g, "");
-
+    const cleanName = selectedProperty.name.replace(/[^a-zA-Z0-9]/g, "");
     const unit = form.unit ? `-U${form.unit}` : "";
     const typePart = form.type.toUpperCase();
 
     return `${cleanName}${unit}-${typePart}`;
   }
 
-  // ============================
-  // SUBMIT (FINAL VERSION)
-  // ============================
+  /* ============================
+     SUBMIT
+  ============================ */
   async function handleSubmit(e) {
     e.preventDefault();
 
-    const finalTagCode = generateTagCode();
-
-    console.log("FINAL TAG CODE:", finalTagCode);
-
+    if (!form.company_id) return toast.error("Select a company");
     if (!form.property_id) return toast.error("Select a property");
     if (!form.type) return toast.error("Select a key type");
 
@@ -97,17 +137,19 @@ export default function CreateKeyPage() {
       property_id: form.property_id,
       unit: form.unit ? Number(form.unit) : null,
       type: form.type,
-      tag_code: finalTagCode,
+      tag_code: generateTagCode(),
       status: "available",
     };
 
-    console.log("PAYLOAD SENT:", payload);
+    const res = await fetch("/api/admin/keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
 
-    const { error } = await supabase.from("keys").insert([payload]);
-
-    if (error) {
-      console.error("SUPABASE INSERT ERROR:", JSON.stringify(error, null, 2));
-      toast.error("Error inserting key");
+    if (!res.ok) {
+      toast.error("Error creating key");
       return;
     }
 
@@ -116,67 +158,110 @@ export default function CreateKeyPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg p-6">
-      <h1 className="mb-4 text-2xl font-bold">Add New Key</h1>
+    <main className="pt-[130px] px-4">
+      <div className="mx-auto max-w-lg p-6 space-y-4">
+        <h1 className="text-2xl font-bold">Add New Key</h1>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* SELECT PROPERTY */}
-        <select
-          name="property_id"
-          className="w-full border p-2"
-          value={form.property_id}
-          onChange={handleChange}
-          required
-        >
-          <option value="">Select property</option>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* COMPANY */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Company</label>
+            <select
+              name="company_id"
+              className="w-full border rounded p-2"
+              value={form.company_id}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select company</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          {properties.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          {/* PROPERTY */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Property</label>
+            <select
+              name="property_id"
+              className="w-full border rounded p-2"
+              value={form.property_id}
+              onChange={handleChange}
+              disabled={!form.company_id}
+              required
+            >
+              <option value="">
+                {loadingProperties
+                  ? "Loading properties..."
+                  : !form.company_id
+                  ? "Select company first"
+                  : properties.length
+                  ? "Select property"
+                  : "No properties for this company"}
+              </option>
 
-        {/* UNIT */}
-        <input
-          name="unit"
-          placeholder="Unit (ex: 101)"
-          className="w-full border p-2"
-          value={form.unit}
-          onChange={handleChange}
-        />
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* TYPE */}
-        <select
-          name="type"
-          className="w-full border p-2"
-          value={form.type}
-          onChange={handleChange}
-          required
-        >
-          <option value="">Select key type</option>
-          <option value="master">Master Key</option>
-          <option value="mail">Mailbox</option>
-          <option value="electrical">Electrical Room</option>
-          <option value="mechanical">Mechanical Room</option>
-          <option value="laundry">Laundry</option>
-          <option value="storage">Storage</option>
-          <option value="frontdoor">Front Door</option>
-        </select>
+          {/* PREVIEW */}
+          {selectedProperty && (
+            <div className="rounded-lg border bg-gray-50 p-3 text-sm">
+              <p>
+                <strong>Company:</strong>{" "}
+                {companies.find((c) => c.id === form.company_id)?.name}
+              </p>
+              <p>
+                <strong>Property:</strong> {selectedProperty.name}
+              </p>
+            </div>
+          )}
 
-        {/* TAG PREVIEW */}
-        <div className="rounded border bg-gray-50 p-3 text-gray-700">
-          <strong>Tag Code Preview:</strong>{" "}
-          {generateTagCode() || "Select property, unit & type"}
-        </div>
+          {/* UNIT */}
+          <input
+            name="unit"
+            placeholder="Unit (ex: 101)"
+            className="w-full border rounded p-2"
+            value={form.unit}
+            onChange={handleChange}
+          />
 
-        <button
-          className="w-full rounded bg-blue-600 px-4 py-2 text-white"
-          type="submit"
-        >
-          Add Key
-        </button>
-      </form>
-    </div>
+          {/* TYPE */}
+          <select
+            name="type"
+            className="w-full border rounded p-2"
+            value={form.type}
+            onChange={handleChange}
+            required
+          >
+            <option value="">Select key type</option>
+            <option value="master">Master Key</option>
+            <option value="mail">Mailbox</option>
+            <option value="electrical">Electrical Room</option>
+            <option value="mechanical">Mechanical Room</option>
+            <option value="laundry">Laundry</option>
+            <option value="storage">Storage</option>
+            <option value="frontdoor">Front Door</option>
+          </select>
+
+          {/* TAG */}
+          <div className="rounded border bg-gray-50 p-3 text-sm">
+            <strong>Tag Code Preview:</strong>{" "}
+            {generateTagCode() || "Select company, property & type"}
+          </div>
+
+          <button className="w-full bg-blue-600 text-white py-2 rounded">
+            Add Key
+          </button>
+        </form>
+      </div>
+    </main>
   );
 }

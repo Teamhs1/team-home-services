@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/utils/supabase/supabaseClient";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -20,69 +19,84 @@ export default function PropertiesListPage() {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔒 mantenemos esto EXACTO
+  // 🔒 NO TOCAR (existente)
   const [selectedCompany, setSelectedCompany] = useState("all");
-
-  // ✅ MISMO estado que Companies
   const [viewMode, setViewMode] = useState("list");
+
+  // ✅ NUEVO: filtro por owner
+  const [selectedOwner, setSelectedOwner] = useState("all");
 
   const router = useRouter();
 
   /* =====================
-     LOAD COMPANIES
+     LOAD COMPANIES (API)
   ===================== */
   useEffect(() => {
     async function loadCompanies() {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("id, name")
-        .order("name");
+      try {
+        const res = await fetch("/api/companies", {
+          cache: "no-store",
+          credentials: "include",
+        });
 
-      if (!error) setCompanies(data || []);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        setCompanies(data || []);
+      } catch (err) {
+        console.error("LOAD COMPANIES ERROR:", err);
+      }
     }
 
     loadCompanies();
   }, []);
 
   /* =====================
-     LOAD PROPERTIES
+     LOAD PROPERTIES (API)
   ===================== */
   useEffect(() => {
-    async function loadProperties() {
-      const { data, error } = await supabase
-        .from("properties")
-        .select(
-          `
-          id,
-          name,
-          address,
-          unit,
-          company_id,
-          companies:company_id (
-            id,
-            name
-          ),
-          owners:owner_id (
-            id,
-            full_name
-          )
-        `
-        )
-        .order("name");
+    let mounted = true;
 
-      if (!error) setProperties(data || []);
-      setLoading(false);
+    async function loadProperties() {
+      try {
+        const res = await fetch("/api/admin/properties", {
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          console.error("API ERROR:", await res.text());
+          if (mounted) setProperties([]);
+          return;
+        }
+
+        const data = await res.json();
+        if (mounted) setProperties(data || []);
+      } catch (err) {
+        console.error("LOAD PROPERTIES ERROR:", err);
+        if (mounted) setProperties([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
 
     loadProperties();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // 🔒 Force grid on mobile (IGUAL a Companies)
+  // 🔒 grid automático en mobile
   useEffect(() => {
     if (typeof window !== "undefined" && window.innerWidth < 640) {
       setViewMode("grid");
     }
   }, []);
+
+  // ✅ UX: al cambiar company, reset owner
+  useEffect(() => {
+    setSelectedOwner("all");
+  }, [selectedCompany]);
 
   if (loading) {
     return (
@@ -93,17 +107,46 @@ export default function PropertiesListPage() {
   }
 
   /* =====================
-     FILTER BY COMPANY
+     🔎 DERIVAR OWNERS (SIN ENDPOINT EXTRA)
   ===================== */
-  const filteredProperties =
-    selectedCompany === "all"
-      ? properties
-      : properties.filter((p) => p.company_id === selectedCompany);
+  const owners = Array.from(
+    new Map(
+      properties.filter((p) => p.owners).map((p) => [p.owners.id, p.owners])
+    ).values()
+  );
+
+  /* =====================
+     ✅ FILTRO COMBINADO
+     Company + Owner
+  ===================== */
+  const filteredProperties = properties.filter((p) => {
+    // Company filter
+    const companyId =
+      typeof p.company_id === "string"
+        ? p.company_id
+        : p.company_id?.id || p.companies?.id || null;
+
+    const companyMatch =
+      selectedCompany === "all"
+        ? true
+        : String(companyId) === String(selectedCompany);
+
+    // Owner filter
+    const ownerMatch =
+      selectedOwner === "all"
+        ? true
+        : String(p.owners?.id) === String(selectedOwner);
+
+    return companyMatch && ownerMatch;
+  });
+
+  /* =====================
+     DELETE PROPERTY (NO ROMPER)
+  ===================== */
   async function handleDeleteProperty(id, name) {
     const confirmed = confirm(
       `Are you sure you want to delete "${name}"?\nThis action cannot be undone.`
     );
-
     if (!confirmed) return;
 
     try {
@@ -112,13 +155,11 @@ export default function PropertiesListPage() {
       });
 
       const json = await res.json().catch(() => ({}));
-
       if (!res.ok) {
         alert(json?.error || "Unable to delete property");
         return;
       }
 
-      // ✅ quitar de la lista sin recargar
       setProperties((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       console.error(err);
@@ -128,9 +169,15 @@ export default function PropertiesListPage() {
 
   return (
     <main className="px-4 sm:px-6 pt-[130px] max-w-[1600px] mx-auto space-y-6">
-      {/* HEADER (igual a Companies) */}
+      {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h1 className="text-3xl font-bold">Properties</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Properties</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Showing {filteredProperties.length} of {properties.length}{" "}
+            properties
+          </p>
+        </div>
 
         <div className="flex items-center gap-3">
           <Button
@@ -155,35 +202,56 @@ export default function PropertiesListPage() {
         </div>
       </div>
 
-      {/* FILTER */}
-      <div className="max-w-xs">
-        <label className="block text-sm font-medium mb-1">
-          Filter by Company
-        </label>
+      {/* FILTERS */}
+      <div className="flex flex-col sm:flex-row gap-4 max-w-xl">
+        {/* Company */}
+        <div className="flex-1">
+          <label className="block text-sm font-medium mb-1">
+            Filter by Company
+          </label>
+          <select
+            value={selectedCompany}
+            onChange={(e) => setSelectedCompany(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 bg-white"
+          >
+            <option value="all">All Companies</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <select
-          value={selectedCompany}
-          onChange={(e) => setSelectedCompany(e.target.value)}
-          className="w-full border rounded p-2"
-        >
-          <option value="all">All Companies</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        {/* Owner */}
+        <div className="flex-1">
+          <label className="block text-sm font-medium mb-1">
+            Filter by Owner
+          </label>
+          <select
+            value={selectedOwner}
+            onChange={(e) => setSelectedOwner(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 bg-white"
+          >
+            <option value="all">All Owners</option>
+            {owners.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.full_name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* EMPTY */}
       {filteredProperties.length === 0 && (
         <p className="text-gray-500 mt-20 text-center">
-          No properties found for this company.
+          No properties found for this filter.
         </p>
       )}
 
-      {/* LIST VIEW (DEFAULT DESKTOP) */}
-      {viewMode === "list" && filteredProperties.length > 0 ? (
+      {/* LIST VIEW */}
+      {viewMode === "list" && filteredProperties.length > 0 && (
         <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
@@ -214,15 +282,13 @@ export default function PropertiesListPage() {
                   <td className="px-4 py-2 text-gray-500">
                     {p.companies?.name || "—"}
                   </td>
-                  <td className="px-4 py-2 text-right">
+                  <td
+                    className="px-4 py-2 text-right"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 p-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                        <Button variant="ghost" size="icon">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -240,13 +306,19 @@ export default function PropertiesListPage() {
                           </Link>
                         </DropdownMenuItem>
 
-                        {/* 🗑️ DELETE */}
+                        {p.company_id && (
+                          <DropdownMenuItem asChild>
+                            <Link
+                              href={`/admin/companies/${p.company_id}/members`}
+                            >
+                              View Members
+                            </Link>
+                          </DropdownMenuItem>
+                        )}
+
                         <DropdownMenuItem
-                          className="text-red-600 focus:text-red-600"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteProperty(p.id, p.name);
-                          }}
+                          className="text-red-600"
+                          onClick={() => handleDeleteProperty(p.id, p.name)}
                         >
                           Delete Property
                         </DropdownMenuItem>
@@ -257,44 +329,6 @@ export default function PropertiesListPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      ) : (
-        /* GRID VIEW */
-        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredProperties.map((p) => (
-            <div
-              key={p.id}
-              className="border rounded-2xl bg-white shadow-sm hover:shadow-md transition p-5 flex flex-col justify-between"
-            >
-              <div>
-                <h2 className="text-lg font-semibold mb-1 truncate">
-                  {p.name}
-                </h2>
-                <p className="text-sm text-gray-600">{p.address}</p>
-                {p.unit && (
-                  <p className="text-sm text-gray-600">Unit {p.unit}</p>
-                )}
-                <p className="text-sm mt-2 text-gray-600">
-                  {p.companies?.name || "No company"}
-                </p>
-              </div>
-
-              <div className="pt-4 flex flex-col gap-2 text-sm">
-                <Link
-                  href={`/admin/properties/${p.id}`}
-                  className="text-blue-600 hover:underline"
-                >
-                  View Property →
-                </Link>
-                <Link
-                  href={`/admin/properties/${p.id}/edit`}
-                  className="text-blue-600 hover:underline"
-                >
-                  Edit Property →
-                </Link>
-              </div>
-            </div>
-          ))}
         </div>
       )}
     </main>

@@ -24,7 +24,7 @@ export default function ProtectedLayout({ children }) {
         <DashboardNavbar />
 
         {/* 📦 Contenido del dashboard */}
-        <main className="p-4 md:p-6 lg:p-8">{children}</main>
+        <main className="pt-[112px] p-4 md:p-6 lg:p-8">{children}</main>
       </ProtectedLayoutClient>
     </div>
   );

@@ -21,7 +21,9 @@ export default function ProfileDetailPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // 🔹 Cargar perfil
+  /* ======================
+     LOAD PROFILE
+  ====================== */
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -33,6 +35,7 @@ export default function ProfileDetailPage() {
           )
           .eq("id", id)
           .single();
+
         if (error) throw error;
         setProfile(data);
       } catch (err) {
@@ -42,14 +45,18 @@ export default function ProfileDetailPage() {
         setLoading(false);
       }
     };
+
     if (id) fetchProfile();
   }, [id]);
 
-  // 🔄 Subir avatar a Supabase Storage
+  /* ======================
+     AVATAR UPLOAD
+  ====================== */
   const handleAvatarUpload = async (e) => {
     try {
       const file = e.target.files[0];
       if (!file) return;
+
       setUploading(true);
 
       const formData = new FormData();
@@ -65,16 +72,17 @@ export default function ProfileDetailPage() {
       if (!res.ok) throw new Error(data.error);
 
       setProfile((prev) => ({ ...prev, avatar_url: data.url }));
-      toast.success("✅ Avatar updated successfully!");
+      toast.success("✅ Avatar updated");
     } catch (err) {
-      console.error("❌ Avatar upload failed:", err.message);
-      toast.error("Error uploading avatar: " + err.message);
+      toast.error("Error uploading avatar");
     } finally {
       setUploading(false);
     }
   };
 
-  // 💾 Guardar cambios
+  /* ======================
+     SAVE PROFILE
+  ====================== */
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -82,7 +90,7 @@ export default function ProfileDetailPage() {
       const res = await fetch("/api/admin/update-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // ✅ muy importante: envía la sesión de Clerk
+        credentials: "include",
         body: JSON.stringify({
           id,
           updates: {
@@ -97,60 +105,61 @@ export default function ProfileDetailPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success("✅ Profile updated!");
+
+      toast.success("✅ Profile updated");
     } catch (err) {
-      toast.error("Failed to update profile: " + err.message);
+      toast.error("Failed to update profile");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading)
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-64 text-gray-500">
         <Loader2 className="animate-spin mr-2" /> Loading profile...
       </div>
     );
+  }
 
-  if (!profile)
+  if (!profile) {
     return (
       <div className="p-6 text-center text-gray-500">
         <p>User not found.</p>
-        <button
-          onClick={() => router.push("/admin/users")}
-          className="mt-3 text-blue-600 hover:underline"
-        >
-          ← Back to users
-        </button>
       </div>
     );
+  }
 
   return (
-    <div className="p-6">
-      {/* 🔹 Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
+    <div className="pt-[140px] px-6 pb-10">
+      {/* ================= HEADER (STICKY) ================= */}
+      <div className="sticky top-[120px] z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 mb-6">
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="flex items-center text-gray-600 hover:text-blue-600"
+            >
+              <ArrowLeft size={18} className="mr-1" /> Back
+            </button>
+            <h1 className="text-xl font-bold">Edit Profile</h1>
+          </div>
+
           <button
-            onClick={() => router.back()}
-            className="flex items-center text-gray-600 hover:text-blue-600 transition"
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
           >
-            <ArrowLeft size={20} className="mr-1" /> Back
+            {saving && <Loader2 className="animate-spin" size={16} />}
+            Save Changes
           </button>
-          <h1 className="text-2xl font-bold">Edit Profile</h1>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-        >
-          {saving && <Loader2 className="animate-spin" size={16} />}
-          Save Changes
-        </button>
       </div>
 
-      {/* 🔹 Perfil */}
+      {/* ================= PROFILE CARD ================= */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm max-w-3xl mx-auto">
-        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+        <div className="flex flex-col sm:flex-row gap-6">
+          {/* Avatar */}
           <div className="relative">
             <Image
               src={
@@ -159,22 +168,23 @@ export default function ProfileDetailPage() {
                   profile.full_name || "User"
                 )}&background=random&color=fff`
               }
-              alt={profile.full_name || "User"}
+              alt={profile.full_name}
               width={100}
               height={100}
-              className="rounded-full border border-gray-300 dark:border-gray-700 object-cover"
+              className="rounded-full border object-cover"
             />
+
             <label
               htmlFor="avatar-upload"
-              className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full cursor-pointer hover:bg-blue-700 transition"
-              title="Upload new avatar"
+              className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full cursor-pointer"
             >
               {uploading ? (
-                <Loader2 className="animate-spin" size={16} />
+                <Loader2 className="animate-spin" size={14} />
               ) : (
-                <Upload size={16} />
+                <Upload size={14} />
               )}
             </label>
+
             <input
               id="avatar-upload"
               type="file"
@@ -184,36 +194,33 @@ export default function ProfileDetailPage() {
             />
           </div>
 
-          <div className="flex-1 w-full">
-            <label className="block text-sm text-gray-500 mb-1">
-              Full Name
-            </label>
+          {/* Fields */}
+          <div className="flex-1">
+            <label className="block text-sm mb-1">Full Name</label>
             <input
-              type="text"
               value={profile.full_name || ""}
               onChange={(e) =>
                 setProfile({ ...profile, full_name: e.target.value })
               }
-              className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 mb-3 bg-white dark:bg-gray-900"
+              className="w-full border rounded-lg px-3 py-2 mb-3"
             />
 
-            <label className="block text-sm text-gray-500 mb-1">Email</label>
+            <label className="block text-sm mb-1">Email</label>
             <input
-              type="text"
               value={profile.email || ""}
               disabled
-              className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 mb-3 text-gray-500"
+              className="w-full border bg-gray-50 rounded-lg px-3 py-2 mb-3"
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-gray-500 mb-1">Role</label>
+                <label className="block text-sm mb-1">Role</label>
                 <select
-                  value={profile.role || "client"}
+                  value={profile.role}
                   onChange={(e) =>
                     setProfile({ ...profile, role: e.target.value })
                   }
-                  className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2"
+                  className="w-full border rounded-lg px-3 py-2"
                 >
                   <option value="admin">Admin</option>
                   <option value="staff">Staff</option>
@@ -222,15 +229,13 @@ export default function ProfileDetailPage() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-500 mb-1">
-                  Status
-                </label>
+                <label className="block text-sm mb-1">Status</label>
                 <select
-                  value={profile.status || "active"}
+                  value={profile.status}
                   onChange={(e) =>
                     setProfile({ ...profile, status: e.target.value })
                   }
-                  className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2"
+                  className="w-full border rounded-lg px-3 py-2"
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
@@ -238,16 +243,13 @@ export default function ProfileDetailPage() {
               </div>
             </div>
 
-            <label className="block text-sm text-gray-500 mt-4 mb-1">
-              Phone
-            </label>
+            <label className="block text-sm mt-4 mb-1">Phone</label>
             <input
-              type="text"
               value={profile.phone || ""}
               onChange={(e) =>
                 setProfile({ ...profile, phone: e.target.value })
               }
-              className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2"
+              className="w-full border rounded-lg px-3 py-2"
             />
           </div>
         </div>

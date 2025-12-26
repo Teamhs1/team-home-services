@@ -1,17 +1,14 @@
 "use client";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, LayoutGrid, List } from "lucide-react";
 import { useRouter } from "next/navigation";
-
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function CompaniesListPage() {
@@ -51,14 +48,10 @@ export default function CompaniesListPage() {
     const confirmed = confirm(
       `Are you sure you want to delete "${name}"?\nThis action cannot be undone.`
     );
-
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`/api/companies/${id}`, {
-        method: "DELETE",
-      });
-
+      const res = await fetch(`/api/companies/${id}`, { method: "DELETE" });
       const json = await res.json().catch(() => ({}));
 
       if (!res.ok) {
@@ -66,8 +59,7 @@ export default function CompaniesListPage() {
         return;
       }
 
-      // ✅ Update UI without reload
-      setCompanies((prev) => prev.filter((c) => c.id !== id));
+      setCompanies((prev) => prev.filter((c) => (c.company_id ?? c.id) !== id));
     } catch (err) {
       console.error(err);
       alert("Unexpected error deleting company");
@@ -133,14 +125,15 @@ export default function CompaniesListPage() {
 
             <tbody>
               {companies.map((c) => {
+                const companyId = c.company_id ?? c.id;
                 const propertiesCount = c.properties?.[0]?.count ?? 0;
                 const usersCount = c.users?.[0]?.count ?? 0;
-                const canDelete = propertiesCount === 0 && usersCount === 1; // ← solo el admin creador
+                const canDelete = propertiesCount === 0 && usersCount === 1;
 
                 return (
                   <tr
-                    key={c.id}
-                    onClick={() => router.push(`/admin/companies/${c.id}`)}
+                    key={companyId}
+                    onClick={() => router.push(`/admin/companies/${companyId}`)}
                     className="border-t hover:bg-gray-50 cursor-pointer"
                   >
                     <td className="px-4 py-3 font-medium">{c.name}</td>
@@ -153,54 +146,49 @@ export default function CompaniesListPage() {
                     <td className="px-4 py-3 text-center">{propertiesCount}</td>
                     <td className="px-4 py-3 text-center">{usersCount}</td>
 
-                    <td className="px-4 py-3 text-right">
+                    <td
+                      className="px-4 py-3 text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 p-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
+                          <Button variant="ghost" size="icon">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link href={`/admin/companies/${c.id}`}>
+                            <Link href={`/admin/companies/${companyId}`}>
                               View Company
                             </Link>
                           </DropdownMenuItem>
 
                           <DropdownMenuItem asChild>
-                            <Link href={`/admin/companies/${c.id}/members`}>
+                            <Link
+                              href={`/admin/companies/${companyId}/members`}
+                            >
                               View Members
                             </Link>
                           </DropdownMenuItem>
 
                           <DropdownMenuItem asChild>
-                            <Link href={`/admin/companies/${c.id}/edit`}>
+                            <Link href={`/admin/companies/${companyId}/edit`}>
                               Edit Company
                             </Link>
                           </DropdownMenuItem>
 
-                          {/* DELETE */}
                           {canDelete ? (
                             <DropdownMenuItem
-                              className="text-red-600 focus:text-red-600"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteCompany(c.id, c.name);
-                              }}
+                              className="text-red-600"
+                              onClick={() =>
+                                handleDeleteCompany(companyId, c.name)
+                              }
                             >
                               Delete Company
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem
-                              disabled
-                              className="opacity-50 cursor-not-allowed"
-                            >
+                            <DropdownMenuItem disabled>
                               Delete (has users or properties)
                             </DropdownMenuItem>
                           )}
@@ -214,55 +202,49 @@ export default function CompaniesListPage() {
           </table>
         </div>
       ) : (
-        /* GRID VIEW (sin delete para no duplicar UX) */
+        /* GRID VIEW */
         <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {companies.map((c) => (
-            <div
-              key={c.id}
-              className="border rounded-2xl bg-white shadow-sm hover:shadow-md transition p-5 flex flex-col justify-between"
-            >
-              <div>
-                <h2 className="text-lg font-semibold mb-1 truncate">
-                  {c.name}
-                </h2>
+          {companies.map((c) => {
+            const companyId = c.company_id ?? c.id;
 
-                <p className="text-sm text-gray-600">{c.email || "No email"}</p>
-                <p className="text-sm text-gray-600 mb-3">
-                  {c.phone || "No phone"}
-                </p>
-
-                <div className="text-sm space-y-1">
-                  <p>
-                    <strong>Properties:</strong> {c.properties?.[0]?.count ?? 0}
+            return (
+              <div
+                key={companyId}
+                className="border rounded-2xl bg-white shadow-sm hover:shadow-md transition p-5 flex flex-col justify-between"
+              >
+                <div>
+                  <h2 className="text-lg font-semibold truncate">{c.name}</h2>
+                  <p className="text-sm text-gray-600">
+                    {c.email || "No email"}
                   </p>
-                  <p>
-                    <strong>Users:</strong> {c.users?.[0]?.count ?? 0}
+                  <p className="text-sm text-gray-600 mb-3">
+                    {c.phone || "No phone"}
                   </p>
                 </div>
-              </div>
 
-              <div className="pt-4 flex flex-col gap-2 text-sm">
-                <Link
-                  href={`/admin/companies/${c.id}`}
-                  className="text-blue-600 hover:underline"
-                >
-                  View Portfolio →
-                </Link>
-                <Link
-                  href={`/admin/companies/${c.id}/members`}
-                  className="text-blue-600 hover:underline"
-                >
-                  View Members →
-                </Link>
-                <Link
-                  href={`/admin/companies/${c.id}/edit`}
-                  className="text-blue-600 hover:underline"
-                >
-                  Edit Company →
-                </Link>
+                <div className="pt-4 flex flex-col gap-2 text-sm">
+                  <Link
+                    href={`/admin/companies/${companyId}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    View Portfolio →
+                  </Link>
+                  <Link
+                    href={`/admin/companies/${companyId}/members`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    View Members →
+                  </Link>
+                  <Link
+                    href={`/admin/companies/${companyId}/edit`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Edit Company →
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </main>

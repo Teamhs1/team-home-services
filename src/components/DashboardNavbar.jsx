@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useSidebar } from "@/components/SidebarContext";
@@ -9,6 +9,9 @@ import { useState, useEffect } from "react";
 export default function DashboardNavbar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const params = useParams();
+  const profileId = params?.id;
+
   const { isSidebarOpen } = useSidebar?.() || {};
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
@@ -36,6 +39,7 @@ export default function DashboardNavbar() {
   const getSection = () => {
     if (pathname === "/admin/companies") return null;
     if (pathname.startsWith("/admin/companies/")) return "admin_company";
+    if (pathname.startsWith("/admin/profiles/")) return "admin_profile";
     if (pathname.startsWith("/admin/properties")) return "admin_properties";
     if (pathname.startsWith("/admin/keys")) return "admin_keys";
     if (pathname.startsWith("/admin")) return "admin";
@@ -102,6 +106,20 @@ export default function DashboardNavbar() {
           { label: "Overview", href: companyBase },
           { label: "Members", href: `${companyBase}/members` },
           { label: "Settings", href: `${companyBase}/edit` },
+        ]
+      : [],
+
+    /* 🔹 PERFIL ADMIN (NUEVO – SIN ROMPER NADA) */
+    admin_profile: profileId
+      ? [
+          {
+            label: "Profile",
+            href: `/admin/profiles/${profileId}`,
+          },
+          {
+            label: "Permissions",
+            href: `/admin/profiles/${profileId}/permissions`,
+          },
         ]
       : [],
   };

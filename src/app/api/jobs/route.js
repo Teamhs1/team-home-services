@@ -1,51 +1,35 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
+import { auth } from "@clerk/nextjs/server";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+export async function GET(req) {
+  const { userId } = auth();
 
-// ✅ GET /api/jobs
-export async function GET() {
-  try {
-    console.log("🟢 Incoming /api/jobs request...");
-
-    // ✅ Clerk valida la sesión automáticamente
-    const { userId, sessionClaims } = auth();
-
-    if (!userId) {
-      console.warn("🚫 No user session found");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const role = sessionClaims?.publicMetadata?.role || "client";
-    console.log(`🧠 Fetching jobs for user: ${userId} (role: ${role})`);
-
-    // 🔹 Query según el rol
-    let query = supabase.from("cleaning_jobs").select("*");
-
-    if (role === "admin") {
-      query = query.order("scheduled_date", { ascending: true });
-    } else if (role === "staff") {
-      query = query.eq("assigned_to", userId);
-    } else if (role === "client") {
-      query = query.eq("created_by", userId);
-    } else {
-      return NextResponse.json({ error: "Invalid role" }, { status: 403 });
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    console.log(`✅ ${data?.length || 0} jobs fetched for ${role}`);
-    return NextResponse.json({ success: true, data });
-  } catch (err) {
-    console.error("💥 Error in /api/jobs:", err.message);
-    return NextResponse.json(
-      { error: err.message || "Internal server error" },
-      { status: 500 }
-    );
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      global: {
+        headers: {
+          Authorization: req.headers.get("authorization"),
+        },
+      },
+    }
+  );
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .select("*")
+    .eq("client_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data });
 }

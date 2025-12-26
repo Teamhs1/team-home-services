@@ -1,4 +1,6 @@
 "use client";
+import { useRef } from "react";
+import { toast } from "sonner";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -20,10 +22,11 @@ import {
   Mail,
   Key,
   Building,
+  ShieldCheck,
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
-import { useUser, useClerk } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useSidebar } from "@/components/SidebarContext";
 import { createClient } from "@supabase/supabase-js";
 
@@ -32,7 +35,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-// 🎨 Sidebar themes (no rompe nada)
+/* =========================
+   CONSTANTES
+========================= */
+
+const ALL_RESOURCES = ["jobs", "properties", "keys", "tenants"];
+
 const SIDEBAR_THEMES = {
   light: {
     aside: "bg-white border-gray-200 text-gray-800",
@@ -51,16 +59,19 @@ const SIDEBAR_THEMES = {
 export default function Sidebar() {
   const pathname = usePathname();
   const { isSidebarOpen: isOpen, toggleSidebar } = useSidebar();
-  const { user, isLoaded } = useUser();
-  const { session } = useClerk();
+  const { user } = useUser();
+  const NO_CACHE = { cache: "no-store" };
+  const prevResourcesRef = useRef([]);
 
   const [role, setRole] = useState("user");
   const [hasSyncError, setHasSyncError] = useState(false);
-
-  // ✅ ACTUALIZADO: sidebar theme reactivo
   const [sidebarTheme, setSidebarTheme] = useState("dark");
+  const [allowedResources, setAllowedResources] = useState([]);
+  const fetchPermissionsRef = useRef(null);
 
-  // 🆕 LISTENER DE THEME (NO ROMPE NADA)
+  /* =========================
+     THEME
+  ========================= */
   useEffect(() => {
     const syncTheme = () => {
       const stored = localStorage.getItem("sidebarTheme") || "dark";
@@ -72,29 +83,182 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
+  /* =========================
+     ROLE
+  ========================= */
   useEffect(() => {
-    if (isLoaded && user) {
-      setRole(user.publicMetadata?.role || "user");
-    }
-  }, [isLoaded, user]);
+    if (!user?.id) return;
 
-  useEffect(() => {
-    async function checkRoleFromSupabase() {
-      if (!user?.id) return;
-
-      const { data } = await supabase
+    async function fetchRole() {
+      const { data, error } = await supabase
         .from("profiles")
         .select("role")
         .eq("clerk_id", user.id)
         .single();
 
-      if (data?.role && data.role !== role) setRole(data.role);
+      if (!error) {
+        setRole(data?.role || "user");
+      }
     }
 
-    const interval = setInterval(checkRoleFromSupabase, 5000);
-    return () => clearInterval(interval);
-  }, [user, role]);
+    fetchRole();
+  }, [user?.id]);
 
+  /* =========================
+   PERMISSIONS (REAL FIX)
+   👉 staff_profile_id REAL
+========================= */
+  useEffect(() => {
+    if (!user?.id || role === "admin") {
+      setAllowedResources(ALL_RESOURCES);
+      return;
+    }
+
+    async function fetchPermissions() {
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("clerk_id", user.id)
+          .single();
+
+        if (profileError || !profile?.id) {
+          setAllowedResources(ALL_RESOURCES);
+          return;
+        }
+
+        const res = await fetch(
+          `/api/admin/staff-permissions?staff_profile_id=${profile.id}`,
+          { cache: "no-store" } // 🔥 CLAVE
+        );
+
+        if (!res.ok) {
+          setAllowedResources(ALL_RESOURCES);
+          return;
+        }
+
+        const data = await res.json();
+
+        if (!data || data.length === 0) {
+          setAllowedResources(ALL_RESOURCES);
+          return;
+        }
+
+        const newResources = data.map((p) => p.resource);
+        const prevResources = prevResourcesRef.current || [];
+
+        // Detectar cambios
+        const added = newResources.filter((r) => !prevResources.includes(r));
+        const removed = prevResources.filter((r) => !newResources.includes(r));
+
+        // Mostrar feedback
+        added.forEach((r) => {
+          toast.success(`"${r}" added to sidebar`);
+        });
+
+        removed.forEach((r) => {
+          toast.warning(`"${r}" removed from sidebar`);
+        });
+
+        // Guardar estado
+        prevResourcesRef.current = newResources;
+        setAllowedResources(newResources);
+      } catch (err) {
+        console.error(err);
+        setAllowedResources(ALL_RESOURCES);
+      }
+    }
+
+    // 🔑 GUARDAR en el ref
+    fetchPermissionsRef.current = fetchPermissions;
+
+    // 🔑 Ejecutar normal
+    fetchPermissions();
+  }, [user?.id, role]);
+  /* =========================
+   REALTIME STAFF PERMISSIONS
+========================= */
+  useEffect(() => {
+    if (!user?.id || role === "admin") return;
+
+    let channel;
+
+    async function subscribe() {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("clerk_id", user.id)
+        .single();
+
+      if (!profile?.id) return;
+
+      channel = supabase
+        .channel(`staff-permissions-${profile.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "staff_permissions",
+            filter: `staff_profile_id=eq.${profile.id}`,
+          },
+          () => {
+            // 🔥 permisos cambiaron → re-fetch
+            fetchPermissionsRef.current?.();
+          }
+        )
+        .subscribe();
+    }
+
+    subscribe();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [user?.id, role]);
+
+  /* =========================
+   PERMISSIONS LIVE UPDATE
+========================= */
+  useEffect(() => {
+    function handlePermissionsUpdated() {
+      // fuerza re-fetch de permisos
+      if (user?.id && role !== "admin") {
+        fetchPermissionsRef.current?.();
+      }
+    }
+
+    window.addEventListener(
+      "staff-permissions-updated",
+      handlePermissionsUpdated
+    );
+
+    return () => {
+      window.removeEventListener(
+        "staff-permissions-updated",
+        handlePermissionsUpdated
+      );
+    };
+  }, [user?.id, role]);
+  /* =========================
+   PERMISSIONS SAFETY REFRESH
+   (BACKUP REALTIME)
+========================= */
+  useEffect(() => {
+    if (!user?.id || role === "admin") return;
+
+    const interval = setInterval(() => {
+      fetchPermissionsRef.current?.();
+    }, 4000); // cada 4 segundos (seguro)
+
+    return () => clearInterval(interval);
+  }, [user?.id, role]);
+
+  /* =========================
+     SYNC ERRORS (ADMIN)
+  ========================= */
   useEffect(() => {
     if (role !== "admin") return;
 
@@ -118,12 +282,36 @@ export default function Sidebar() {
   }, [role]);
 
   /* =========================
-     MENU BASE (NO TOCADO)
+     HELPERS
   ========================= */
-  const menuItems = [
+  function hasPermission(resource) {
+    if (role === "admin") return true;
+    return allowedResources.includes(resource);
+  }
+
+  /* =========================
+     MENU CONFIG
+  ========================= */
+  const baseItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Jobs", href: "/jobs", icon: ClipboardList },
-    ...(role === "admin"
+    { name: "Jobs", href: "/jobs", icon: ClipboardList, resource: "jobs" },
+    {
+      name: "Properties",
+      href: "/dashboard/properties",
+      icon: Building,
+      resource: "properties",
+    },
+    { name: "Keys", href: "/dashboard/keys", icon: Key, resource: "keys" },
+    {
+      name: "Tenants",
+      href: "/dashboard/tenants",
+      icon: Users,
+      resource: "tenants",
+    },
+  ];
+
+  const adminItems =
+    role === "admin"
       ? [
           { name: "Messages", href: "/admin/messages", icon: Mail },
           {
@@ -142,23 +330,40 @@ export default function Sidebar() {
             icon: FileClock,
             hasError: hasSyncError,
           },
+          {
+            name: "Properties",
+            href: "/admin/properties",
+            icon: ClipboardList,
+          },
+          { name: "Companies", href: "/admin/companies", icon: Building },
+          { name: "Keys", href: "/admin/keys", icon: Key },
+          {
+            name: "Permissions",
+            href: "/admin/permissions",
+            icon: ShieldCheck,
+          },
+          { name: "Users", href: "/admin/users", icon: Users },
+          {
+            name: "Theme Preview",
+            href: "/admin/theme-preview",
+            icon: Palette,
+          },
         ]
-      : []),
+      : [];
+
+  const staticItems = [
     { name: "Profile", href: "/profile", icon: User },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
-  if (role === "admin") {
-    menuItems.push(
-      { name: "Properties", href: "/admin/properties", icon: ClipboardList },
-      { name: "Companies", href: "/admin/companies", icon: Building },
-      { name: "Keys", href: "/admin/keys", icon: Key },
-      { name: "Users", href: "/admin/users", icon: Users },
-      { name: "Theme Preview", href: "/admin/theme-preview", icon: Palette }
-    );
-  }
+  const menuItems = [
+    ...baseItems.filter(
+      (item) => !item.resource || hasPermission(item.resource)
+    ),
+    ...adminItems,
+    ...staticItems,
+  ];
 
-  // 🔹 Buildium-style split (NUEVO, seguro)
   const footerItems = menuItems.filter(
     (item) => item.href === "/profile" || item.href === "/settings"
   );
@@ -170,6 +375,9 @@ export default function Sidebar() {
   const publicRoutes = ["/", "/sign-in", "/sign-up"];
   if (publicRoutes.includes(pathname)) return null;
 
+  /* =========================
+     RENDER
+  ========================= */
   return (
     <aside
       className={`hidden md:flex fixed top-0 left-0 h-screen
@@ -190,7 +398,6 @@ export default function Sidebar() {
                 className="rounded-md"
               />
             </motion.div>
-
             {isOpen && (
               <motion.span
                 initial={{ opacity: 0, x: -8 }}
@@ -224,19 +431,19 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`group relative flex items-center justify-between px-6 py-2.5 text-sm transition-all duration-200 ${
+              className={`flex items-center gap-3 px-6 py-2.5 text-sm transition-all ${
                 active
                   ? `${SIDEBAR_THEMES[sidebarTheme].active} border-r-4`
                   : SIDEBAR_THEMES[sidebarTheme].hover
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Icon size={18} />
-                {isOpen && <span>{item.name}</span>}
-              </div>
-
+              <Icon size={18} />
+              {isOpen && <span>{item.name}</span>}
               {item.hasError && (
-                <AlertCircle size={16} className="text-red-500 animate-pulse" />
+                <AlertCircle
+                  size={16}
+                  className="text-red-500 animate-pulse ml-auto"
+                />
               )}
             </Link>
           );
@@ -254,7 +461,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-2 py-2 text-sm rounded transition-colors ${
+              className={`flex items-center gap-3 px-2 py-2 text-sm rounded ${
                 active
                   ? SIDEBAR_THEMES[sidebarTheme].active
                   : SIDEBAR_THEMES[sidebarTheme].hover

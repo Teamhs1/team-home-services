@@ -21,7 +21,6 @@ import {
   Key,
   Building,
   ShieldCheck,
-  Lock,
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
@@ -34,7 +33,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-// 🎨 Sidebar themes (no rompe nada)
+// 🎨 Sidebar themes
 const SIDEBAR_THEMES = {
   light: {
     aside: "bg-white border-gray-200 text-gray-800",
@@ -58,11 +57,11 @@ export default function Sidebar() {
 
   const [role, setRole] = useState("user");
   const [hasSyncError, setHasSyncError] = useState(false);
-
-  // ✅ ACTUALIZADO: sidebar theme reactivo
   const [sidebarTheme, setSidebarTheme] = useState("dark");
 
-  // 🆕 LISTENER DE THEME (NO ROMPE NADA)
+  // 🟢 NUEVO: permisos para STAFF
+  const [permissions, setPermissions] = useState([]);
+
   useEffect(() => {
     const syncTheme = () => {
       const stored = localStorage.getItem("sidebarTheme") || "dark";
@@ -119,16 +118,77 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, [role]);
 
+  // 🟢 CARGAR PERMISOS DE STAFF
+  useEffect(() => {
+    async function loadStaffPermissions() {
+      if (role !== "staff" || !user?.id) {
+        console.warn(
+          "⏭️ No se cargan permisos: rol no es staff o user no está cargado"
+        );
+        return;
+      }
+
+      console.log("🔎 Cargando perfil de Supabase para:", user.id);
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("clerk_id", user.id)
+        .single();
+
+      if (profileError) {
+        console.error("❌ Error al obtener perfil:", profileError.message);
+        return;
+      }
+
+      if (!profile?.id) {
+        console.warn("⚠️ No se encontró el perfil con ese clerk_id");
+        return;
+      }
+
+      console.log("✅ ID de perfil staff:", profile.id);
+
+      const { data: permissionsData, error: permissionError } = await supabase
+        .from("staff_permissions")
+        .select("resource")
+        .eq("staff_profile_id", profile.id);
+
+      if (permissionError) {
+        console.error("❌ Error al cargar permisos:", permissionError.message);
+        return;
+      }
+
+      console.log("📦 Permisos encontrados:", permissionsData);
+
+      setPermissions(permissionsData?.map((p) => p.resource) || []);
+    }
+
+    loadStaffPermissions();
+  }, [role, user]);
+
   /* =========================
-     MENU BASE (NO TOCADO)
+     MENU BASE
   ========================= */
   const menuItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Jobs", href: "/jobs", icon: ClipboardList },
 
-    // ✅ Properties para empresa / staff
-    ...(role !== "admin"
-      ? [{ name: "Properties", href: "/dashboard/properties", icon: Building }]
+    // Mostrar solo si el permiso existe
+    ...(role === "staff" && permissions.includes("jobs")
+      ? [{ name: "Jobs", href: "/jobs", icon: ClipboardList }]
+      : []),
+
+    ...(role === "staff" && permissions.includes("properties")
+      ? [
+          {
+            name: "Properties",
+            href: "/dashboard/properties",
+            icon: Building,
+          },
+        ]
+      : []),
+
+    ...(role === "staff" && permissions.includes("keys")
+      ? [{ name: "Keys", href: "/dashboard/keys", icon: Key }]
       : []),
 
     ...(role === "admin"
@@ -150,6 +210,24 @@ export default function Sidebar() {
             icon: FileClock,
             hasError: hasSyncError,
           },
+          {
+            name: "Properties",
+            href: "/admin/properties",
+            icon: ClipboardList,
+          },
+          { name: "Companies", href: "/admin/companies", icon: Building },
+          { name: "Keys", href: "/admin/keys", icon: Key },
+          {
+            name: "Permissions",
+            href: "/admin/permissions",
+            icon: ShieldCheck,
+          },
+          { name: "Users", href: "/admin/users", icon: Users },
+          {
+            name: "Theme Preview",
+            href: "/admin/theme-preview",
+            icon: Palette,
+          },
         ]
       : []),
 
@@ -157,18 +235,6 @@ export default function Sidebar() {
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
-  if (role === "admin") {
-    menuItems.push(
-      { name: "Properties", href: "/admin/properties", icon: ClipboardList },
-      { name: "Companies", href: "/admin/companies", icon: Building },
-      { name: "Keys", href: "/admin/keys", icon: Key },
-      { name: "Permissions", href: "/admin/permissions", icon: ShieldCheck }, // 🔐
-      { name: "Users", href: "/admin/users", icon: Users },
-      { name: "Theme Preview", href: "/admin/theme-preview", icon: Palette }
-    );
-  }
-
-  // 🔹 Buildium-style split (NUEVO, seguro)
   const footerItems = menuItems.filter(
     (item) => item.href === "/profile" || item.href === "/settings"
   );

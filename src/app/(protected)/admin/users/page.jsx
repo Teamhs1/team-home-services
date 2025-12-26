@@ -40,8 +40,9 @@ export default function AdminUsersPage() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, clerk_id, full_name, email, avatar_url, role, status, created_at, is_property_manager, company_id"
+          "id, clerk_id, full_name, email, avatar_url, role, status, created_at, is_property_manager, company_id, companies:company_id ( id, name )"
         )
+
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -185,6 +186,40 @@ export default function AdminUsersPage() {
     } catch (err) {
       console.error("❌ Delete user error:", err);
       toast.error(err.message);
+    }
+  };
+  // 🔁 Move staff to another company (admin only)
+  const handleMoveStaff = async (staffClerkId) => {
+    const targetCompanyId = window.prompt("Enter target company ID (UUID)");
+
+    if (!targetCompanyId) return;
+
+    try {
+      setChanging(true);
+      toast.info("⏳ Moving staff to company...");
+
+      const res = await fetch("/api/admin/move-staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          staff_clerk_id: staffClerkId,
+          target_company_id: targetCompanyId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Move failed");
+      }
+
+      toast.success("✅ Staff moved successfully");
+      await fetchUsers();
+    } catch (err) {
+      console.error("❌ Move staff error:", err);
+      toast.error(err.message);
+    } finally {
+      setChanging(false);
     }
   };
 
@@ -360,6 +395,11 @@ export default function AdminUsersPage() {
                             : "Individual owner"}
                         </span>
                       )}
+                      {currentRole === "admin" && user.role === "staff" && (
+                        <span className="text-xs text-gray-500">
+                          Company: {user.companies?.name || "—"}
+                        </span>
+                      )}
                     </div>
                   </td>
 
@@ -399,13 +439,13 @@ export default function AdminUsersPage() {
                             View profile
                           </DropdownMenuItem>
 
-                          <DropdownMenuItem
-                            className="text-red-600 focus:text-red-600"
-                            onClick={() => handleDeleteUser(user)}
-                          >
-                            <Trash2 size={14} className="mr-2" />
-                            Delete
-                          </DropdownMenuItem>
+                          {user.role === "staff" && (
+                            <DropdownMenuItem
+                              onClick={() => handleMoveStaff(user.clerk_id)}
+                            >
+                              Move to company
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>

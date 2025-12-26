@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/utils/supabase/supabaseClient";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -18,71 +17,81 @@ export default function CompanyPortfolioPage() {
      LOAD COMPANY DATA
   ===================== */
   useEffect(() => {
+    let mounted = true;
+
     async function loadCompanyData() {
       setLoading(true);
 
-      /* ---------- COMPANY ---------- */
-      const { data: comp, error: cErr } = await supabase
-        .from("companies")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (cErr) {
-        toast.error("Error loading company");
-        console.error(cErr);
-        setLoading(false);
-        return;
-      }
-
-      setCompany(comp);
-
-      /* ---------- PROPERTIES ---------- */
-      const { data: props, error: pErr } = await supabase
-        .from("properties")
-        .select("id, name, address, unit")
-        .eq("company_id", id)
-        .order("name", { ascending: true });
-
-      if (pErr) console.error(pErr);
-      setProperties(props || []);
-
-      /* ---------- USERS (via API / service role) ---------- */
       try {
-        const res = await fetch(`/api/companies/${id}/members`, {
+        /* ---------- COMPANY ---------- */
+        const resCompany = await fetch(`/api/admin/companies/${id}`, {
           cache: "no-store",
         });
 
-        if (!res.ok) {
-          console.error("❌ Error fetching company members");
+        if (!resCompany.ok) {
+          toast.error("Error loading company");
+          setLoading(false);
+          return;
+        }
+
+        const comp = await resCompany.json();
+        if (!mounted) return;
+
+        setCompany(comp);
+
+        /* ---------- PROPERTIES ---------- */
+        const resProps = await fetch(`/api/admin/companies/${id}/properties`, {
+          cache: "no-store",
+        });
+
+        const props = resProps.ok ? await resProps.json() : [];
+        if (!mounted) return;
+
+        setProperties(props || []);
+
+        /* ---------- USERS (via API / service role) ---------- */
+        try {
+          const resUsers = await fetch(`/api/companies/${id}/members`, {
+            cache: "no-store",
+          });
+
+          if (!resUsers.ok) {
+            console.error("❌ Error fetching company members");
+            setUsers([]);
+          } else {
+            const json = await resUsers.json();
+
+            const normalizedUsers = (json.members || [])
+              .map((m) => ({
+                id: m.profiles?.id,
+                full_name: m.profiles?.full_name || "",
+                email: m.profiles?.email || "",
+                company_role: m.role,
+              }))
+              .sort((a, b) =>
+                a.full_name.localeCompare(b.full_name, undefined, {
+                  sensitivity: "base",
+                })
+              );
+
+            setUsers(normalizedUsers);
+          }
+        } catch (err) {
+          console.error("❌ Members fetch failed:", err);
           setUsers([]);
-        } else {
-          const json = await res.json();
-
-          const normalizedUsers = (json.members || [])
-            .map((m) => ({
-              id: m.profiles?.id,
-              full_name: m.profiles?.full_name || "",
-              email: m.profiles?.email || "",
-              company_role: m.role,
-            }))
-            .sort((a, b) =>
-              a.full_name.localeCompare(b.full_name, undefined, {
-                sensitivity: "base",
-              })
-            );
-
-          setUsers(normalizedUsers);
         }
       } catch (err) {
-        console.error("❌ Members fetch failed:", err);
-        setUsers([]);
+        console.error("LOAD COMPANY ERROR:", err);
+        toast.error("Unexpected error loading company");
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      setLoading(false);
     }
 
     if (id) loadCompanyData();
+    return () => {
+      mounted = false;
+    };
   }, [id]);
 
   /* =====================
