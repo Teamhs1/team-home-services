@@ -34,6 +34,23 @@ const nextConfig = {
       },
     ],
   },
+
+  // 🔑 FIX: redirigir www → sin www (evita Redirect error en Google)
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "www.teamhomeservices.ca",
+          },
+        ],
+        destination: "https://teamhomeservices.ca/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
