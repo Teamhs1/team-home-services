@@ -63,6 +63,12 @@ export default function AdminJobsView({
   };
 
   const { getClientWithToken } = useSupabaseWithClerk();
+  const [localJobs, setLocalJobs] = useState(jobs);
+  const [lastCheckedAt, setLastCheckedAt] = useState(new Date().toISOString());
+  // 🔁 Sync props → local state (CLAVE)
+  useEffect(() => {
+    setLocalJobs(jobs);
+  }, [jobs]);
 
   // Seleccion Multiple
   const [selectedJobs, setSelectedJobs] = useState(new Set());
@@ -111,8 +117,8 @@ export default function AdminJobsView({
 
   const filteredJobs =
     statusFilter === "all"
-      ? jobs
-      : jobs.filter((job) => job.status === statusFilter);
+      ? localJobs
+      : localJobs.filter((job) => job.status === statusFilter);
 
   // ⭐ DATE FILTER (ALL / WEEK / MONTH)
   const [dateFilter, setDateFilter] = useState("all");
@@ -134,11 +140,16 @@ export default function AdminJobsView({
 
     return true;
   });
+  // 🔍 SEARCH FILTER
+  const [searchTerm, setSearchTerm] = useState("");
 
   // ⭐ NEW: CLIENT FILTER
   const [clientFilter, setClientFilter] = useState("all");
   // ⭐ NEW: STAFF FILTER
   const [staffFilter, setStaffFilter] = useState("all");
+  // 📄 PAGINATION
+  const PAGE_SIZE = viewMode === "grid" ? 12 : 30;
+  const [currentPage, setCurrentPage] = useState(1);
 
   // ⭐ APPLY CLIENT + STAFF FILTERS
   const finalFilteredJobs = dateFilteredJobs
@@ -153,6 +164,50 @@ export default function AdminJobsView({
       if (staffFilter === "unassigned") return !job.assigned_to;
       return job.assigned_to === staffFilter;
     });
+  // 🔍 APPLY SEARCH FILTER (AQUÍ VA)
+  const searchedJobs = finalFilteredJobs.filter((job) => {
+    if (!searchTerm) return true;
+
+    const term = searchTerm.toLowerCase();
+
+    return (
+      job.title?.toLowerCase().includes(term) ||
+      job.property_address?.toLowerCase().includes(term)
+    );
+  });
+
+  // 📄 PAGINATED JOBS
+  const totalJobs = searchedJobs.length;
+  const totalPages = Math.max(1, Math.ceil(totalJobs / PAGE_SIZE));
+
+  const paginatedJobs = searchedJobs.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  // 🔄 RESET PAGE WHEN FILTERS CHANGE
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchTerm,
+    statusFilter,
+    dateFilter,
+    clientFilter,
+    staffFilter,
+    viewMode,
+  ]);
+
+  // ⏱️ FORMAT MINUTES → HOURS + MINUTES (SOLO VISUAL)
+  const formatDuration = (minutes) => {
+    if (minutes == null || isNaN(minutes)) return "—";
+
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+
+    if (h > 0 && m > 0) return `${h} h ${m} min`;
+    if (h > 0) return `${h} h`;
+    return `${m} min`;
+  };
 
   // FORCE GRID ON MOBILE
   useEffect(() => {
@@ -193,11 +248,41 @@ export default function AdminJobsView({
       if (error) throw new Error(error.message);
 
       toast.success("✅ Cliente asignado correctamente!");
-      // Realtime se encarga de sincronizar
+
+      +(
+        // 🔥 CLAVE: refresca para traer JOIN client
+        (+(await fetchJobs()))
+      );
     } catch (err) {
       toast.error("Error assigning client: " + err.message);
     }
   };
+  /* =========================
+   SMART POLLING (NO REALTIME)
+========================= */
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/jobs/has-changes?since=${lastCheckedAt}`);
+        const { hasChanges } = await res.json();
+
+        if (hasChanges) {
+          console.log("🔄 Jobs changed → refreshing");
+
+          const fresh = await fetchJobs(); // 👈 fetchJobs DEBE retornar jobs
+          if (Array.isArray(fresh)) {
+            setLocalJobs(fresh); // 🔥 fuerza render inmediato
+          }
+
+          setLastCheckedAt(new Date().toISOString());
+        }
+      } catch (err) {
+        console.warn("Polling skipped");
+      }
+    }, 15000); // ⏱️ cada 15s
+
+    return () => clearInterval(interval);
+  }, [fetchJobs, lastCheckedAt]);
 
   // RESET JOB
   const resetJob = async (jobId) => {
@@ -260,6 +345,14 @@ export default function AdminJobsView({
         </h1>
 
         <div className="flex items-center gap-3">
+          <input
+            type="text"
+            placeholder="Search by property or job..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="border rounded-md px-3 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+
           {/* ⭐ DATE FILTER */}
           <select
             className="border rounded-md p-2 text-sm"
@@ -406,7 +499,7 @@ export default function AdminJobsView({
             </thead>
 
             <tbody>
-              {finalFilteredJobs.map((job) => (
+              {paginatedJobs.map((job) => (
                 <tr
                   key={job.id}
                   className="border-t hover:bg-gray-50 cursor-pointer"
@@ -466,6 +559,7 @@ export default function AdminJobsView({
                   </td>
 
                   {/* CLIENT */}
+                  {/* CLIENT */}
                   <td className="px-4 py-2">
                     <select
                       className="border rounded-md p-1 text-sm"
@@ -477,7 +571,7 @@ export default function AdminJobsView({
                     >
                       <option value="">No client assigned</option>
                       {loadedClients.map((client) => (
-                        <option key={client.id} value={client.clerk_id}>
+                        <option key={client.clerk_id} value={client.clerk_id}>
                           {client.full_name || client.email}
                         </option>
                       ))}
@@ -506,7 +600,7 @@ export default function AdminJobsView({
                     {job.status === "completed" &&
                       (job.duration_minutes != null ? (
                         <span className="flex items-center gap-1 text-green-700 font-semibold">
-                          ⏱️ {job.duration_minutes} min total
+                          ⏱️ {formatDuration(job.duration_minutes)} total
                         </span>
                       ) : (
                         <JobDuration jobId={job.id} />
@@ -589,7 +683,7 @@ export default function AdminJobsView({
       ) : (
         /* GRID VIEW */
         <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {finalFilteredJobs.map((job) => (
+          {paginatedJobs.map((job) => (
             <Card
               key={job.id}
               className="relative border shadow-sm rounded-2xl"
@@ -647,12 +741,18 @@ export default function AdminJobsView({
                   >
                     <option value="">No client</option>
                     {loadedClients.map((client) => (
-                      <option key={client.id} value={client.clerk_id}>
+                      <option key={client.clerk_id} value={client.clerk_id}>
                         {client.full_name || client.email}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                {job.client && (
+                  <div className="text-[11px] text-gray-500 truncate pl-6">
+                    {job.client.full_name || job.client.email}
+                  </div>
+                )}
 
                 {/* STATUS */}
                 <div>
@@ -664,9 +764,14 @@ export default function AdminJobsView({
 
                   {job.status === "completed" && (
                     <div className="flex flex-col text-xs text-green-700">
-                      <div className="bg-green-50 px-3 py-1 inline-block font-semibold rounded-full shadow-sm">
+                      {job.duration_minutes != null ? (
+                        <div className="bg-green-50 px-3 py-1 inline-block font-semibold rounded-full shadow-sm">
+                          ⏱️ {formatDuration(job.duration_minutes)}
+                        </div>
+                      ) : (
                         <JobDuration jobId={job.id} />
-                      </div>
+                      )}
+
                       <span className="text-gray-500 text-[11px]">
                         Done on{" "}
                         {job.completed_at
@@ -738,6 +843,39 @@ export default function AdminJobsView({
                 Close
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* 📄 PAGINATION CONTROLS */}
+      {totalJobs > PAGE_SIZE && (
+        <div className="flex items-center justify-between pt-6">
+          <span className="text-sm text-gray-500">
+            Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+            {Math.min(currentPage * PAGE_SIZE, totalJobs)} of {totalJobs} jobs
+          </span>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            >
+              ← Prev
+            </Button>
+
+            <span className="text-sm font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next →
+            </Button>
           </div>
         </div>
       )}

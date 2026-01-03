@@ -97,7 +97,8 @@ export default function JobsPage() {
       const { data, error } = await supabaseAuth
         .from("cleaning_jobs")
         .select("*")
-        .eq("created_by", clerkId)
+        .eq("assigned_client", clerkId)
+
         .order("created_at", { ascending: false });
 
       if (error) throw error;

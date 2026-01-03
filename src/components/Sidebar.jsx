@@ -23,6 +23,7 @@ import {
   Key,
   Building,
   ShieldCheck,
+  Home,
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
@@ -64,6 +65,7 @@ export default function Sidebar() {
   const prevResourcesRef = useRef([]);
 
   const [role, setRole] = useState("user");
+  const [staffType, setStaffType] = useState(null);
   const [hasSyncError, setHasSyncError] = useState(false);
   const [sidebarTheme, setSidebarTheme] = useState("dark");
   const [allowedResources, setAllowedResources] = useState([]);
@@ -92,12 +94,13 @@ export default function Sidebar() {
     async function fetchRole() {
       const { data, error } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, staff_type")
         .eq("clerk_id", user.id)
         .single();
 
-      if (!error) {
-        setRole(data?.role || "user");
+      if (!error && data) {
+        setRole(data.role || "user");
+        setStaffType(data.staff_type || null);
       }
     }
 
@@ -140,7 +143,8 @@ export default function Sidebar() {
         const data = await res.json();
 
         if (!data || data.length === 0) {
-          setAllowedResources(ALL_RESOURCES);
+          // 🔐 DEFAULT STAFF PERMISSIONS
+          setAllowedResources(["jobs"]);
           return;
         }
 
@@ -249,12 +253,15 @@ export default function Sidebar() {
   useEffect(() => {
     if (!user?.id || role === "admin") return;
 
+    // 🚫 Evitar polling mientras estás en la página de permisos
+    if (pathname.startsWith("/admin/permissions")) return;
+
     const interval = setInterval(() => {
       fetchPermissionsRef.current?.();
-    }, 4000); // cada 4 segundos (seguro)
+    }, 4000); // cada 4 segundos
 
     return () => clearInterval(interval);
-  }, [user?.id, role]);
+  }, [user?.id, role, pathname]);
 
   /* =========================
      SYNC ERRORS (ADMIN)
@@ -293,19 +300,40 @@ export default function Sidebar() {
      MENU CONFIG
   ========================= */
   const baseItems = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Jobs", href: "/jobs", icon: ClipboardList, resource: "jobs" },
     {
+      id: "dashboard",
+      name: "Dashboard",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      id: "jobs",
+      name: "Jobs",
+      href: "/jobs",
+      icon: ClipboardList,
+      resource: "jobs",
+    },
+    {
+      id: "properties-dashboard",
       name: "Properties",
       href: "/dashboard/properties",
       icon: Building,
       resource: "properties",
+      hideForAdmin: true, // ✅ Escode propiedades de usuarios normales
     },
-    { name: "Keys", href: "/dashboard/keys", icon: Key, resource: "keys" },
     {
+      id: "keys-dashboard",
+      name: "Keys",
+      href: "/dashboard/keys",
+      icon: Key,
+      resource: "keys",
+      hideForAdmin: true, // 👈 Escode Llaves de usuarios normales
+    },
+    {
+      id: "tenants",
       name: "Tenants",
       href: "/dashboard/tenants",
-      icon: Users,
+      icon: Home, // ✅ Icono correcto para Tenants
       resource: "tenants",
     },
   ];
@@ -313,37 +341,58 @@ export default function Sidebar() {
   const adminItems =
     role === "admin"
       ? [
-          { name: "Messages", href: "/admin/messages", icon: Mail },
           {
+            id: "admin-messages",
+            name: "Messages",
+            href: "/admin/messages",
+            icon: Mail,
+          },
+          {
+            id: "admin-content",
             name: "Edit Landing Content",
             href: "/admin/content",
             icon: FileEdit,
           },
           {
+            id: "admin-staff-apps",
             name: "Staff Applications",
             href: "/admin/staff-applications",
             icon: FileSpreadsheet,
           },
           {
+            id: "admin-sync-logs",
             name: "Sync Logs",
             href: "/admin/sync-logs",
             icon: FileClock,
             hasError: hasSyncError,
           },
           {
+            id: "admin-properties",
             name: "Properties",
             href: "/admin/properties",
             icon: ClipboardList,
           },
-          { name: "Companies", href: "/admin/companies", icon: Building },
-          { name: "Keys", href: "/admin/keys", icon: Key },
           {
+            id: "admin-companies",
+            name: "Companies",
+            href: "/admin/companies",
+            icon: Building,
+          },
+          { id: "admin-keys", name: "Keys", href: "/admin/keys", icon: Key },
+          {
+            id: "admin-permissions",
             name: "Permissions",
             href: "/admin/permissions",
             icon: ShieldCheck,
           },
-          { name: "Users", href: "/admin/users", icon: Users },
           {
+            id: "admin-users",
+            name: "Users",
+            href: "/admin/users",
+            icon: Users,
+          },
+          {
+            id: "admin-theme",
             name: "Theme Preview",
             href: "/admin/theme-preview",
             icon: Palette,
@@ -358,7 +407,9 @@ export default function Sidebar() {
 
   const menuItems = [
     ...baseItems.filter(
-      (item) => !item.resource || hasPermission(item.resource)
+      (item) =>
+        (!item.resource || hasPermission(item.resource)) &&
+        !(role === "admin" && item.hideForAdmin)
     ),
     ...adminItems,
     ...staticItems,
@@ -370,6 +421,13 @@ export default function Sidebar() {
 
   const navItems = menuItems.filter(
     (item) => item.href !== "/profile" && item.href !== "/settings"
+  );
+  const mainNavItems = navItems.filter(
+    (item) => !item.id?.startsWith("admin-")
+  );
+
+  const adminNavItems = navItems.filter((item) =>
+    item.id?.startsWith("admin-")
   );
 
   const publicRoutes = ["/", "/sign-in", "/sign-up"];
@@ -414,40 +472,82 @@ export default function Sidebar() {
           onClick={toggleSidebar}
           className={`absolute top-[3.1rem] ${
             isOpen ? "right-[-10px]" : "right-[-12px]"
-          } bg-blue-600 text-white rounded-full p-1.5 shadow-md`}
+          }
+  bg-blue-600 text-white rounded-full p-1.5 shadow-md
+  transition-colors duration-200
+  hover:bg-white hover:text-blue-600`}
         >
           {isOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
         </button>
       </div>
 
       {/* NAV */}
-      <nav className="flex flex-col mt-6 space-y-1 flex-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active =
-            pathname === item.href || pathname.startsWith(item.href + "/");
+      <nav className="flex flex-col mt-6 flex-1 overflow-y-auto">
+        {/* MAIN NAV */}
+        <div className="space-y-1">
+          {mainNavItems.map((item) => {
+            const Icon = item.icon;
+            const active =
+              pathname === item.href || pathname.startsWith(item.href + "/");
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-6 py-2.5 text-sm transition-all ${
-                active
-                  ? `${SIDEBAR_THEMES[sidebarTheme].active} border-r-4`
-                  : SIDEBAR_THEMES[sidebarTheme].hover
-              }`}
-            >
-              <Icon size={18} />
-              {isOpen && <span>{item.name}</span>}
-              {item.hasError && (
-                <AlertCircle
-                  size={16}
-                  className="text-red-500 animate-pulse ml-auto"
-                />
-              )}
-            </Link>
-          );
-        })}
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                className={`flex items-center gap-3 px-6 py-2.5 text-sm transition-all ${
+                  active
+                    ? `${SIDEBAR_THEMES[sidebarTheme].active} border-r-4`
+                    : SIDEBAR_THEMES[sidebarTheme].hover
+                }`}
+              >
+                <Icon size={18} />
+                {isOpen && <span>{item.name}</span>}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* ADMIN DIVIDER */}
+        {role === "admin" && adminNavItems.length > 0 && (
+          <div className="mt-4 mb-2">
+            <div className="mx-6 border-t border-slate-700/60" />
+            {isOpen && (
+              <span className="block px-6 mt-3 text-[11px] uppercase tracking-wider text-slate-400">
+                Admin Tools
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* ADMIN NAV */}
+        <div className="space-y-1">
+          {adminNavItems.map((item) => {
+            const Icon = item.icon;
+            const active =
+              pathname === item.href || pathname.startsWith(item.href + "/");
+
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                className={`flex items-center gap-3 px-6 py-2.5 text-sm transition-all ${
+                  active
+                    ? `${SIDEBAR_THEMES[sidebarTheme].active} border-r-4`
+                    : SIDEBAR_THEMES[sidebarTheme].hover
+                }`}
+              >
+                <Icon size={18} />
+                {isOpen && <span>{item.name}</span>}
+                {item.hasError && (
+                  <AlertCircle
+                    size={16}
+                    className="text-red-500 animate-pulse ml-auto"
+                  />
+                )}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
       {/* FOOTER */}
@@ -473,7 +573,8 @@ export default function Sidebar() {
           );
         })}
 
-        <div className="flex justify-center pt-2">
+        <div className="flex flex-col items-center pt-2 gap-1">
+          {/* ROLE BADGE */}
           <span
             className={`text-[10px] font-semibold px-3 py-1 rounded-full ${
               role === "admin"
@@ -485,6 +586,13 @@ export default function Sidebar() {
           >
             {role.toUpperCase()}
           </span>
+
+          {/* STAFF SUBROLE BADGE */}
+          {role === "staff" && staffType && (
+            <span className="text-[9px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300">
+              {staffType}
+            </span>
+          )}
         </div>
       </div>
     </aside>

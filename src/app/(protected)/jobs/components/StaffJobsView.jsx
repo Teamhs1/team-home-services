@@ -220,7 +220,7 @@ export default function StaffJobsView({
               className="
     h-full flex flex-col
     relative border shadow-sm hover:shadow-md transition-all 
-    rounded-xl bg-white overflow-hidden
+rounded-xl bg-white overflow-visible sm:overflow-hidden
     w-[90%] sm:w-[90%] md:w-full mx-auto
   "
             >
@@ -286,19 +286,46 @@ export default function StaffJobsView({
                   </div>
                 )}
 
-                {/* TIMER */}
-                <div>
+                {/* TIMER / DURATION */}
+                <div className="w-full space-y-1">
                   {job.status === "in_progress" && (
-                    <div className="inline-block bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                    <div
+                      className="
+        w-full sm:w-auto
+        bg-blue-50 text-blue-700
+        text-xs font-semibold
+        px-3 py-2
+        rounded-full shadow-sm
+        text-center
+      "
+                    >
                       <JobTimer jobId={job.id} />
                     </div>
                   )}
 
                   {job.status === "completed" && (
-                    <div className="flex flex-col text-xs text-green-700 gap-0.5">
-                      <div className="inline-block bg-green-50 px-3 py-1 font-semibold rounded-full shadow-sm">
-                        <JobDuration jobId={job.id} />
+                    <div className="flex flex-col text-xs text-green-700">
+                      <div
+                        className="
+          w-full sm:w-auto
+          bg-green-50 px-3 py-2
+          font-semibold rounded-full shadow-sm
+          text-center
+        "
+                      >
+                        {job.duration_minutes != null ? (
+                          <>⏱ {job.duration_minutes} min total</>
+                        ) : (
+                          <JobDuration jobId={job.id} />
+                        )}
                       </div>
+
+                      <span className="text-gray-500 text-[11px] text-center">
+                        Done{" "}
+                        {job.completed_at
+                          ? new Date(job.completed_at).toLocaleDateString()
+                          : ""}
+                      </span>
                     </div>
                   )}
                 </div>

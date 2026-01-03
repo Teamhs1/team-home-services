@@ -29,7 +29,7 @@ export default function CreatePropertyPage() {
       try {
         const token = await getToken();
 
-        const res = await fetch("/api/companies", {
+        const res = await fetch("/api/admin/companies", {
           cache: "no-store",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -41,7 +41,7 @@ export default function CreatePropertyPage() {
         const data = await res.json();
         if (mounted) setCompanies(data || []);
       } catch (err) {
-        console.error(err);
+        console.error("LOAD COMPANIES ERROR:", err);
         toast.error("Failed to load companies");
       } finally {
         if (mounted) setLoadingCompanies(false);
@@ -52,6 +52,9 @@ export default function CreatePropertyPage() {
     return () => (mounted = false);
   }, [getToken]);
 
+  /* =====================
+     FORM HELPERS
+  ===================== */
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -61,9 +64,13 @@ export default function CreatePropertyPage() {
     const num = form.street_number.trim();
     const name = form.street_name.trim();
     const unit = form.unit.trim();
+
     if (!num || !name) return "";
     return unit ? `${num} ${name} Unit ${unit}` : `${num} ${name}`;
   }
+
+  const selectedCompany = companies.find((c) => c.id === form.company_id);
+  const selectedOwner = selectedCompany?.owners || null;
 
   /* =====================
      SUBMIT
@@ -72,8 +79,9 @@ export default function CreatePropertyPage() {
     e.preventDefault();
 
     const address = buildAddress();
+
     if (!address || !form.company_id) {
-      toast.error("Missing required fields");
+      toast.error("Please complete all required fields");
       return;
     }
 
@@ -105,14 +113,17 @@ export default function CreatePropertyPage() {
       toast.success("Property created successfully");
       router.push("/admin/properties");
     } catch (err) {
-      console.error(err);
-      toast.error(err.message);
+      console.error("CREATE PROPERTY ERROR:", err);
+      toast.error(err.message || "Failed to create property");
     }
   }
 
+  /* =====================
+     UI
+  ===================== */
   return (
-    <div className="mx-auto max-w-lg p-6 pt-[130px]">
-      <h1 className="mb-6 text-3xl font-semibold">Add New Property</h1>
+    <div className="mx-auto max-w-lg p-6 pt-[130px] space-y-6">
+      <h1 className="text-3xl font-semibold">Add New Property</h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <input
@@ -141,6 +152,7 @@ export default function CreatePropertyPage() {
           onChange={handleChange}
         />
 
+        {/* COMPANY */}
         {loadingCompanies ? (
           <p className="text-sm text-gray-500">Loading companies…</p>
         ) : (
@@ -160,7 +172,18 @@ export default function CreatePropertyPage() {
           </select>
         )}
 
-        <button className="w-full bg-blue-600 text-white py-2 rounded">
+        {/* OWNER (READ ONLY) */}
+        <div className="border rounded p-3 bg-gray-50">
+          <label className="block text-sm text-gray-600">Owner</label>
+
+          <p className="font-medium">
+            {selectedCompany?.owner?.full_name || "No owner assigned"}
+          </p>
+
+          <p className="text-xs text-gray-500">Auto-assigned from company</p>
+        </div>
+
+        <button className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">
           Add Property
         </button>
       </form>

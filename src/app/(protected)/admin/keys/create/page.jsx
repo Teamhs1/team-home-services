@@ -12,6 +12,10 @@ export default function CreateKeyPage() {
   const [properties, setProperties] = useState([]);
   const [loadingProperties, setLoadingProperties] = useState(false);
 
+  // 🔑 NUEVO: units
+  const [units, setUnits] = useState([]);
+  const [loadingUnits, setLoadingUnits] = useState(false);
+
   const [form, setForm] = useState({
     company_id: "",
     property_id: "",
@@ -79,6 +83,40 @@ export default function CreateKeyPage() {
   }
 
   /* ============================
+     LOAD UNITS BY PROPERTY (API)
+  ============================ */
+  useEffect(() => {
+    if (!form.property_id) {
+      setUnits([]);
+      return;
+    }
+
+    loadUnits(form.property_id);
+  }, [form.property_id]);
+
+  async function loadUnits(propertyId) {
+    setLoadingUnits(true);
+
+    try {
+      const res = await fetch(`/api/admin/properties/${propertyId}/units`, {
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error("Failed to load units");
+
+      const data = await res.json();
+      setUnits(data || []);
+    } catch (err) {
+      console.error(err);
+      toast.error("Error loading units");
+      setUnits([]);
+    } finally {
+      setLoadingUnits(false);
+    }
+  }
+
+  /* ============================
      HANDLERS
   ============================ */
   function handleChange(e) {
@@ -92,6 +130,15 @@ export default function CreateKeyPage() {
         type: form.type,
         status: "available",
       });
+      return;
+    }
+
+    if (name === "property_id") {
+      setForm((prev) => ({
+        ...prev,
+        property_id: value,
+        unit: "", // 🔁 reset unit
+      }));
       return;
     }
 
@@ -224,14 +271,31 @@ export default function CreateKeyPage() {
             </div>
           )}
 
-          {/* UNIT */}
-          <input
-            name="unit"
-            placeholder="Unit (ex: 101)"
-            className="w-full border rounded p-2"
-            value={form.unit}
-            onChange={handleChange}
-          />
+          {/* UNIT (CONNECTED TO API) */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Unit</label>
+            <select
+              name="unit"
+              className="w-full border rounded p-2"
+              value={form.unit}
+              onChange={handleChange}
+              disabled={!form.property_id || loadingUnits}
+            >
+              <option value="">
+                {loadingUnits
+                  ? "Loading units..."
+                  : !units.length
+                  ? "No units for this property"
+                  : "Select unit"}
+              </option>
+
+              {units.map((u) => (
+                <option key={u.id} value={u.unit}>
+                  Unit {u.unit}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* TYPE */}
           <select

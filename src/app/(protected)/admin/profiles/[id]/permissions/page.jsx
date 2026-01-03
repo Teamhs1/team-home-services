@@ -1,20 +1,41 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { toast } from "sonner";
 
-const RESOURCES = ["properties", "jobs", "keys", "tenants"];
+/* =========================
+   STAFF MODULES
+========================= */
+const STAFF_MODULES = [
+  { key: "jobs", label: "Jobs", description: "View and manage work orders" },
+  {
+    key: "properties",
+    label: "Properties",
+    description: "Access property information",
+  },
+  { key: "keys", label: "Keys", description: "Manage physical & digital keys" },
+  { key: "tenants", label: "Tenants", description: "View tenant information" },
+];
+
+/* =========================
+   STAFF TEMPLATES
+========================= */
+const STAFF_TEMPLATES = {
+  cleaner: ["jobs"],
+  maintenance: ["jobs", "properties", "keys"],
+  manager: ["jobs", "properties", "keys", "tenants"],
+};
 
 export default function StaffPermissionsPage() {
   const { id: staffProfileId } = useParams();
-  const router = useRouter();
 
   const [permissions, setPermissions] = useState({});
   const [loading, setLoading] = useState(true);
+  const [activeTemplate, setActiveTemplate] = useState(null);
 
   /* =========================
-     LOAD PERMISSIONS (READ)
+     LOAD PERMISSIONS
   ========================= */
   useEffect(() => {
     if (!staffProfileId) return;
@@ -28,14 +49,13 @@ export default function StaffPermissionsPage() {
         if (!res.ok) throw new Error();
 
         const data = await res.json();
-
         const map = {};
-        data.forEach((p) => {
-          map[p.resource] = true;
-        });
-
+        data.forEach((p) => (map[p.resource] = true));
         setPermissions(map);
-      } catch (err) {
+
+        // 🔍 detectar si coincide con un template
+        detectActiveTemplate(map);
+      } catch {
         toast.error("Failed to load permissions");
       } finally {
         setLoading(false);
@@ -46,16 +66,36 @@ export default function StaffPermissionsPage() {
   }, [staffProfileId]);
 
   /* =========================
-     TOGGLE PERMISSION (WRITE)
+     DETECT TEMPLATE
   ========================= */
-  async function togglePermission(resource) {
-    const nextValue = !permissions[resource];
+  function detectActiveTemplate(currentPermissions) {
+    for (const [template, allowed] of Object.entries(STAFF_TEMPLATES)) {
+      const matches = STAFF_MODULES.every((m) => {
+        const should = allowed.includes(m.key);
+        return (currentPermissions[m.key] ?? false) === should;
+      });
 
-    // Optimistic update
+      if (matches) {
+        setActiveTemplate(template);
+        return;
+      }
+    }
+
+    setActiveTemplate(null);
+  }
+
+  /* =========================
+     TOGGLE PERMISSION
+  ========================= */
+  async function togglePermission(resource, forceValue = null) {
+    const nextValue = forceValue !== null ? forceValue : !permissions[resource];
+
     setPermissions((prev) => ({
       ...prev,
       [resource]: nextValue,
     }));
+
+    setActiveTemplate(null); // 👈 manual override
 
     const res = await fetch("/api/admin/staff-permissions", {
       method: "POST",
@@ -78,26 +118,78 @@ export default function StaffPermissionsPage() {
     }
   }
 
+  /* =========================
+     APPLY TEMPLATE
+  ========================= */
+  async function applyTemplate(templateKey) {
+    const allowed = STAFF_TEMPLATES[templateKey];
+
+    toast.info(`Applying ${templateKey} template...`);
+
+    for (const mod of STAFF_MODULES) {
+      const shouldHave = allowed.includes(mod.key);
+      const hasNow = permissions[mod.key] ?? false;
+
+      if (shouldHave !== hasNow) {
+        await togglePermission(mod.key, shouldHave);
+      }
+    }
+
+    setActiveTemplate(templateKey);
+    toast.success("Template applied");
+  }
+
   if (!staffProfileId) return <p className="p-6">Invalid staff ID</p>;
   if (loading) return <p className="p-6">Loading permissions...</p>;
 
   return (
-    <div className="p-6 max-w-xl mt-16">
-      <h1 className="text-2xl font-bold mb-4">Staff permissions</h1>
+    <div className="p-6 max-w-2xl mt-16">
+      <h1 className="text-2xl font-bold mb-2">Staff Access</h1>
+      <p className="text-sm text-gray-500 mb-4">
+        Control what this staff member can access.
+      </p>
 
-      <div className="space-y-4">
-        {RESOURCES.map((res) => (
-          <label
-            key={res}
-            className="flex items-center justify-between border rounded p-3"
+      {/* =========================
+          QUICK TEMPLATES
+      ========================= */}
+      <div className="flex gap-2 mb-6">
+        {["cleaner", "maintenance", "manager"].map((tpl) => (
+          <button
+            key={tpl}
+            onClick={() => applyTemplate(tpl)}
+            className={`px-3 py-1.5 text-sm rounded-md border transition
+              ${
+                activeTemplate === tpl
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "hover:bg-gray-100"
+              }`}
           >
-            <span className="capitalize">{res}</span>
+            {tpl.charAt(0).toUpperCase() + tpl.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* =========================
+          MODULE CHECKBOXES
+      ========================= */}
+      <div className="space-y-3">
+        {STAFF_MODULES.map((mod) => (
+          <div
+            key={mod.key}
+            className="flex items-center justify-between rounded-lg border p-4 hover:bg-gray-50 transition"
+          >
+            <div>
+              <p className="font-medium">{mod.label}</p>
+              <p className="text-xs text-gray-500">{mod.description}</p>
+            </div>
+
             <input
               type="checkbox"
-              checked={permissions[res] ?? false}
-              onChange={() => togglePermission(res)}
+              className="h-5 w-5 accent-blue-600"
+              checked={permissions[mod.key] ?? false}
+              onChange={() => togglePermission(mod.key)}
             />
-          </label>
+          </div>
         ))}
       </div>
     </div>

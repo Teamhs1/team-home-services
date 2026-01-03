@@ -1,4 +1,6 @@
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getAuth } from "@clerk/nextjs/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,19 +13,55 @@ const supabase = createClient(
 /* =========================
    GET → List keys
 ========================= */
-export async function GET() {
+export async function GET(req) {
   try {
-    const { data, error } = await supabase
+    const { searchParams } = new URL(req.url);
+    const companyId = searchParams.get("company_id");
+
+    let query = supabase
       .from("keys")
-      .select("*")
+      .select(
+        `
+        id,
+        tag_code,
+        unit,
+        type,
+        status,
+        is_reported,
+        property_id,
+        properties:property_id (
+          id,
+          name,
+          company_id,
+          address
+        )
+      `
+      )
       .order("unit", { ascending: true });
 
+    if (companyId) {
+      const { data: propertyIds, error } = await supabase
+        .from("properties")
+        .select("id")
+        .eq("company_id", companyId);
+
+      if (error) throw error;
+
+      const ids = propertyIds.map((p) => p.id);
+      if (!ids.length) {
+        return NextResponse.json({ keys: [] });
+      }
+
+      query = query.in("property_id", ids);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
 
-    return Response.json({ keys: data });
+    return NextResponse.json({ keys: data });
   } catch (err) {
     console.error("❌ KEYS API GET ERROR:", err);
-    return Response.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
@@ -32,12 +70,27 @@ export async function GET() {
 ========================= */
 export async function POST(req) {
   try {
-    const body = await req.json();
+    const { userId } = getAuth(req);
 
-    const { property_id, unit, type, tag_code, status } = body;
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // 🔐 Validate admin
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("clerk_id", userId)
+      .single();
+
+    if (profileError || profile?.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { property_id, unit, type, tag_code, status } = await req.json();
 
     if (!property_id || !type || !tag_code) {
-      return Response.json(
+      return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
@@ -45,23 +98,23 @@ export async function POST(req) {
 
     const { data, error } = await supabase
       .from("keys")
-      .insert([
-        {
-          property_id,
-          unit,
-          type,
-          tag_code,
-          status: status || "available",
-        },
-      ])
+      .insert({
+        property_id,
+        unit,
+        type,
+        tag_code,
+        status: status || "available",
+      })
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
-    return Response.json({ key: data }, { status: 201 });
+    return NextResponse.json({ key: data });
   } catch (err) {
     console.error("❌ KEYS API POST ERROR:", err);
-    return Response.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

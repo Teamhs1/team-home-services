@@ -66,7 +66,11 @@ const SERVICE_TYPES = [
   },
 ];
 
-export default function JobForm({ staffList = [], clientList = [] }) {
+export default function JobForm({
+  staffList = [],
+  clientList = [],
+  fetchJobs, // ✅ RECIBIDO
+}) {
   // ========= STATE =========
   const [title, setTitle] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
@@ -78,8 +82,7 @@ export default function JobForm({ staffList = [], clientList = [] }) {
   const toastShownRef = useRef(false);
 
   // ========= VALIDATION =========
-  const isValid =
-    title.trim() && scheduledDate && assignedTo.trim() && clientId.trim();
+  const isValid = title.trim() && scheduledDate && clientId.trim();
 
   async function createJob() {
     if (!isValid || creating) return;
@@ -103,6 +106,11 @@ export default function JobForm({ staffList = [], clientList = [] }) {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error creating job");
+
+      // 🔄 REFRESH JOBS LIST (CLAVE)
+      if (typeof fetchJobs === "function") {
+        await fetchJobs();
+      }
 
       if (!toastShownRef.current) {
         toast.custom(() => (
@@ -189,7 +197,7 @@ export default function JobForm({ staffList = [], clientList = [] }) {
         </Select>
       </div>
 
-      {/* Service Type (IMPROVED UX) */}
+      {/* Service Type */}
       <div className="space-y-1.5">
         <Label>Service Type</Label>
         <Select value={serviceType} onValueChange={setServiceType}>
@@ -198,16 +206,10 @@ export default function JobForm({ staffList = [], clientList = [] }) {
           </SelectTrigger>
           <SelectContent className={dropdownClass}>
             {SERVICE_TYPES.map((service) => (
-              <SelectItem
-                key={service.value}
-                value={service.value}
-                className="group"
-              >
+              <SelectItem key={service.value} value={service.value}>
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-medium text-gray-900 group-hover:text-gray-900">
-                    {service.label}
-                  </span>
-                  <span className="text-xs text-gray-600 group-hover:text-gray-700">
+                  <span className="font-medium">{service.label}</span>
+                  <span className="text-xs text-gray-600">
                     {service.description}
                   </span>
                 </div>

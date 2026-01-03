@@ -109,13 +109,9 @@ export default function DashboardNavbar() {
         ]
       : [],
 
-    /* 🔹 PERFIL ADMIN (NUEVO – SIN ROMPER NADA) */
     admin_profile: profileId
       ? [
-          {
-            label: "Profile",
-            href: `/admin/profiles/${profileId}`,
-          },
+          { label: "Profile", href: `/admin/profiles/${profileId}` },
           {
             label: "Permissions",
             href: `/admin/profiles/${profileId}/permissions`,
@@ -142,14 +138,15 @@ export default function DashboardNavbar() {
   ========================= */
   return (
     <motion.nav
-      initial={{ opacity: 0, y: -8 }}
+      initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
       className={`
-        fixed top-[5.3rem] right-0 z-[30]
-        flex items-center gap-6
-        backdrop-blur-md
-        px-4 md:px-10 py-3
+fixed top-[4.5rem] right-0 z-[30]
+
+        flex items-center gap-5
+        backdrop-blur-sm
+        px-4 md:px-10 py-2.5
         shadow-sm
         transition-colors duration-300
         ${
@@ -176,7 +173,7 @@ export default function DashboardNavbar() {
           <Link
             key={tab.href}
             href={tab.href}
-            className={`relative text-sm font-medium transition-colors ${
+            className={`relative text-sm font-medium transition-all duration-200 ${
               isActive
                 ? sidebarTheme === "dark"
                   ? "text-blue-400"
@@ -191,7 +188,7 @@ export default function DashboardNavbar() {
             {isActive && (
               <motion.div
                 layoutId="activeTab"
-                className={`absolute -bottom-1 left-0 right-0 h-[2px] rounded-full ${
+                className={`absolute -bottom-1 left-0 right-0 h-[2px] rounded-full opacity-90 ${
                   sidebarTheme === "dark" ? "bg-blue-400" : "bg-blue-600"
                 }`}
               />

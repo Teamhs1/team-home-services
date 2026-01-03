@@ -35,6 +35,13 @@ export default function PropertiesListPage() {
   const [selectedOwner, setSelectedOwner] = useState("all");
 
   const router = useRouter();
+  const goToProperty = (propertyId) => {
+    if (role === "admin") {
+      router.push(`/admin/properties/${propertyId}`);
+    } else {
+      router.push(`/dashboard/properties/${propertyId}`);
+    }
+  };
 
   /* =====================
      LOAD ROLE (SOURCE OF TRUTH)
@@ -313,7 +320,7 @@ export default function PropertiesListPage() {
               {filteredProperties.map((p) => (
                 <tr
                   key={p.id}
-                  onClick={() => router.push(`/admin/properties/${p.id}`)}
+                  onClick={() => goToProperty(p.id)}
                   className="border-t hover:bg-gray-50 cursor-pointer"
                 >
                   <td className="px-4 py-2 font-medium">{p.name}</td>
@@ -376,7 +383,7 @@ export default function PropertiesListPage() {
           {filteredProperties.map((p) => (
             <div
               key={p.id}
-              onClick={() => router.push(`/admin/properties/${p.id}`)}
+              onClick={() => goToProperty(p.id)}
               className="group bg-white border rounded-xl shadow-sm hover:shadow-md transition cursor-pointer overflow-hidden"
             >
               {/* IMAGE / PLACEHOLDER */}
@@ -404,7 +411,13 @@ export default function PropertiesListPage() {
 
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={`/admin/properties/${p.id}`}>
+                          <Link
+                            href={
+                              role === "admin"
+                                ? `/admin/properties/${p.id}`
+                                : `dashboard/properties/${p.id}`
+                            }
+                          >
                             View Property
                           </Link>
                         </DropdownMenuItem>

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { LayoutGrid, List, MoreVertical } from "lucide-react";
+import { LayoutGrid, List, MoreVertical, Archive } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
 import {
@@ -25,6 +26,9 @@ export default function PropertiesListPage() {
 
   // ✅ NUEVO: filtro por owner
   const [selectedOwner, setSelectedOwner] = useState("all");
+
+  // ✅ NUEVO: selección múltiple
+  const [selectedProperties, setSelectedProperties] = useState(new Set());
 
   const router = useRouter();
 
@@ -111,7 +115,20 @@ export default function PropertiesListPage() {
   ===================== */
   const owners = Array.from(
     new Map(
-      properties.filter((p) => p.owners).map((p) => [p.owners.id, p.owners])
+      properties
+        .filter((p) => {
+          if (!p.owners) return false;
+
+          if (selectedCompany === "all") return true;
+
+          const companyId =
+            typeof p.company_id === "string"
+              ? p.company_id
+              : p.company_id?.id || p.companies?.id || null;
+
+          return String(companyId) === String(selectedCompany);
+        })
+        .map((p) => [p.owners.id, p.owners])
     ).values()
   );
 
@@ -137,33 +154,143 @@ export default function PropertiesListPage() {
         ? true
         : String(p.owners?.id) === String(selectedOwner);
 
-    return companyMatch && ownerMatch;
+    return companyMatch && ownerMatch && p.is_active !== false;
   });
+
+  /* =====================
+   🔢 NATURAL ADDRESS SORT
+   (10 Belmont < 11 Storey)
+===================== */
+  function naturalAddressSort(a, b) {
+    const parse = (address = "") => {
+      const match = address.trim().match(/^(\d+)\s*(.*)$/);
+      return match
+        ? { num: parseInt(match[1], 10), text: match[2].toLowerCase() }
+        : { num: Infinity, text: address.toLowerCase() };
+    };
+
+    const A = parse(a.address);
+    const B = parse(b.address);
+
+    if (A.num !== B.num) return A.num - B.num;
+    return A.text.localeCompare(B.text);
+  }
+
+  const sortedProperties = [...filteredProperties].sort(naturalAddressSort);
 
   /* =====================
      DELETE PROPERTY (NO ROMPER)
   ===================== */
   async function handleDeleteProperty(id, name) {
     const confirmed = confirm(
-      `Are you sure you want to delete "${name}"?\nThis action cannot be undone.`
+      `Archive "${name}"?\nYou can restore it later if needed.`
     );
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`/api/properties/${id}`, {
+      const res = await fetch(`/api/admin/properties/${id}/archive`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ is_active: false }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(json?.error || "Unable to archive property");
+        return;
+      }
+
+      // 🔥 UI sync sin recargar
+      setProperties((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, is_active: false } : p))
+      );
+    } catch (err) {
+      console.error(err);
+      alert("Unexpected error archiving property");
+    }
+  }
+  /* =====================
+   ❌ HARD DELETE PROPERTY
+===================== */
+  async function handleHardDeleteProperty(id, name) {
+    const confirmed = confirm(
+      `⚠️ DELETE "${name}" permanently?\n\nThis action CANNOT be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/admin/properties/${id}/delete`, {
         method: "DELETE",
       });
 
       const json = await res.json().catch(() => ({}));
+
       if (!res.ok) {
         alert(json?.error || "Unable to delete property");
         return;
       }
 
+      // 🔥 remover del estado
       setProperties((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       console.error(err);
       alert("Unexpected error deleting property");
+    }
+  }
+  /* =====================
+   ✅ MULTI SELECT HELPERS
+===================== */
+  function togglePropertySelection(id) {
+    setSelectedProperties((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedProperties(new Set());
+  }
+
+  /* =====================
+   🟡 BULK ARCHIVE
+===================== */
+  async function handleBulkArchive() {
+    if (selectedProperties.size === 0) return;
+
+    const confirmed = confirm(
+      `Archive ${selectedProperties.size} selected properties?`
+    );
+    if (!confirmed) return;
+
+    const ids = Array.from(selectedProperties);
+
+    try {
+      const res = await fetch("/api/admin/properties/archive-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(json?.error || "Bulk archive failed");
+        return;
+      }
+
+      // 🔥 sync UI
+      setProperties((prev) =>
+        prev.map((p) => (ids.includes(p.id) ? { ...p, is_active: false } : p))
+      );
+
+      clearSelection();
+    } catch (err) {
+      console.error(err);
+      alert("Unexpected bulk archive error");
     }
   }
 
@@ -177,6 +304,14 @@ export default function PropertiesListPage() {
             Showing {filteredProperties.length} of {properties.length}{" "}
             properties
           </p>
+
+          <Link
+            href="/admin/properties/archived"
+            className="inline-flex items-center gap-1 mt-1 text-sm text-gray-500 hover:text-gray-700 underline"
+          >
+            <Archive className="w-4 h-4" />
+            View archived properties
+          </Link>
         </div>
 
         <div className="flex items-center gap-3">
@@ -201,6 +336,29 @@ export default function PropertiesListPage() {
           </Link>
         </div>
       </div>
+      {/* 🟡 BULK ACTION BAR */}
+      {selectedProperties.size > 0 && (
+        <div className="flex items-center justify-between bg-white border rounded-lg px-4 py-2 shadow-sm">
+          <span className="text-sm font-medium">
+            {selectedProperties.size} selected
+          </span>
+
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-orange-600"
+              onClick={handleBulkArchive}
+            >
+              Archive Selected
+            </Button>
+
+            <Button size="sm" variant="ghost" onClick={clearSelection}>
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* FILTERS */}
       <div className="flex flex-col sm:flex-row gap-4 max-w-xl">
@@ -256,6 +414,24 @@ export default function PropertiesListPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
               <tr>
+                <th className="px-4 py-3 text-left w-10">
+                  <input
+                    type="checkbox"
+                    checked={
+                      filteredProperties.length > 0 &&
+                      filteredProperties.every((p) =>
+                        selectedProperties.has(p.id)
+                      )
+                    }
+                    onChange={(e) =>
+                      e.target.checked
+                        ? setSelectedProperties(
+                            new Set(filteredProperties.map((p) => p.id))
+                          )
+                        : clearSelection()
+                    }
+                  />
+                </th>
                 <th className="px-4 py-3 text-left">Property</th>
                 <th className="px-4 py-3 text-left">Address</th>
                 <th className="px-4 py-3 text-left">Owner</th>
@@ -265,13 +441,33 @@ export default function PropertiesListPage() {
             </thead>
 
             <tbody>
-              {filteredProperties.map((p) => (
+              {sortedProperties.map((p) => (
                 <tr
                   key={p.id}
-                  onClick={() => router.push(`/admin/properties/${p.id}`)}
-                  className="border-t hover:bg-gray-50 cursor-pointer"
+                  onClick={() => {
+                    if (selectedProperties.size === 0) {
+                      router.push(`/admin/properties/${p.id}`);
+                    }
+                  }}
+                  className={`border-t cursor-pointer transition
+    ${selectedProperties.has(p.id) ? "bg-blue-50" : "hover:bg-gray-50"}
+  `}
                 >
+                  {/* ✅ CHECKBOX */}
+                  <td
+                    className="px-4 py-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedProperties.has(p.id)}
+                      onChange={() => togglePropertySelection(p.id)}
+                    />
+                  </td>
+
+                  {/* Property */}
                   <td className="px-4 py-2 font-medium">{p.name}</td>
+
                   <td className="px-4 py-2 text-gray-500">
                     {p.address}
                     {p.unit && `, Unit ${p.unit}`}
@@ -316,12 +512,25 @@ export default function PropertiesListPage() {
                           </DropdownMenuItem>
                         )}
 
+                        {/* 🟡 ARCHIVE (soft delete) */}
                         <DropdownMenuItem
-                          className="text-red-600"
+                          className="text-orange-600"
                           onClick={() => handleDeleteProperty(p.id, p.name)}
                         >
-                          Delete Property
+                          Archive Property
                         </DropdownMenuItem>
+
+                        {/* 🔴 DELETE DEFINITIVO (solo si ya está archivada) */}
+                        {p.is_active === false && (
+                          <DropdownMenuItem
+                            className="text-red-700 font-semibold"
+                            onClick={() =>
+                              handleHardDeleteProperty(p.id, p.name)
+                            }
+                          >
+                            Delete Permanently
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>

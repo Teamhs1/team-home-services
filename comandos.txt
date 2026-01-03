@@ -56,3 +56,10 @@ node repair-job-photos.js
 ver localhost en celulares:
 en la terminal --------------------  npx next dev --hostname 0.0.0.0
 en el celular acceder a -----------  http://10.0.0.200:3000
+
+
+---------------------------------------
+Regla d eoro para politicasSi el admin crea algo → API
+Si el client crea algo → Supabase directo con RLS
+---------------------------------------
+select * from pg_policies where tablename = 'cleaning_jobs';

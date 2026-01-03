@@ -284,9 +284,24 @@ export default function AdminUsersPage() {
           className="border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-sm"
         >
           <option value="all">All roles</option>
-          <option value="admin">Admin</option>
-          <option value="staff">Staff</option>
-          <option value="client">Client</option>
+
+          {/* CORE */}
+          <option value="admin">Admin (System Owner)</option>
+          <option value="staff">Staff (Internal)</option>
+
+          {/* CLIENT SIDE */}
+          <option value="client">Client / Owner</option>
+
+          {/* FUTURE (NO ROMPE) */}
+          <option value="tenant" disabled>
+            Tenant (coming soon)
+          </option>
+          <option value="vendor" disabled>
+            Vendor / Contractor (coming soon)
+          </option>
+          <option value="manager" disabled>
+            Property Manager (coming soon)
+          </option>
         </select>
 
         <select

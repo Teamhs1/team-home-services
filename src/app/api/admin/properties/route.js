@@ -37,6 +37,8 @@ export async function GET(req) {
 
     /* =====================
        LOAD PROPERTIES
+       ✅ Owner incluido
+       ✅ Seguro si owner_id es null
     ===================== */
     let query = supabase
       .from("properties")
@@ -58,14 +60,16 @@ export async function GET(req) {
         )
       `
       )
-      .order("name");
+      .eq("is_active", true)
+      .order("address", { ascending: true }) // 🧠 mejor orden visual
+      .order("name", { ascending: true });
 
-    // 🔐 Non-admins: force active company
+    /* 🔐 Non-admins: force active company */
     if (profile.role !== "admin") {
       query = query.eq("company_id", profile.active_company_id);
     }
 
-    // 🧠 Admin + selector → filtra por dropdown
+    /* 🧠 Admin + selector */
     if (profile.role === "admin" && companyIdParam) {
       query = query.eq("company_id", companyIdParam);
     }
@@ -77,9 +81,13 @@ export async function GET(req) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data || []);
+    // ✅ Siempre devolvemos array (aunque no haya owner)
+    return NextResponse.json(data ?? []);
   } catch (err) {
     console.error("💥 API CRASH:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || "Unexpected error" },
+      { status: 500 }
+    );
   }
 }

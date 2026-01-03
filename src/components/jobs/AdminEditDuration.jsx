@@ -10,21 +10,34 @@ import { Pencil, Check, X } from "lucide-react";
 export default function AdminEditDuration({ job, onUpdated }) {
   const { getClientWithToken } = useSupabaseWithClerk();
 
+  const initialMinutes = job.duration_minutes || 0;
+
   const [editing, setEditing] = useState(false);
-  const [minutes, setMinutes] = useState(job.duration_minutes || 0);
+  const [hours, setHours] = useState(Math.floor(initialMinutes / 60));
+  const [minutes, setMinutes] = useState(initialMinutes % 60);
   const [loading, setLoading] = useState(false);
+
+  // ⏱️ FORMAT (VIEW ONLY)
+  const formatDuration = (total) => {
+    if (total == null || isNaN(total)) return "—";
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    if (h > 0 && m > 0) return `${h} h ${m} min`;
+    if (h > 0) return `${h} h`;
+    return `${m} min`;
+  };
 
   const save = async () => {
     try {
       setLoading(true);
       const supabase = await getClientWithToken();
 
-      const updatedMinutes = Number(minutes);
+      const totalMinutes = Number(hours || 0) * 60 + Number(minutes || 0);
 
       const { error } = await supabase
         .from("cleaning_jobs")
         .update({
-          duration_minutes: updatedMinutes,
+          duration_minutes: totalMinutes,
           duration_edited_at: new Date().toISOString(),
         })
         .eq("id", job.id);
@@ -33,10 +46,9 @@ export default function AdminEditDuration({ job, onUpdated }) {
 
       toast.success("⏱️ Duration updated");
 
-      // 🔥 Notificar al padre
       onUpdated?.({
         ...job,
-        duration_minutes: updatedMinutes,
+        duration_minutes: totalMinutes,
       });
 
       setEditing(false);
@@ -48,10 +60,11 @@ export default function AdminEditDuration({ job, onUpdated }) {
     }
   };
 
+  // 👀 VIEW MODE
   if (!editing) {
     return (
       <div className="flex items-center gap-2">
-        <span className="font-semibold">{`${minutes} min`}</span>
+        <span className="font-semibold">{formatDuration(initialMinutes)}</span>
 
         <Button
           size="icon"
@@ -65,15 +78,31 @@ export default function AdminEditDuration({ job, onUpdated }) {
     );
   }
 
+  // ✏️ EDIT MODE (HOURS + MINUTES)
   return (
     <div className="flex items-center gap-2">
       <Input
         type="number"
         min="0"
-        className="w-20 h-8"
-        value={minutes}
-        onChange={(e) => setMinutes(e.target.value)}
+        placeholder="h"
+        className="w-14 h-8"
+        value={hours}
+        onChange={(e) => setHours(e.target.value)}
       />
+
+      <span className="text-sm text-gray-500">h</span>
+
+      <Input
+        type="number"
+        min="0"
+        max="59"
+        placeholder="min"
+        className="w-16 h-8"
+        value={minutes}
+        onChange={(e) => setMinutes(Math.min(59, Math.max(0, e.target.value)))}
+      />
+
+      <span className="text-sm text-gray-500">min</span>
 
       <Button
         size="icon"
@@ -89,7 +118,8 @@ export default function AdminEditDuration({ job, onUpdated }) {
         size="icon"
         variant="ghost"
         onClick={() => {
-          setMinutes(job.duration_minutes || 0);
+          setHours(Math.floor(initialMinutes / 60));
+          setMinutes(initialMinutes % 60);
           setEditing(false);
         }}
         className="h-7 w-7"

@@ -16,6 +16,7 @@ export default function ClientJobRequests({ clerkId, getToken }) {
   const { jobs, loading, fetchCustomerJobs, createJobRequest } =
     useCustomerJobs({ clerkId, getToken });
 
+  // 🔹 FORM STATE
   const [form, setForm] = useState({
     title: "",
     service_type: "",
@@ -24,23 +25,54 @@ export default function ClientJobRequests({ clerkId, getToken }) {
     notes: "",
   });
 
+  // 🔹 SUBMIT STATE (NO MEZCLAR CON FETCH)
+  const [submitting, setSubmitting] = useState(false);
+
+  /* =========================
+     LOAD JOBS
+  ========================= */
   useEffect(() => {
     fetchCustomerJobs();
   }, [fetchCustomerJobs]);
 
+  // 🔔 EVENTO GLOBAL (admin escucha esto)
+  const emitJobCreated = (job) => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("job:created", { detail: job }));
+    }
+  };
+
+  /* =========================
+     FORM HANDLERS
+  ========================= */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async () => {
-    if (!form.title || !form.scheduled_date) {
-      toast.error("Please provide a title and a scheduled date.");
+    if (
+      !form.title?.trim() ||
+      !form.service_type?.trim() ||
+      !form.scheduled_date
+    ) {
+      toast.error("Please fill all required fields.");
       return;
     }
 
     try {
-      await createJobRequest(form);
+      setSubmitting(true);
+
+      const createdJob = await createJobRequest({
+        ...form,
+        property_address: form.property_address?.trim() || form.title.trim(),
+      });
+
+      if (createdJob?.id) {
+        emitJobCreated(createdJob);
+        fetchCustomerJobs(); // opcional pero seguro
+      }
+
       setForm({
         title: "",
         service_type: "",
@@ -48,11 +80,18 @@ export default function ClientJobRequests({ clerkId, getToken }) {
         scheduled_date: "",
         notes: "",
       });
+
+      toast.success("✅ Cleaning request submitted!");
     } catch (err) {
       toast.error("Error creating request: " + err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  /* =========================
+     LOADING STATE (FETCH)
+  ========================= */
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -61,9 +100,12 @@ export default function ClientJobRequests({ clerkId, getToken }) {
     );
   }
 
+  /* =========================
+     RENDER
+  ========================= */
   return (
     <div className="space-y-8">
-      {/* 🔹 Nueva solicitud */}
+      {/* 🔹 NEW REQUEST */}
       <Card>
         <CardHeader>
           <CardTitle>Request a Cleaning Service</CardTitle>
@@ -71,12 +113,33 @@ export default function ClientJobRequests({ clerkId, getToken }) {
             Tell us what you need and when you’d like it done.
           </CardDescription>
         </CardHeader>
+
         <CardContent className="space-y-3">
           <input
             name="title"
             className="w-full border rounded-lg p-2 text-sm"
-            placeholder="Title (e.g. Deep Cleaning)"
+            placeholder="Title (e.g. 44 Cameron #10)"
             value={form.title}
+            onChange={handleChange}
+          />
+
+          <select
+            name="service_type"
+            value={form.service_type}
+            onChange={handleChange}
+            className="w-full border rounded-lg p-2 text-sm"
+          >
+            <option value="">Select service type</option>
+            <option value="standard">Standard Cleaning</option>
+            <option value="deep">Deep Cleaning</option>
+            <option value="move-out">Move-out Cleaning</option>
+          </select>
+
+          <input
+            name="property_address"
+            className="w-full border rounded-lg p-2 text-sm"
+            placeholder="Property Address (optional)"
+            value={form.property_address}
             onChange={handleChange}
           />
 
@@ -85,24 +148,6 @@ export default function ClientJobRequests({ clerkId, getToken }) {
             type="date"
             className="w-full border rounded-lg p-2 text-sm"
             value={form.scheduled_date}
-            onChange={(e) =>
-              setForm({ ...form, scheduled_date: e.target.value })
-            }
-          />
-
-          <input
-            name="service_type"
-            className="w-full border rounded-lg p-2 text-sm"
-            placeholder="Service Type (e.g. Bathroom, Kitchen)"
-            value={form.service_type}
-            onChange={handleChange}
-          />
-
-          <input
-            name="property_address"
-            className="w-full border rounded-lg p-2 text-sm"
-            placeholder="Property Address"
-            value={form.property_address}
             onChange={handleChange}
           />
 
@@ -115,18 +160,24 @@ export default function ClientJobRequests({ clerkId, getToken }) {
           />
 
           <Button
-            disabled={!form.title || !form.scheduled_date}
+            disabled={
+              submitting ||
+              !form.title ||
+              !form.service_type ||
+              !form.scheduled_date
+            }
             onClick={handleSubmit}
             className="w-full"
           >
-            {loading ? "Submitting..." : "Submit Request"}
+            {submitting ? "Submitting..." : "Submit Request"}
           </Button>
         </CardContent>
       </Card>
 
-      {/* 🔹 Lista de solicitudes */}
+      {/* 🔹 JOB LIST */}
       <div>
         <h2 className="text-xl font-semibold mb-3">My Requests</h2>
+
         {jobs.length === 0 ? (
           <p className="text-gray-500 text-sm">No requests yet.</p>
         ) : (
@@ -139,6 +190,7 @@ export default function ClientJobRequests({ clerkId, getToken }) {
                     {job.service_type || "No service type"}
                   </CardDescription>
                 </CardHeader>
+
                 <CardContent>
                   <p className="text-gray-500 text-sm">
                     📍 {job.property_address || "No address"}

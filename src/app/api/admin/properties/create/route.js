@@ -9,7 +9,6 @@ const supabase = createClient(
 );
 
 export async function POST(req) {
-  // ✅ CLAVE ABSOLUTA
   const { userId } = getAuth(req);
 
   if (!userId) {
@@ -26,22 +25,25 @@ export async function POST(req) {
     );
   }
 
-  // 🔐 Verificar perfil
-  const { data: profile, error: profileError } = await supabase
+  // 🔐 validar admin
+  const { data: profile } = await supabase
     .from("profiles")
     .select("role")
     .eq("clerk_id", userId)
     .single();
 
-  if (profileError || !profile) {
-    return NextResponse.json({ error: "Profile not found" }, { status: 403 });
-  }
-
-  if (profile.role !== "admin") {
+  if (!profile || profile.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 🏠 Insert real
+  // ✅ BUSCAR OWNER REAL POR COMPANY
+  const { data: owner } = await supabase
+    .from("owners")
+    .select("id")
+    .eq("company_id", company_id)
+    .maybeSingle();
+
+  // 🏠 crear propiedad
   const { data, error } = await supabase
     .from("properties")
     .insert({
@@ -51,6 +53,7 @@ export async function POST(req) {
       street_number,
       street_name,
       company_id,
+      owner_id: owner?.id ?? null, // 🔑 CLAVE
     })
     .select()
     .single();

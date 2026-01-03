@@ -1,4 +1,10 @@
 "use client";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
@@ -28,7 +34,7 @@ export default function AdminKeysList() {
   const [loadingCompanies, setLoadingCompanies] = useState(true);
 
   // 🔁 UI state
-  const [viewMode, setViewMode] = useState("grid");
+  const [viewMode, setViewMode] = useState("list");
   const [selectedCompany, setSelectedCompany] = useState("all");
   const [selectedProperty, setSelectedProperty] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -36,9 +42,14 @@ export default function AdminKeysList() {
   /* =====================
      LOAD KEYS (NO TOCAR)
   ===================== */
-  async function loadKeys() {
+  async function loadKeys(companyId = "all") {
     try {
-      const res = await fetch("/api/keys", { cache: "no-store" });
+      const url =
+        companyId === "all"
+          ? "/api/admin/keys"
+          : `/api/admin/keys?company_id=${companyId}`;
+
+      const res = await fetch(url, { cache: "no-store" });
       const json = await res.json();
       setKeys(json.keys || []);
     } catch (err) {
@@ -47,6 +58,7 @@ export default function AdminKeysList() {
       setLoading(false);
     }
   }
+
   /* =====================
      DELETE KEY (SAFE)
   ===================== */
@@ -146,8 +158,8 @@ export default function AdminKeysList() {
   }, [selectedCompany, getToken]);
 
   useEffect(() => {
-    loadKeys();
-  }, []);
+    loadKeys(selectedCompany);
+  }, [selectedCompany]);
 
   // 📱 Grid automático en mobile
   useEffect(() => {
@@ -168,18 +180,30 @@ export default function AdminKeysList() {
      (SIN company_id)
   ===================== */
   const filteredKeys = keys.filter((k) => {
-    const propertyMatch =
-      selectedProperty === "all"
-        ? true
-        : k.property_address ===
-          properties.find((p) => String(p.id) === String(selectedProperty))
-            ?.name;
-
     const statusMatch =
       selectedStatus === "all" ? true : k.status === selectedStatus;
 
-    return propertyMatch && statusMatch;
+    const propertyMatch =
+      selectedProperty === "all"
+        ? true
+        : String(k.property_id) === String(selectedProperty);
+
+    return statusMatch && propertyMatch;
   });
+  const getStatusStyles = (status) => {
+    switch (status) {
+      case "available":
+        return "bg-green-100 text-green-700";
+      case "missing":
+        return "bg-red-100 text-red-700";
+      case "assigned":
+        return "bg-yellow-100 text-yellow-700";
+      default:
+        return "bg-gray-100 text-gray-600";
+    }
+  };
+
+  const getRowStyles = (isReported) => (isReported ? "bg-red-50" : "");
 
   return (
     <div className="p-8 pt-[130px] space-y-6">
@@ -278,13 +302,7 @@ export default function AdminKeysList() {
       {viewMode === "grid" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredKeys.map((key) => {
-            const statusColor =
-              key.status === "available"
-                ? "bg-green-100 text-green-700"
-                : key.status === "missing"
-                ? "bg-red-100 text-red-700"
-                : "bg-yellow-100 text-yellow-700";
-
+            const statusColor = getStatusStyles(key.status);
             const reportedStyle = key.is_reported
               ? "border-red-300 bg-red-50"
               : "border-gray-200 bg-white";
@@ -358,7 +376,7 @@ export default function AdminKeysList() {
                 <th className="px-4 py-3 text-left">Unit</th>
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-left">Actions</th>
+                <th className="px-2 py-3 text-center w-[56px]">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -368,35 +386,76 @@ export default function AdminKeysList() {
                   onClick={() =>
                     (window.location.href = `/admin/keys/${k.tag_code}`)
                   }
-                  className="border-t hover:bg-gray-50 cursor-pointer"
+                  className={`border-t hover:bg-gray-50 cursor-pointer ${getRowStyles(
+                    k.is_reported
+                  )}`}
                 >
-                  <td className="px-4 py-2 font-medium">{k.tag_code}</td>
-                  <td className="px-4 py-2">{k.property_address}</td>
+                  <td className="px-4 py-2">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-900">
+                        {k.tag_code}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {k.property_address || "—"}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-2">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-900">
+                        {k.property_name || k.properties?.name || "—"}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {k.property_address || k.properties?.address || ""}
+                      </span>
+                    </div>
+                  </td>
+
                   <td className="px-4 py-2">{k.unit || "—"}</td>
                   <td className="px-4 py-2">{k.type || "—"}</td>
-                  <td className="px-4 py-2">{k.status}</td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusStyles(
+                        k.status
+                      )}`}
+                    >
+                      {k.status}
+                    </span>
+                  </td>
 
                   {/* ACTIONS */}
                   <td
-                    className="px-4 py-2"
+                    className="px-2 py-2 text-center w-[56px]"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() =>
-                          (window.location.href = `/admin/keys/${k.tag_code}/edit`)
-                        }
-                        className="text-gray-600 hover:text-primary"
-                      >
-                        <Pencil size={16} />
-                      </button>
+                    <div className="flex justify-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-2 rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-800">
+                            <MoreVertical size={16} />
+                          </button>
+                        </DropdownMenuTrigger>
 
-                      <button
-                        onClick={() => handleDeleteKey(k.id, k.tag_code)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem
+                            onClick={() =>
+                              (window.location.href = `/admin/keys/${k.tag_code}/edit`)
+                            }
+                          >
+                            <Pencil size={14} className="mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteKey(k.id, k.tag_code)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 size={14} className="mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </td>
                 </tr>

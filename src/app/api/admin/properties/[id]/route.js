@@ -1,74 +1,151 @@
-// app/api/properties/[id]/route.js
-import { getAuth } from "@clerk/nextjs/server";
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function DELETE(req, { params }) {
+/* =========================
+   GET PROPERTY (ADMIN / STAFF)
+========================= */
+export async function GET(req, { params }) {
   try {
-    const { userId } = getAuth(req);
+    const { userId } = await auth();
+
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1️⃣ Perfil real
-    const { data: profile } = await supabase
+    const propertyId = params.id;
+
+    /* =====================
+       LOAD PROFILE
+    ===================== */
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("id, role, company_id")
       .eq("clerk_id", userId)
       .single();
 
-    if (!profile || !profile.company_id) {
+    if (profileError || !profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 403 });
+    }
+
+    /* =====================
+       LOAD PROPERTY
+       - Admin: cualquier compañía
+       - Otros: solo su company_id
+    ===================== */
+    let query = supabase
+      .from("properties")
+      .select(
+        `
+        *,
+        company:company_id (
+          id,
+          name
+        )
+      `
+      )
+      .eq("id", propertyId);
+
+    if (profile.role !== "admin") {
+      query = query.eq("company_id", profile.company_id);
+    }
+
+    const { data: property, error: propertyError } = await query.single();
+
+    if (propertyError || !property) {
       return NextResponse.json(
-        { error: "No company assigned" },
-        { status: 403 }
+        { error: "Property not found" },
+        { status: 404 }
       );
     }
 
-    // 2️⃣ Permiso REAL (RBAC)
-    const { data: permission } = await supabase
-      .from("permissions_matrix")
-      .select("allowed")
-      .eq("company_id", profile.company_id)
-      .eq("role", profile.role)
-      .eq("resource", "property") // ✅ singular
-      .eq("action", "delete")
-      .maybeSingle();
+    /* =====================
+       LOAD UNITS
+    ===================== */
+    const { data: units } = await supabase
+      .from("units")
+      .select("*")
+      .eq("property_id", propertyId)
+      .order("unit", { ascending: true });
 
-    if (!permission?.allowed) {
-      return NextResponse.json(
-        { error: "Not allowed to delete properties" },
-        { status: 403 }
-      );
-    }
+    /* =====================
+       LOAD KEYS
+    ===================== */
+    const { data: keys } = await supabase
+      .from("keys")
+      .select("*")
+      .eq("property_id", propertyId)
+      .order("tag_code", { ascending: true });
 
+    return NextResponse.json({
+      property,
+      units: units || [],
+      keys: keys || [],
+    });
+  } catch (err) {
+    console.error("❌ GET PROPERTY ERROR:", err);
+    return NextResponse.json(
+      { error: "Failed to load property" },
+      { status: 500 }
+    );
+  }
+}
+
+/* =========================
+   PATCH PROPERTY (ADMIN ONLY)
+========================= */
+export async function PATCH(req, { params }) {
+  try {
+    const { userId } = await auth();
     const propertyId = params.id;
 
-    // 👉 aquí luego puedes validar dependencias (jobs, keys, etc.)
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    /* =====================
+       LOAD PROFILE
+    ===================== */
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, role, company_id")
+      .eq("clerk_id", userId)
+      .single();
+
+    if (profileError || profile.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { name, address, unit } = await req.json();
+
+    if (!name) {
+      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
 
     const { error } = await supabase
       .from("properties")
-      .delete()
+      .update({
+        name,
+        address,
+        unit,
+      })
       .eq("id", propertyId)
-      .eq("company_id", profile.company_id); // 🔐 seguridad extra
+      .eq("company_id", profile.company_id);
 
     if (error) {
-      console.error("DELETE PROPERTY ERROR:", error);
-      return NextResponse.json(
-        { error: "Failed to delete property" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("DELETE PROPERTY ERROR:", err);
+    console.error("❌ PATCH PROPERTY ERROR:", err);
     return NextResponse.json(
-      { error: "Failed to delete property" },
+      { error: "Failed to update property" },
       { status: 500 }
     );
   }

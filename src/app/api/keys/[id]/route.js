@@ -2,33 +2,33 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 /* =====================
-   GET KEY (EXISTENTE)
+   GET KEY + ACTIVE CUSTODY
 ===================== */
 export async function GET(req, context) {
-  // 🔥 params ahora es un Promise → se debe hacer await
   const { id } = await context.params;
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY // service role
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
-  // Buscar por tag_code primero
-  let { data, error } = await supabase
+  /* =====================
+     LOAD KEY (TAG_CODE or UUID)
+  ===================== */
+  let { data: key, error } = await supabase
     .from("keys")
     .select("*")
-    .eq("tag_code", id)
+    .ilike("tag_code", id)
     .maybeSingle();
 
-  // Si no existe → buscar por UUID
-  if (!data) {
+  if (!key) {
     const uuidQuery = await supabase
       .from("keys")
       .select("*")
       .eq("id", id)
       .maybeSingle();
 
-    data = uuidQuery.data;
+    key = uuidQuery.data;
     error = uuidQuery.error;
   }
 
@@ -36,45 +36,34 @@ export async function GET(req, context) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (!data) {
+  if (!key) {
     return NextResponse.json({ error: "Key not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ key: data });
-}
+  /* =====================
+     LOAD ACTIVE CUSTODY
+  ===================== */
+  const { data: custody } = await supabase
+    .from("key_custody")
+    .select(
+      `
+      id,
+      holder_type,
+      holder_label,
+      holder_id,
+      created_at
+    `
+    )
+    .eq("key_id", key.id)
+    .is("returned_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-/* =====================
-   DELETE KEY (NUEVO)
-===================== */
-export async function DELETE(req, context) {
-  const { id } = await context.params;
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY // 🔐 ignora RLS
-  );
-
-  // 1️⃣ Intentar borrar por UUID
-  let { error } = await supabase.from("keys").delete().eq("id", id);
-
-  // 2️⃣ Si no borró nada, intentar por tag_code
-  if (!error) {
-    const { data } = await supabase
-      .from("keys")
-      .select("id")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (!data) {
-      const tagDelete = await supabase.from("keys").delete().eq("tag_code", id);
-
-      error = tagDelete.error;
-    }
-  }
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    key: {
+      ...key,
+      custody: custody || null,
+    },
+  });
 }

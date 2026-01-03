@@ -158,9 +158,12 @@ export default function ClientJobsView({
               </label>
               <Input
                 placeholder="123 Main St, Unit 2"
-                value={form.property_address}
+                value={form.property_address || ""}
                 onChange={(e) =>
-                  setForm({ ...form, property_address: e.target.value })
+                  setForm((prev) => ({
+                    ...prev,
+                    property_address: e.target.value,
+                  }))
                 }
               />
             </div>
@@ -249,7 +252,8 @@ export default function ClientJobsView({
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
-                  <th className="px-4 py-2 text-left">Job</th>
+                  <th className="px-4 py-2 text-left">Request</th>
+                  <th className="px-4 py-2 text-left">Service</th>
                   <th className="px-4 py-2 text-left">Address</th>
                   <th className="px-4 py-2 text-left">Date</th>
                   <th className="px-4 py-2 text-left">Status</th>
@@ -264,13 +268,24 @@ export default function ClientJobsView({
                       className="border-t hover:bg-gray-50 cursor-pointer"
                       onClick={() => (window.location.href = `/jobs/${job.id}`)}
                     >
-                      <td className="px-4 py-2 font-medium">
+                      <td className="px-4 py-2">
+                        <div className="font-semibold">
+                          {job.title?.trim() || "Cleaning Request"}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-2">
                         {getFriendlyName(job.service_type)}
                       </td>
-                      <td className="px-4 py-2">{job.property_address}</td>
+
+                      <td className="px-4 py-2">
+                        {job.property_address || "—"}
+                      </td>
+
                       <td className="px-4 py-2">
                         {new Date(job.scheduled_date).toLocaleDateString()}
                       </td>
+
                       <td className="px-4 py-2">
                         <span
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -309,7 +324,7 @@ export default function ClientJobsView({
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center gap-2 truncate">
                       <ClipboardList className="w-5 h-5 text-primary" />
-                      {getFriendlyName(job.service_type)}
+                      {job.title?.trim() || getFriendlyName(job.service_type)}
                     </CardTitle>
 
                     <CardDescription className="text-sm text-muted-foreground">

@@ -56,13 +56,13 @@ export default function KeyDetailPage() {
   // Status badge
   const statusColors = {
     available: "bg-green-100 text-green-700 border-green-300",
-    checked_out: "bg-yellow-100 text-yellow-700 border-yellow-300",
+    assigned: "bg-yellow-100 text-yellow-700 border-yellow-300",
     missing: "bg-red-100 text-red-700 border-red-300",
   };
 
   const statusLabel = {
     available: "Available",
-    checked_out: "Checked Out",
+    assigned: "Checked Out",
     missing: "Missing",
   };
 
@@ -70,6 +70,16 @@ export default function KeyDetailPage() {
   function copyCode() {
     navigator.clipboard.writeText(keyData.tag_code);
     toast.success("Copied to clipboard!");
+  }
+
+  function getHolderName(custody) {
+    if (!custody) return "Available";
+
+    if (custody.holder_label) return custody.holder_label;
+
+    if (custody.profiles?.full_name) return custody.profiles.full_name;
+
+    return "Assigned";
   }
 
   return (
@@ -105,6 +115,13 @@ export default function KeyDetailPage() {
             }`}
           >
             {statusLabel[keyData.status] || keyData.status}
+          </div>
+        </div>
+        {/* CURRENT HOLDER */}
+        <div className="mb-6">
+          <p className="text-sm text-gray-500 mb-1">Currently held by</p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-800 font-semibold">
+            {getHolderName(keyData.custody)}
           </div>
         </div>
 

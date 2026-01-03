@@ -90,32 +90,33 @@ export default function CustomerDashboard() {
     async (newJob) => {
       try {
         setLoading(true);
-        const supabaseAuth = await createSupabaseClient();
-        if (!supabaseAuth) return;
 
-        const { error } = await supabaseAuth.from("cleaning_jobs").insert([
-          {
+        const res = await fetch("/api/jobs/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
             title: newJob.title,
             service_type: newJob.service_type,
             property_address: newJob.property_address,
-            created_by: clerkId,
-            status: "pending",
-          },
-        ]);
+            assigned_client: clerkId,
+          }),
+        });
 
-        if (error) throw error;
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to create job");
 
         toast.success("✅ Request submitted successfully!");
         await fetchJobs();
         setNewJob({ title: "", service_type: "", property_address: "" });
       } catch (err) {
         console.error("❌ Error creating job request:", err.message);
-        toast.error("Failed to submit request");
+        toast.error(err.message);
       } finally {
         setLoading(false);
       }
     },
-    [createSupabaseClient, clerkId, fetchJobs]
+    [clerkId, fetchJobs]
   );
 
   useEffect(() => {
