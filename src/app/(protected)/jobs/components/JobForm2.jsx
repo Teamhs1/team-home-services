@@ -16,64 +16,48 @@ import { Loader2, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 
 /* =======================
-   SERVICE TYPES (UX PRO)
+   SERVICE TYPES
 ======================= */
 const SERVICE_TYPES = [
-  {
-    value: "light",
-    label: "Light Cleaning",
-    description: "Quick maintenance or touch-up cleaning",
-  },
+  { value: "light", label: "Light Cleaning", description: "Quick maintenance" },
   {
     value: "standard",
     label: "Standard Cleaning",
-    description: "Regular residential cleaning",
+    description: "Regular clean",
   },
-  {
-    value: "deep",
-    label: "Deep Cleaning",
-    description: "Detailed deep clean (kitchen, baths, baseboards)",
-  },
+  { value: "deep", label: "Deep Cleaning", description: "Detailed deep clean" },
   {
     value: "heavy",
-    label: "Heavy / Intensive Cleaning",
-    description: "Full scrubbing of walls, cabinets, windows & extreme dirt",
+    label: "Heavy Cleaning",
+    description: "Intensive cleaning",
   },
   {
     value: "move-out",
     label: "Move-out / Move-in",
-    description: "Full clean for vacant units",
+    description: "Vacant unit",
   },
   {
     value: "post-construction",
     label: "Post-Construction",
-    description: "Dust & debris after construction work",
+    description: "After construction",
   },
-  {
-    value: "restoration",
-    label: "Restoration Cleaning",
-    description: "After water, fire or damage restoration",
-  },
-  {
-    value: "renovation",
-    label: "Renovation Cleaning",
-    description: "After renovation or remodeling",
-  },
-  {
-    value: "add-ons",
-    label: "Add-ons Only",
-    description: "Oven, fridge, windows, extras",
-  },
+  { value: "restoration", label: "Restoration", description: "After damage" },
+  { value: "renovation", label: "Renovation", description: "After renovation" },
+  { value: "add-ons", label: "Add-ons Only", description: "Extras only" },
 ];
 
 export default function JobForm({
   staffList = [],
   clientList = [],
-  fetchJobs, // ✅ RECIBIDO
+  companyList = [], // ✅ NUEVO (IGUAL QUE KEYS)
+  fetchJobs,
 }) {
-  // ========= STATE =========
+  /* =======================
+     STATE
+  ====================== */
   const [title, setTitle] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
+  const [companyId, setCompanyId] = useState(""); // ✅ NUEVO
   const [clientId, setClientId] = useState("");
   const [serviceType, setServiceType] = useState("standard");
   const [scheduledDate, setScheduledDate] = useState("");
@@ -81,9 +65,12 @@ export default function JobForm({
   const [creating, setCreating] = useState(false);
   const toastShownRef = useRef(false);
 
-  // ========= VALIDATION =========
+  // ❗ NO CAMBIAMOS VALIDACIÓN EXISTENTE
   const isValid = title.trim() && scheduledDate && clientId.trim();
 
+  /* =======================
+     SUBMIT
+  ====================== */
   async function createJob() {
     if (!isValid || creating) return;
 
@@ -97,8 +84,9 @@ export default function JobForm({
         credentials: "include",
         body: JSON.stringify({
           title,
-          assigned_to: assignedTo,
+          assigned_to: assignedTo || null,
           assigned_client: clientId,
+          company_id: companyId || null, // ✅ CLAVE
           service_type: serviceType,
           scheduled_date: format(new Date(scheduledDate), "yyyy-MM-dd"),
         }),
@@ -107,24 +95,19 @@ export default function JobForm({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error creating job");
 
-      // 🔄 REFRESH JOBS LIST (CLAVE)
-      if (typeof fetchJobs === "function") {
-        await fetchJobs();
-      }
+      if (typeof fetchJobs === "function") await fetchJobs();
 
-      if (!toastShownRef.current) {
-        toast.custom(() => (
-          <div className="flex items-center gap-2 px-4 py-3 rounded-md border bg-green-50 text-green-700 shadow-sm text-sm font-medium">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Job created successfully</span>
-          </div>
-        ));
-        toastShownRef.current = true;
-      }
+      toast.custom(() => (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-md border bg-green-50 text-green-700 shadow-sm text-sm font-medium">
+          <CheckCircle2 className="w-4 h-4" />
+          <span>Job created successfully</span>
+        </div>
+      ));
 
-      // RESET FORM
+      // RESET
       setTitle("");
       setAssignedTo("");
+      setCompanyId("");
       setClientId("");
       setServiceType("standard");
       setScheduledDate("");
@@ -138,13 +121,15 @@ export default function JobForm({
   const dropdownClass =
     "bg-white border border-gray-200 shadow-md dark:bg-zinc-900 dark:border-zinc-700";
 
+  /* =======================
+     UI
+  ====================== */
   return (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-6 gap-4 md:gap-6">
       {/* Job Title */}
       <div className="space-y-1.5">
         <Label>Job Title</Label>
         <Input
-          placeholder="Example: 45 Cameron #C"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="h-11"
@@ -163,6 +148,23 @@ export default function JobForm({
         />
       </div>
 
+      {/* Company ✅ */}
+      <div className="space-y-1.5">
+        <Label>Company</Label>
+        <Select value={companyId} onValueChange={setCompanyId}>
+          <SelectTrigger className="h-11">
+            <SelectValue placeholder="Select company" />
+          </SelectTrigger>
+          <SelectContent className={dropdownClass}>
+            {companyList.map((company) => (
+              <SelectItem key={company.id} value={String(company.id)}>
+                {company.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Staff */}
       <div className="space-y-1.5">
         <Label>Staff</Label>
@@ -170,7 +172,7 @@ export default function JobForm({
           <SelectTrigger className="h-11">
             <SelectValue placeholder="Select staff" />
           </SelectTrigger>
-          <SelectContent position="popper" className={`${dropdownClass} z-50`}>
+          <SelectContent className={`${dropdownClass} z-50`}>
             {staffList.map((staff) => (
               <SelectItem key={staff.clerk_id} value={staff.clerk_id}>
                 {staff.full_name}
@@ -207,7 +209,7 @@ export default function JobForm({
           <SelectContent className={dropdownClass}>
             {SERVICE_TYPES.map((service) => (
               <SelectItem key={service.value} value={service.value}>
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col">
                   <span className="font-medium">{service.label}</span>
                   <span className="text-xs text-gray-600">
                     {service.description}
@@ -228,7 +230,7 @@ export default function JobForm({
         >
           {creating ? (
             <span className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
               Creating…
             </span>
           ) : (

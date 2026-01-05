@@ -41,7 +41,7 @@ export default function AdminDashboard() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const role = user?.publicMetadata?.role || "user";
+  const [role, setRole] = useState(null);
 
   // ✅ Cliente Supabase autenticado con Clerk
   const getSupabase = useCallback(async () => {
@@ -53,6 +53,24 @@ export default function AdminDashboard() {
       { global: { headers: { Authorization: `Bearer ${token}` } } }
     );
   }, [getToken]);
+  const fetchRole = useCallback(async () => {
+    try {
+      const supabase = await getSupabase();
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("clerk_id", user.id)
+        .single();
+
+      if (error) throw error;
+
+      setRole(data.role);
+    } catch (err) {
+      console.error("❌ Error loading role:", err);
+      setRole("user");
+    }
+  }, [getSupabase, user?.id]);
 
   // 🧾 Cargar trabajos con fotos
   const fetchJobs = useCallback(async () => {
@@ -128,14 +146,29 @@ export default function AdminDashboard() {
 
   // 🔁 Cargar datos iniciales
   useEffect(() => {
-    if (!isLoaded) return;
-    if (role !== "admin") return;
-    const loadAll = async () => {
+    if (!isLoaded || !user) return;
+
+    const init = async () => {
+      await fetchRole();
+    };
+
+    init();
+  }, [isLoaded, user, fetchRole]);
+  useEffect(() => {
+    if (role === null) return; // aún no sabemos el rol
+
+    if (role !== "admin") {
+      setLoading(false); // evita loader infinito
+      return;
+    }
+
+    const loadAdminData = async () => {
       await fetchJobs();
       await fetchMessages();
     };
-    loadAll();
-  }, [isLoaded, role, fetchJobs, fetchMessages]);
+
+    loadAdminData();
+  }, [role, fetchJobs, fetchMessages]);
 
   // 🔄 Realtime para cambios en trabajos
   useEffect(() => {
@@ -225,7 +258,7 @@ export default function AdminDashboard() {
     );
   }, [jobs]);
 
-  if (!isLoaded || loading)
+  if (!isLoaded || role === null || loading)
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="animate-spin w-8 h-8 text-primary" />

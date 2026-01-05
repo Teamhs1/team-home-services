@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 
 import SafeClerkWrapper from "@/components/SafeClerkWrapper";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
+
 import {
   Loader2,
   ClipboardList,
@@ -33,12 +33,6 @@ import {
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  { auth: { persistSession: false } }
-);
 
 export default function StaffView() {
   return (
@@ -80,56 +74,48 @@ function StaffDashboard({ user, role }) {
 
   // 🔐 Verificación de acceso
   useEffect(() => {
-    if (!user) return;
+    if (!user || !role) return; // ⬅️ CLAVE
+
     if (role !== "staff") {
       toast.error("Access denied");
-      window.location.href = "/";
+      router.replace("/");
       return;
     }
+
     fetchJobs();
-  }, [user, role]);
+  }, [user?.id, role]);
 
   // 📦 Cargar trabajos
   async function fetchJobs() {
     setLoading(true);
-    const staffId = user?.id;
-    const { data, error } = await supabase
-      .from("cleaning_jobs")
-      .select("*")
-      .eq("assigned_to", staffId)
-      .order("scheduled_date", { ascending: true });
 
-    if (error) {
-      console.error("❌ Error fetching jobs:", error.message);
-      toast.error("Error loading assigned jobs");
-    } else {
+    try {
+      const res = await fetch("/api/staff/jobs", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load jobs");
+      }
+
       setJobs(data || []);
-      setRecentJobs(data.slice(0, 5));
+      setRecentJobs((data || []).slice(0, 5));
+    } catch (err) {
+      console.error("❌ Error loading staff jobs:", err.message);
+      toast.error("Error loading assigned jobs");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
-
-  // 🔔 Realtime listener
   useEffect(() => {
-    if (!user?.id) return;
-    const channel = supabase
-      .channel("staff-job-updates")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "cleaning_jobs" },
-        (payload) => {
-          const job = payload.new;
-          if (job?.assigned_to === user.id) {
-            toast.success("🧹 New job assigned to you!");
-            playNotificationSound();
-            fetchJobs();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
-  }, [user?.id, soundEnabled]);
+    const onFocus = () => fetchJobs();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   // 📊 Stats
   const stats = useMemo(() => {
@@ -308,7 +294,7 @@ function StaffDashboard({ user, role }) {
                       : "bg-green-100 text-green-700"
                   }`}
                     >
-                      {job.status.replace("_", " ")}
+                      {job.status?.replace("_", " ") || "unknown"}
                     </span>
                   </div>
                 </div>

@@ -23,17 +23,22 @@ async function logSync({ user_email, role, action, status, message }) {
   });
 }
 
-// 🧠 Sincroniza todos los usuarios de Clerk con Supabase
+// 🧠 Sincroniza todos los usuarios de Clerk con Supabase (IDEMPOTENTE)
 async function syncUsers() {
   const { data: allUsers } = await clerk.users.getUserList({ limit: 100 });
   const validRoles = ["admin", "staff", "client", "user"];
   const now = new Date().toISOString();
 
+  let scanned = 0;
+  let updated = 0;
+
   for (const user of allUsers) {
+    scanned++;
+
     const email = user.emailAddresses?.[0]?.emailAddress || "unknown";
     let role = user.publicMetadata?.role;
 
-    // 🧩 Si no tiene rol válido → se asigna "client" y se actualiza en Clerk
+    // 🧩 Rol por defecto si no es válido
     if (!role || !validRoles.includes(role)) {
       role = "client";
       console.log(`⚙️ Asignando rol 'client' a ${email}`);
@@ -49,46 +54,76 @@ async function syncUsers() {
       }
     }
 
+    const fullName = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+
     try {
-      const { error } = await supabase.from("profiles").upsert(
-        {
-          clerk_id: user.id,
-          full_name: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
-          email,
+      // 🔍 Obtener perfil actual
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("full_name, email, role")
+        .eq("clerk_id", user.id)
+        .single();
+
+      // 🧠 Comparar cambios reales
+      const hasChanges =
+        !existingProfile ||
+        existingProfile.full_name !== fullName ||
+        existingProfile.email !== email ||
+        existingProfile.role !== role;
+
+      if (hasChanges) {
+        const { error } = await supabase.from("profiles").upsert(
+          {
+            clerk_id: user.id,
+            full_name: fullName,
+            email,
+            role,
+            last_synced_at: now,
+          },
+          { onConflict: "clerk_id" }
+        );
+
+        if (error) throw error;
+
+        updated++;
+
+        await logSync({
+          user_email: email,
           role,
-          last_synced_at: now,
-        },
-        { onConflict: "clerk_id" }
-      );
+          action: "update",
+          status: "success",
+          message: "User data updated from Clerk",
+        });
 
-      if (error) throw error;
-
-      await logSync({
-        user_email: email,
-        role,
-        action: "upsert",
-        status: "success",
-        message: "User synced successfully",
-      });
-
-      console.log(`✅ Synced ${email} (${role})`);
+        console.log(`🔄 Updated ${email} (${role})`);
+      } else {
+        console.log(`⏭️ No changes for ${email}`);
+      }
     } catch (err) {
       await logSync({
         user_email: email,
         role,
-        action: "upsert",
+        action: "update",
         status: "error",
         message: err.message,
       });
+
       console.error(`❌ Error syncing ${email}:`, err.message);
     }
   }
+
+  return { scanned, updated };
 }
 
 export async function POST() {
   try {
-    await syncUsers();
-    return NextResponse.json({ success: true });
+    const result = await syncUsers();
+
+    return NextResponse.json({
+      success: true,
+      scanned: result.scanned,
+      updated: result.updated,
+    });
   } catch (err) {
     console.error("❌ Backfill error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

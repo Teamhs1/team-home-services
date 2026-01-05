@@ -9,9 +9,40 @@ export function useJobs({ clerkId, role, getToken }) {
   const [updatingId, setUpdatingId] = useState(null);
 
   /* =============================
-     FETCH JOBS (JOIN REAL)
+     FETCH JOBS
   ============================== */
   const fetchJobs = useCallback(async () => {
+    /* =========================
+       🛡️ ADMIN → API
+    ========================= */
+    if (role === "admin") {
+      try {
+        setLoading(true);
+
+        const res = await fetch("/api/admin/jobs", {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Failed to load jobs");
+
+        const safeJobs = Array.isArray(json.data) ? json.data : [];
+        setJobs(safeJobs);
+        return safeJobs;
+      } catch (err) {
+        console.error("❌ Admin jobs error:", err.message);
+        toast.error("Error loading admin jobs");
+        setJobs([]);
+        return [];
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    /* =========================
+       👤 STAFF / CLIENT → RLS
+    ========================= */
     try {
       setLoading(true);
 
@@ -27,26 +58,19 @@ export function useJobs({ clerkId, role, getToken }) {
       );
 
       let query = supabase.from("cleaning_jobs").select(`
-          *,
-          photos:job_photos(image_url),
-          client:profiles!cleaning_jobs_assigned_client_fkey (
-            clerk_id,
-            full_name,
-            email
-          ),
-          staff:profiles!cleaning_jobs_assigned_to_fkey (
-            clerk_id,
-            full_name,
-            email
-          )
-        `);
-
-      // 🔐 FILTROS POR ROL
-      if (role === "client") {
-        query = query.or(
-          `created_by.eq.${clerkId},assigned_client.eq.${clerkId}`
-        );
-      }
+        *,
+        photos:job_photos(image_url),
+        client:profiles!cleaning_jobs_assigned_client_fkey (
+          clerk_id,
+          full_name,
+          email
+        ),
+        staff:profiles!cleaning_jobs_assigned_to_fkey (
+          clerk_id,
+          full_name,
+          email
+        )
+      `);
 
       if (role === "staff") {
         query = query.eq("assigned_to", clerkId);
@@ -58,7 +82,6 @@ export function useJobs({ clerkId, role, getToken }) {
 
       if (error) throw error;
 
-      // ✅ NORMALIZACIÓN LIMPIA (NO TOCAR client)
       const normalizeUrl = (url) => {
         if (!url) return null;
         if (url.startsWith("http")) return url;
@@ -79,25 +102,34 @@ export function useJobs({ clerkId, role, getToken }) {
       }));
 
       setJobs(normalized);
+      return normalized;
     } catch (err) {
       console.error("❌ Error loading jobs:", err.message);
       toast.error("Error loading jobs: " + err.message);
+      setJobs([]);
+      return [];
     } finally {
       setLoading(false);
     }
   }, [clerkId, role, getToken]);
 
   /* =============================
-     REALTIME
+     AUTO LOAD
   ============================== */
   useEffect(() => {
-    if (!clerkId) return;
+    if (!role) return;
+    fetchJobs();
+  }, [role, fetchJobs]);
+
+  /* =============================
+     REALTIME (solo staff/client)
+  ============================== */
+  useEffect(() => {
+    if (!clerkId || role === "admin") return;
 
     let supabase;
 
     (async () => {
-      await fetchJobs();
-
       const token = await getToken({ template: "supabase" });
       if (!token) return;
 
@@ -122,7 +154,7 @@ export function useJobs({ clerkId, role, getToken }) {
         supabase.removeChannel(channel);
       };
     })();
-  }, [clerkId, fetchJobs, getToken]);
+  }, [clerkId, role, fetchJobs, getToken]);
 
   /* =============================
      ACTIONS
@@ -146,9 +178,9 @@ export function useJobs({ clerkId, role, getToken }) {
       if (!res.ok) throw new Error(json.error);
 
       toast.success("Job updated");
+      await fetchJobs();
     } catch (err) {
       toast.error(err.message);
-      await fetchJobs();
     } finally {
       setUpdatingId(null);
     }
@@ -156,6 +188,7 @@ export function useJobs({ clerkId, role, getToken }) {
 
   const deleteJob = async (id) => {
     if (!confirm("Delete job?")) return;
+
     try {
       const token = await getToken({ template: "supabase" });
       await fetch("/api/jobs/delete", {
@@ -166,7 +199,9 @@ export function useJobs({ clerkId, role, getToken }) {
         },
         body: JSON.stringify({ id }),
       });
+
       toast.success("Job deleted");
+      await fetchJobs();
     } catch (err) {
       toast.error(err.message);
     }

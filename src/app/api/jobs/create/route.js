@@ -3,34 +3,53 @@ import { createClient } from "@supabase/supabase-js";
 import { getAuth } from "@clerk/nextjs/server";
 
 export async function POST(req) {
-  const { userId, getToken } = getAuth(req);
+  const { userId } = getAuth(req);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 🔑 JWT DE CLERK
-  const token = await getToken({ template: "supabase" });
-
+  // ✅ SERVICE ROLE (NO JWT, NO RLS)
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    }
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
   const body = await req.json();
-  const { title, service_type, assigned_to, assigned_client, scheduled_date } =
-    body;
 
-  if (!title || !scheduled_date) {
+  const {
+    title,
+    service_type,
+    assigned_to,
+    assigned_client,
+    company_id,
+    scheduled_date,
+  } = body;
+
+  if (!title || !scheduled_date || !company_id || !assigned_client) {
     return NextResponse.json(
       { error: "Missing required fields" },
+      { status: 400 }
+    );
+  }
+
+  if (assigned_client.startsWith("user_")) {
+    return NextResponse.json(
+      { error: "assigned_client must be a profile UUID" },
+      { status: 400 }
+    );
+  }
+
+  // 🔑 map clerk → profile
+  const { data: creatorProfile, error: creatorError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (creatorError || !creatorProfile) {
+    return NextResponse.json(
+      { error: "Creator profile not found" },
       { status: 400 }
     );
   }
@@ -41,10 +60,11 @@ export async function POST(req) {
       title: title.trim(),
       service_type: service_type || "standard",
       assigned_to: assigned_to || null,
-      assigned_client: assigned_client || null,
+      assigned_client,
+      company_id,
       scheduled_date,
       status: "pending",
-      created_by: userId,
+      created_by: creatorProfile.id,
     })
     .select()
     .single();

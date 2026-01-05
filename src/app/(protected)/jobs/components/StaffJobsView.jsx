@@ -1,4 +1,12 @@
 "use client";
+import { MoreVertical, RefreshCcw, Trash2, Eye } from "lucide-react";
+
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -229,33 +237,60 @@ rounded-xl bg-white overflow-visible sm:overflow-hidden
                 className="cursor-pointer relative aspect-video bg-gray-100"
                 onClick={() => router.push(`/jobs/${job.id}`)}
               >
+                {/* ACTIONS MENU (3 DOTS) */}
+                <div
+                  className="absolute top-2 right-2 z-30"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 bg-white/90 backdrop-blur shadow"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => router.push(`/jobs/${job.id}`)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        View job
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        onClick={() =>
+                          toast.info("Reset not enabled for staff yet")
+                        }
+                      >
+                        <RefreshCcw className="mr-2 h-4 w-4" />
+                        Reset job
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        className="text-red-600"
+                        onClick={() => toast.error("Delete disabled for staff")}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* SLIDER */}
                 <Slider jobId={job.id} mini />
 
-                {/* REAL PHOTO COUNT */}
-                <div
-                  className="
-                    absolute top-2 left-2 
-                    bg-black/70 text-white 
-                    text-[11px] px-2 py-1 
-                    rounded-full 
-                    backdrop-blur 
-                    z-[20]
-                  "
-                >
+                {/* PHOTO COUNT */}
+                <div className="absolute top-2 left-2 ...">
                   {(photoCounts[job.id] ?? 0) + " photos"}
                 </div>
 
                 {/* STATUS */}
-                <span
-                  className={`absolute bottom-2 left-2 px-2 py-1 rounded-full text-[11px] font-semibold shadow-md
-    ${
-      job.status === "pending"
-        ? "bg-yellow-400/90 text-black"
-        : job.status === "in_progress"
-        ? "bg-blue-500/90 text-white"
-        : "bg-green-600/90 text-white"
-    }`}
-                >
+                <span className="absolute bottom-2 left-2 ...">
                   {job.status.replace("_", " ")}
                 </span>
               </div>

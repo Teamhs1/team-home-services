@@ -101,7 +101,7 @@ export default function CustomerDashboard() {
         const { data, error } = await supabase
           .from("cleaning_jobs")
           .select("*")
-          .eq("assigned_client", profileId) // ✅ CLAVE
+          .eq("created_by", profileId)
           .order("created_at", { ascending: false });
 
         if (error) throw error;
@@ -238,7 +238,7 @@ export default function CustomerDashboard() {
                 <li
                   key={job.id}
                   onClick={() => router.push(`/jobs/${job.id}`)}
-                  className="py-4 flex items-center gap-4 hover:bg-gray-50 rounded-lg px-3 cursor-pointer"
+                  className="py-4 flex gap-4 hover:bg-gray-50 rounded-lg px-2 cursor-pointer"
                 >
                   <div className="relative w-40 h-40 rounded-xl overflow-hidden bg-gray-100">
                     <Slider jobId={job.id} mini disableFullscreen />
@@ -253,19 +253,8 @@ export default function CustomerDashboard() {
                       {new Date(job.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <span
-                    className={`text-xs font-semibold px-3 py-1 rounded-full capitalize
-    ${
-      job.status === "pending"
-        ? "bg-yellow-100 text-yellow-700"
-        : job.status === "in_progress"
-        ? "bg-blue-100 text-blue-700"
-        : job.status === "completed"
-        ? "bg-green-100 text-green-700"
-        : "bg-gray-100 text-gray-600"
-    }
-  `}
-                  >
+
+                  <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100">
                     {job.status?.replace("_", " ") || "pending"}
                   </span>
                 </li>

@@ -81,23 +81,11 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // 1️⃣ ACTUALIZAR CLERK (FUENTE DE VERDAD)
-      const cleanName = name.trim();
-
-      const [firstName, ...rest] = cleanName.split(" ");
-      const lastName = rest.join(" ");
-
-      await user.update({
-        firstName: firstName || "",
-        lastName: lastName || "",
-      });
-
-      // 2️⃣ ACTUALIZAR SUPABASE (ESPEJO)
       const res = await fetch("/api/profile/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          full_name: cleanName,
+          full_name: name,
           phone,
         }),
       });
@@ -106,7 +94,7 @@ export default function ProfilePage() {
 
       toast.success("Profile updated");
 
-      // 3️⃣ REFRESCAR DATOS DE CLERK EN EL FRONT
+      // 🔁 refresca datos Clerk (nombre)
       await user.reload();
     } catch (err) {
       console.error(err);

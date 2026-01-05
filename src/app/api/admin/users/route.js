@@ -1,45 +1,34 @@
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { auth } from "@clerk/nextjs/server";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export async function GET() {
   try {
-    const { userId } = auth(); // ✅ usa auth() sin .protect()
-
-    // 🔒 Si no hay sesión, devuelve 401
+    const { userId } = auth();
     if (!userId) {
-      console.log("❌ No userId found");
-      return new Response("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 🔍 Verifica rol actual
-    const currentUser = await clerkClient.users.getUser(userId);
-    const role = currentUser.publicMetadata?.role || "user";
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, company_id")
+      .eq("role", "client")
+      .order("full_name");
 
-    if (role !== "admin") {
-      console.log("❌ Access denied: not admin");
-      return new Response("Forbidden", { status: 403 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // ✅ Trae la lista de usuarios desde Clerk
-    const { data: users } = await clerkClient.users.getUserList({ limit: 100 });
-
-    const formatted = users.map((u) => ({
-      id: u.id,
-      fullName: u.fullName,
-      email: u.emailAddresses?.[0]?.emailAddress,
-      role: u.publicMetadata?.role || "user",
-      imageUrl: u.imageUrl,
-      createdAt: u.createdAt,
-    }));
-
-    return new Response(JSON.stringify(formatted), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return NextResponse.json(data ?? []);
   } catch (err) {
-    console.error("❌ Clerk admin route error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return NextResponse.json(
+      { error: err.message || "Unexpected error" },
+      { status: 500 }
+    );
   }
 }

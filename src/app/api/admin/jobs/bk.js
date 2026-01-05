@@ -9,45 +9,30 @@ const supabase = createClient(
 );
 
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) {
+  const { userId } = auth();
+  if (!userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
-  // 🔐 validar admin
-  const { data: profile, error: profileError } = await supabase
+  // validar admin
+  const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role")
+    .select("role")
     .eq("clerk_id", userId)
     .single();
 
-  if (profileError || profile?.role !== "admin") {
+  if (profile?.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 📦 query libre (service role)
+  // query libre
   const { data, error } = await supabase
     .from("cleaning_jobs")
-    .select(
-      `
-      *,
-      client:profiles!cleaning_jobs_assigned_client_fkey (
-        id,
-        full_name,
-        email
-      ),
-      staff:profiles!cleaning_jobs_assigned_to_fkey (
-        clerk_id,
-        full_name,
-        email
-      )
-    `
-    )
+    .select("*")
     .order("created_at", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(data || []);
+  return NextResponse.json({ data });
 }

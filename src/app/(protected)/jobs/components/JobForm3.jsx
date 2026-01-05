@@ -16,80 +16,100 @@ import { Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 /* =======================
-   HELPERS
+   SERVICE TYPES
 ======================= */
-const isUUID = (v) =>
-  typeof v === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    v
-  );
+const SERVICE_TYPES = [
+  { value: "light", label: "Light Cleaning" },
+  { value: "standard", label: "Standard Cleaning" },
+  { value: "deep", label: "Deep Cleaning" },
+  { value: "heavy", label: "Heavy Cleaning" },
+  { value: "move-out", label: "Move-out / Move-in" },
+  { value: "post-construction", label: "Post-Construction" },
+  { value: "restoration", label: "Restoration" },
+  { value: "renovation", label: "Renovation" },
+  { value: "add-ons", label: "Add-ons Only" },
+];
 
 export default function JobForm({
   staffList = [],
   companyList = [],
   fetchJobs,
 }) {
+  /* =======================
+     STATE
+  ====================== */
   const [title, setTitle] = useState("");
-  const [serviceType, setServiceType] = useState("standard"); // ✅ NUEVO
-  const [assignedTo, setAssignedTo] = useState(""); // clerk_id
+  const [assignedTo, setAssignedTo] = useState("");
   const [companyId, setCompanyId] = useState("");
-  const [clientId, setClientId] = useState(""); // profile UUID
-  const [companyClients, setCompanyClients] = useState([]);
+  const [clientId, setClientId] = useState("");
+  const [companyAdmins, setCompanyAdmins] = useState([]);
+  const [serviceType, setServiceType] = useState("standard");
   const [scheduledDate, setScheduledDate] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const isValid =
-    title && scheduledDate && companyId && clientId && serviceType;
+  const isValid = Boolean(title && scheduledDate && companyId && clientId);
 
   /* =======================
-     LOAD CLIENTS PER COMPANY
-  ======================= */
+     LOAD ADMINS PER COMPANY
+  ====================== */
   useEffect(() => {
     if (!companyId) {
-      setCompanyClients([]);
+      setCompanyAdmins([]);
       setClientId("");
       return;
     }
 
-    async function loadClients() {
+    async function loadAdmins() {
       try {
         const res = await fetch(`/api/admin/companies/${companyId}`, {
           cache: "no-store",
         });
+
         const data = await res.json();
 
-        const validClients =
+        const admins =
           data.members?.filter(
             (m) =>
-              m.profile?.id &&
-              isUUID(m.profile.id) &&
-              ["admin", "owner", "client"].includes(m.role)
+              m.role === "admin" || m.role === "owner" || m.role === "client"
           ) || [];
 
-        setCompanyClients(validClients);
+        setCompanyAdmins(admins);
 
-        if (validClients.length > 0) {
-          setClientId(validClients[0].profile.id);
+        // 🔒 AUTO-SELECT SOLO UUID VÁLIDO (NUNCA clerk_id)
+        const ownerProfileId = data.owner?.profile?.id;
+
+        if (ownerProfileId && !ownerProfileId.startsWith("user_")) {
+          setClientId(ownerProfileId);
         } else {
-          setClientId("");
+          const validAdmin = admins.find(
+            (a) => a?.profile?.id && !a.profile.id.startsWith("user_")
+          );
+
+          setClientId(validAdmin?.profile?.id || "");
         }
       } catch (err) {
-        console.error(err);
-        setCompanyClients([]);
+        console.error("Failed to load company admins", err);
+        setCompanyAdmins([]);
         setClientId("");
       }
     }
 
-    loadClients();
+    loadAdmins();
   }, [companyId]);
 
   /* =======================
      SUBMIT
-  ======================= */
+  ====================== */
   async function createJob() {
     if (!isValid || creating) return;
 
-    if (!isUUID(clientId)) {
+    if (!clientId) {
+      toast.error("Client not selected");
+      return;
+    }
+
+    // 🔒 PROTECCIÓN FINAL (BACKUP)
+    if (clientId.startsWith("user_")) {
       toast.error("Invalid client selected");
       return;
     }
@@ -102,28 +122,28 @@ export default function JobForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          service_type: serviceType, // ✅ CLAVE
-          assigned_to: assignedTo || null,
-          assigned_client: clientId,
+          assigned_to: assignedTo || null, // clerk_id
+          assigned_client: clientId, // UUID
           company_id: companyId,
+          service_type: serviceType,
           scheduled_date: format(new Date(scheduledDate), "yyyy-MM-dd"),
         }),
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      if (!res.ok) throw new Error(json.error || "Error creating job");
 
       fetchJobs?.();
       toast.success("Job created successfully");
 
-      // reset
+      // reset (NO cambia comportamiento)
       setTitle("");
-      setServiceType("standard");
       setAssignedTo("");
       setCompanyId("");
       setClientId("");
-      setCompanyClients([]);
+      setCompanyAdmins([]);
       setScheduledDate("");
+      setServiceType("standard");
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -131,13 +151,18 @@ export default function JobForm({
     }
   }
 
+  /* =======================
+     UI
+  ====================== */
   return (
-    <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+      {/* Job Title */}
       <div>
         <Label>Job Title</Label>
         <Input value={title} onChange={(e) => setTitle(e.target.value)} />
       </div>
 
+      {/* Date */}
       <div>
         <Label>Date</Label>
         <Input
@@ -147,29 +172,14 @@ export default function JobForm({
         />
       </div>
 
-      {/* ✅ SERVICE TYPE */}
-      <div>
-        <Label>Service Type</Label>
-        <Select value={serviceType} onValueChange={setServiceType}>
-          <SelectTrigger className="bg-white border border-gray-300 shadow-sm hover:border-gray-400 focus:ring-2 focus:ring-blue-500">
-            <SelectValue placeholder="Select service type" />
-          </SelectTrigger>
-          <SelectContent className="bg-white border border-gray-200 shadow-xl">
-            <SelectItem value="standard">Standard</SelectItem>
-            <SelectItem value="deep">Deep Cleaning</SelectItem>
-            <SelectItem value="move_out">Move Out</SelectItem>
-            <SelectItem value="post_renovation">Post Renovation</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
+      {/* Company */}
       <div>
         <Label>Company</Label>
         <Select value={companyId} onValueChange={setCompanyId}>
-          <SelectTrigger className="bg-white border border-gray-300 shadow-sm hover:border-gray-400 focus:ring-2 focus:ring-blue-500">
+          <SelectTrigger>
             <SelectValue placeholder="Select company" />
           </SelectTrigger>
-          <SelectContent className="bg-white border border-gray-200 shadow-xl">
+          <SelectContent>
             {companyList.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
@@ -179,14 +189,14 @@ export default function JobForm({
         </Select>
       </div>
 
+      {/* Staff */}
       <div>
         <Label>Staff</Label>
         <Select value={assignedTo} onValueChange={setAssignedTo}>
-          <SelectTrigger className="bg-white border border-gray-300 shadow-sm hover:border-gray-400 focus:ring-2 focus:ring-blue-500">
+          <SelectTrigger>
             <SelectValue placeholder="Select staff" />
           </SelectTrigger>
-
-          <SelectContent className="bg-white border border-gray-200 shadow-xl">
+          <SelectContent>
             {staffList.map((s) => (
               <SelectItem key={s.clerk_id} value={s.clerk_id}>
                 {s.full_name}
@@ -196,22 +206,25 @@ export default function JobForm({
         </Select>
       </div>
 
+      {/* Client */}
       <div>
-        <Label>Client</Label>
-        <Select value={clientId} onValueChange={setClientId}>
+        <Label>Client (Company Contact)</Label>
+        <Select value={clientId || ""} onValueChange={setClientId}>
           <SelectTrigger>
-            <SelectValue placeholder="Select client" />
+            <SelectValue placeholder="Primary contact" />
           </SelectTrigger>
+
           <SelectContent>
-            {companyClients.map((c) => (
-              <SelectItem key={c.profile.id} value={c.profile.id}>
-                {c.profile.full_name}
+            {clientList.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.full_name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
+      {/* Submit */}
       <div className="flex items-end">
         <Button onClick={createJob} disabled={!isValid || creating}>
           {creating ? <Loader2 className="animate-spin" /> : "Create Job"}

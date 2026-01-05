@@ -9,6 +9,14 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
+
 import { toast } from "sonner";
 import { useSupabaseWithClerk } from "@/utils/supabase/useSupabaseWithClerk";
 import {
@@ -24,7 +32,6 @@ import JobForm from "./JobForm";
 import Slider from "@/components/Slider";
 import JobDuration from "./JobDuration";
 import JobTimer from "./JobTimer";
-import { useSearchParams } from "next/navigation";
 
 import {
   DropdownMenu,
@@ -32,15 +39,21 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+const isUUID = (v) =>
+  typeof v === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    v
+  );
 
 export default function AdminJobsView({
   jobs,
-  staffList,
+
   clientList,
   viewMode,
   setViewMode,
   fetchJobs,
   deleteJob,
+  activeStatus,
 }) {
   const deleteJobsBulk = async (ids) => {
     try {
@@ -61,13 +74,16 @@ export default function AdminJobsView({
       toast.error("Error deleting jobs");
     }
   };
+  const [companyList, setCompanyList] = useState([]);
+  const safeArray = (arr) => (Array.isArray(arr) ? arr : []);
 
   const { getClientWithToken } = useSupabaseWithClerk();
   const [localJobs, setLocalJobs] = useState(jobs);
   const [lastCheckedAt, setLastCheckedAt] = useState(new Date().toISOString());
   // 🔁 Sync props → local state (CLAVE)
   useEffect(() => {
-    setLocalJobs(jobs);
+    console.log("🧪 AdminJobsView jobs:", jobs);
+    setLocalJobs(safeArray(jobs));
   }, [jobs]);
 
   // Seleccion Multiple
@@ -89,36 +105,36 @@ export default function AdminJobsView({
   // Desmarcar todas las selecciones
   const clearSelection = () => setSelectedJobs(new Set());
 
-  // LOAD CLIENTS
+  // LOAD CLIENTS (SOLO role = client)
   const [loadedClients, setLoadedClients] = useState([]);
 
   useEffect(() => {
     async function fetchClients() {
       try {
         const supabase = await getClientWithToken();
+
         const { data, error } = await supabase
           .from("profiles")
           .select("id, clerk_id, full_name, email, role")
           .eq("role", "client");
 
         if (error) throw error;
-        setLoadedClients(data || []);
+
+        // 🔒 FILTRO FINAL DE SEGURIDAD (UUID ONLY)
+        const safeClients = (data || []).filter(
+          (c) => c.id && typeof c.id === "string" && !c.id.startsWith("user_")
+        );
+
+        setLoadedClients(safeClients);
       } catch (err) {
         console.error("❌ Error fetching clients:", err);
         toast.error("Could not load clients.");
+        setLoadedClients([]);
       }
     }
+
     fetchClients();
   }, [getClientWithToken]);
-
-  // STATUS FILTER
-  const searchParams = useSearchParams();
-  const statusFilter = searchParams.get("status") || "all";
-
-  const filteredJobs =
-    statusFilter === "all"
-      ? localJobs
-      : localJobs.filter((job) => job.status === statusFilter);
 
   // ⭐ DATE FILTER (ALL / WEEK / MONTH)
   const [dateFilter, setDateFilter] = useState("all");
@@ -130,8 +146,9 @@ export default function AdminJobsView({
 
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const dateFilteredJobs = filteredJobs.filter((job) => {
-    if (!job.scheduled_date) return false;
+  const dateFilteredJobs = localJobs.filter((job) => {
+    // ✅ Si no tiene fecha, NO lo descartes
+    if (!job.scheduled_date) return true;
 
     const jobDate = new Date(job.scheduled_date);
 
@@ -140,6 +157,10 @@ export default function AdminJobsView({
 
     return true;
   });
+
+  console.log("localJobs:", localJobs.length);
+  console.log("dateFilteredJobs:", dateFilteredJobs.length);
+
   // 🔍 SEARCH FILTER
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -151,19 +172,20 @@ export default function AdminJobsView({
   const PAGE_SIZE = viewMode === "grid" ? 12 : 30;
   const [currentPage, setCurrentPage] = useState(1);
 
-  // ⭐ APPLY CLIENT + STAFF FILTERS
+  // ⭐ APPLY CLIENT + STAFF FILTERS (UUID SAFE)
   const finalFilteredJobs = dateFilteredJobs
-    // filter by client
     .filter((job) => {
       if (clientFilter === "all") return true;
+      if (!isUUID(clientFilter)) return true;
       return job.assigned_client === clientFilter;
     })
-    // filter by staff
+
     .filter((job) => {
       if (staffFilter === "all") return true;
       if (staffFilter === "unassigned") return !job.assigned_to;
       return job.assigned_to === staffFilter;
     });
+
   // 🔍 APPLY SEARCH FILTER (AQUÍ VA)
   const searchedJobs = finalFilteredJobs.filter((job) => {
     if (!searchTerm) return true;
@@ -184,18 +206,31 @@ export default function AdminJobsView({
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE
   );
+  useEffect(() => {
+    async function loadCompanies() {
+      try {
+        const res = await fetch("/api/admin/companies", {
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+        setCompanyList(data || []);
+      } catch (err) {
+        console.error("❌ Error loading companies:", err);
+        toast.error("Could not load companies");
+      }
+    }
+
+    loadCompanies();
+  }, []);
 
   // 🔄 RESET PAGE WHEN FILTERS CHANGE
   useEffect(() => {
     setCurrentPage(1);
-  }, [
-    searchTerm,
-    statusFilter,
-    dateFilter,
-    clientFilter,
-    staffFilter,
-    viewMode,
-  ]);
+  }, [searchTerm, dateFilter, clientFilter, staffFilter, viewMode]);
 
   // ⏱️ FORMAT MINUTES → HOURS + MINUTES (SOLO VISUAL)
   const formatDuration = (minutes) => {
@@ -236,27 +271,58 @@ export default function AdminJobsView({
 
   // ASSIGN CLIENT
   const assignToClient = async (jobId, client_id) => {
+    if (!isUUID(client_id)) {
+      toast.error("Invalid client selected");
+      return;
+    }
+
     try {
       const supabase = await getClientWithToken();
-      const cleanValue = client_id?.trim() ? client_id : null;
 
       const { error } = await supabase
         .from("cleaning_jobs")
-        .update({ assigned_client: cleanValue })
+        .update({ assigned_client: client_id }) // UUID ONLY
         .eq("id", jobId);
 
-      if (error) throw new Error(error.message);
+      if (error) throw error;
 
       toast.success("✅ Cliente asignado correctamente!");
-
-      +(
-        // 🔥 CLAVE: refresca para traer JOIN client
-        (+(await fetchJobs()))
-      );
+      await fetchJobs();
     } catch (err) {
       toast.error("Error assigning client: " + err.message);
     }
   };
+  /* =======================
+     LOAD STAFF
+  ======================= */
+  const [staffList, setStaffList] = useState([]);
+
+  useEffect(() => {
+    async function loadStaff() {
+      try {
+        const res = await fetch("/api/admin/staff", {
+          cache: "no-store",
+          credentials: "include", // 🔥 CLAVE
+        });
+
+        if (!res.ok) throw new Error("Failed to load staff");
+
+        const data = await res.json();
+
+        const safeStaff = (data || []).filter(
+          (s) => s.clerk_id && typeof s.clerk_id === "string"
+        );
+
+        setStaffList(safeStaff);
+      } catch (err) {
+        console.error("❌ Error loading staff:", err);
+        setStaffList([]);
+      }
+    }
+
+    loadStaff();
+  }, []);
+
   /* =========================
    SMART POLLING (NO REALTIME)
 ========================= */
@@ -338,6 +404,13 @@ export default function AdminJobsView({
 
   return (
     <main className="px-4 sm:px-6 py-6 sm:py-10 max-w-[1600px] mx-auto space-y-8 sm:space-y-10">
+      {/* EMPTY STATE */}
+      {paginatedJobs.length === 0 && (
+        <div className="text-center text-gray-500 py-20">
+          No jobs match current filters.
+        </div>
+      )}
+
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -366,7 +439,6 @@ export default function AdminJobsView({
 
           {/* ⭐ STAFF FILTER */}
           <select
-            className="border rounded-md p-2 text-sm"
             value={staffFilter}
             onChange={(e) => setStaffFilter(e.target.value)}
           >
@@ -375,7 +447,7 @@ export default function AdminJobsView({
 
             {staffList.map((s) => (
               <option key={s.clerk_id} value={s.clerk_id}>
-                {s.full_name ? s.full_name : s.email}
+                {s.full_name || s.email}
               </option>
             ))}
           </select>
@@ -388,7 +460,7 @@ export default function AdminJobsView({
           >
             <option value="all">All Clients</option>
             {loadedClients.map((c) => (
-              <option key={c.clerk_id} value={c.clerk_id}>
+              <option key={c.id} value={c.id}>
                 {c.full_name ? c.full_name : c.email}
               </option>
             ))}
@@ -455,6 +527,7 @@ export default function AdminJobsView({
           <JobForm
             staffList={staffList}
             clientList={loadedClients}
+            companyList={companyList} // ✅ ESTA LÍNEA FALTABA
             fetchJobs={fetchJobs}
           />
         </CardContent>
@@ -559,22 +632,35 @@ export default function AdminJobsView({
                   </td>
 
                   {/* CLIENT */}
-                  {/* CLIENT */}
                   <td className="px-4 py-2">
                     <select
-                      className="border rounded-md p-1 text-sm"
-                      value={job.assigned_client || ""}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) =>
-                        assignToClient(job.id, e.target.value || null)
+                      className="border rounded-md p-1 text-sm bg-white"
+                      value={
+                        isUUID(job.assigned_client) ? job.assigned_client : ""
                       }
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) {
+                          assignToClient(job.id, null);
+                          return;
+                        }
+                        if (!isUUID(val)) {
+                          toast.error("Invalid client selected");
+                          return;
+                        }
+                        assignToClient(job.id, val);
+                      }}
                     >
-                      <option value="">No client assigned</option>
-                      {loadedClients.map((client) => (
-                        <option key={client.clerk_id} value={client.clerk_id}>
-                          {client.full_name || client.email}
-                        </option>
-                      ))}
+                      <option value="">No client</option>
+
+                      {loadedClients
+                        .filter((c) => isUUID(c.id))
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.full_name || c.email}
+                          </option>
+                        ))}
                     </select>
                   </td>
 
@@ -732,19 +818,27 @@ export default function AdminJobsView({
                 <div className="flex items-center gap-2 text-sm">
                   <User className="w-4 h-4 text-gray-500" />
                   <select
-                    className="border rounded-md p-1 text-xs flex-1"
-                    value={job.assigned_client || ""}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) =>
-                      assignToClient(job.id, e.target.value || null)
+                    value={
+                      isUUID(job.assigned_client) ? job.assigned_client : ""
                     }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!isUUID(val)) {
+                        toast.error("Invalid client selected");
+                        return;
+                      }
+                      assignToClient(job.id, val);
+                    }}
                   >
                     <option value="">No client</option>
-                    {loadedClients.map((client) => (
-                      <option key={client.clerk_id} value={client.clerk_id}>
-                        {client.full_name || client.email}
-                      </option>
-                    ))}
+
+                    {clientList
+                      .filter((c) => c.id && !c.id.startsWith("user_"))
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.full_name || c.email}
+                        </option>
+                      ))}
                   </select>
                 </div>
 

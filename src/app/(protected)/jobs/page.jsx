@@ -1,16 +1,14 @@
 "use client";
-import { useClients } from "./hooks/useClients";
 
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
-
 import { useSearchParams } from "next/navigation";
 
-import { useJobs } from "./hooks/useJobs";
 import { useStaff } from "./hooks/useStaff";
+import { useClients } from "./hooks/useClients";
 
 import AdminJobsView from "./components/AdminJobsView";
 import StaffJobsView from "./components/StaffJobsView";
@@ -27,139 +25,223 @@ export default function JobsPage() {
   const searchParams = useSearchParams();
   const activeStatus = searchParams.get("status") || "all";
 
-  const { jobs, loading, fetchJobs, updateStatus, deleteJob } = useJobs({
-    clerkId,
-    role,
-    getToken,
-  });
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [profileId, setProfileId] = useState(null);
 
   const { staffList, fetchStaff } = useStaff();
-  const { clientList, fetchClients } = useClients(); // ⭐ NUEVO
+  const { clientList, fetchClients } = useClients();
 
   const [customerJobs, setCustomerJobs] = useState([]);
+  const [customerLoading, setCustomerLoading] = useState(false);
+
   const [form, setForm] = useState({
     title: "",
     service_type: "",
     property_address: "",
     scheduled_date: "",
+    notes: "",
   });
-  const [customerLoading, setCustomerLoading] = useState(false);
-  const [viewMode, setViewMode] = useState(() => "list");
+  /* ======================
+   STAFF JOBS
+====================== */
+  const fetchStaffJobs = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/staff/jobs", {
+        credentials: "include",
+        cache: "no-store",
+      });
 
-  // Forzar vista list para admin/staff
-  useEffect(() => {
-    if (role === "admin" || role === "staff") {
-      setViewMode("list");
+      const json = await res.json();
+      setJobs(Array.isArray(json) ? json : []);
+    } catch {
+      toast.error("Error loading staff jobs");
+    } finally {
+      setLoading(false);
     }
-  }, [role]);
+  };
 
-  // Load initial data
-  useEffect(() => {
-    if (!ready || !clerkId) return;
-
-    (async () => {
-      try {
-        const token = await getToken({ template: "supabase" });
-        if (token) {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          console.log("🪶 Clerk JWT payload:", payload);
-        }
-      } catch (err) {
-        console.error("Error mostrando token:", err);
-      }
-
-      await fetchJobs();
-
-      if (role === "admin") {
-        await fetchStaff();
-        await fetchClients(); // ⭐ NUEVO
-      }
-
-      if (role === "client") await fetchCustomerJobs();
-    })();
-  }, [ready, clerkId, role]);
-
-  const filteredJobs = useMemo(() => jobs || [], [jobs]);
-
-  // Cliente — cargar trabajos
-  async function fetchCustomerJobs() {
-    if (role !== "client") return;
-    setCustomerLoading(true);
+  /* ======================
+     LOAD PROFILE ID
+  ====================== */
+  const loadProfileId = async () => {
     try {
       const token = await getToken({ template: "supabase" });
-      const supabaseAuth = createClient(
+
+      const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         {
-          global: { headers: { Authorization: `Bearer ${token}` } },
+          global: {
+            headers: { Authorization: `Bearer ${token}` },
+          },
         }
       );
-      const { data, error } = await supabaseAuth
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("clerk_id", clerkId)
+        .single();
+
+      if (error) throw error;
+
+      setProfileId(data.id);
+    } catch {
+      toast.error("Failed to load profile");
+    }
+  };
+
+  /* ======================
+     FETCH CLIENT JOBS
+  ====================== */
+  const fetchCustomerJobs = async () => {
+    if (!profileId) return;
+
+    setCustomerLoading(true);
+    try {
+      const token = await getToken({ template: "supabase" });
+
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        {
+          global: {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        }
+      );
+
+      const { data, error } = await supabase
         .from("cleaning_jobs")
         .select("*")
-        .eq("assigned_client", clerkId)
-
+        .eq("assigned_client", profileId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+
       setCustomerJobs(data || []);
     } catch (err) {
-      toast.error("Error loading jobs: " + err.message);
+      toast.error(err.message);
     } finally {
       setCustomerLoading(false);
+      setLoading(false);
     }
-  }
+  };
 
-  // Cliente — crear job
-  async function createCustomerJob() {
-    if (!form.title || !form.service_type || !form.scheduled_date) {
-      toast.error("Please fill all required fields.");
+  /* ======================
+     CREATE CLIENT JOB ✅ FIX
+  ====================== */
+  const createCustomerJob = async () => {
+    if (!profileId) {
+      toast.error("Profile not loaded");
+      return;
+    }
+
+    if (!form.service_type || !form.scheduled_date) {
+      toast.error("Missing required fields");
       return;
     }
 
     try {
-      setCustomerLoading(true);
       const token = await getToken({ template: "supabase" });
-      const supabaseAuth = createClient(
+
+      const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         {
-          global: { headers: { Authorization: `Bearer ${token}` } },
+          global: {
+            headers: { Authorization: `Bearer ${token}` },
+          },
         }
       );
 
-      const { data, error } = await supabaseAuth
-        .from("cleaning_jobs")
-        .insert([
-          {
-            title: form.title,
-            service_type: form.service_type,
-            property_address: form.property_address,
-            scheduled_date: form.scheduled_date,
-            created_by: clerkId,
-            status: "pending",
-          },
-        ])
-        .select("*");
+      const { error } = await supabase.from("cleaning_jobs").insert({
+        title: form.title || "Cleaning Request",
+        service_type: form.service_type,
+        property_address: form.property_address || null,
+        scheduled_date: form.scheduled_date,
+        notes: form.notes || null,
+
+        assigned_client: profileId, // 👈 UUID correcto
+        created_by: profileId, // ✅ CLAVE DEL ERROR
+        status: "pending",
+      });
 
       if (error) throw error;
-      if (data?.length) setCustomerJobs((prev) => [data[0], ...prev]);
 
-      toast.success("✅ Request sent successfully!");
+      toast.success("Cleaning request created");
+
       setForm({
         title: "",
         service_type: "",
         property_address: "",
         scheduled_date: "",
+        notes: "",
       });
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setCustomerLoading(false);
-    }
-  }
 
-  // Loading Spinner
+      fetchCustomerJobs();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Failed to create request");
+    }
+  };
+
+  /* ======================
+     ADMIN JOBS
+  ====================== */
+  const fetchAdminJobs = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/jobs", { cache: "no-store" });
+      const json = await res.json();
+      setJobs(Array.isArray(json) ? json : []);
+    } catch {
+      toast.error("Error loading admin jobs");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const [viewMode, setViewMode] = useState("list");
+
+  useEffect(() => {
+    if (role !== "client") setViewMode("list");
+  }, [role]);
+
+  useEffect(() => {
+    if (!ready || !clerkId) return;
+
+    (async () => {
+      if (role === "admin") {
+        await fetchAdminJobs();
+        await fetchStaff();
+        await fetchClients();
+      }
+
+      if (role === "staff") {
+        await fetchStaffJobs(); // 🔥 CLAVE
+      }
+
+      if (role === "client") {
+        await loadProfileId();
+      }
+    })();
+  }, [ready, clerkId, role]);
+
+  useEffect(() => {
+    if (role === "client" && profileId) {
+      fetchCustomerJobs();
+    }
+  }, [profileId, role]);
+
+  const filteredJobs = useMemo(() => {
+    if (activeStatus === "all") return jobs;
+    return jobs.filter((j) => j.status === activeStatus);
+  }, [jobs, activeStatus]);
+
   if (!ready || loading)
     return (
       <div className="flex items-center justify-center h-screen">
@@ -167,35 +249,24 @@ export default function JobsPage() {
       </div>
     );
 
-  // Render principal
   return (
     <div className="pt-24 px-4 md:px-6 lg:px-8">
-      {filteredJobs.length === 0 && role !== "client" && (
-        <p className="text-center text-gray-500 italic mb-6">
-          No jobs available yet.
-        </p>
-      )}
-
       {role === "admin" ? (
         <AdminJobsView
           jobs={filteredJobs}
           staffList={staffList}
-          clientList={clientList} // ⭐ NUEVO
+          clientList={clientList}
           viewMode={viewMode}
           setViewMode={setViewMode}
-          fetchJobs={fetchJobs}
-          updateStatus={updateStatus}
-          deleteJob={deleteJob}
+          fetchJobs={fetchAdminJobs}
           activeStatus={activeStatus}
         />
       ) : role === "staff" ? (
         <StaffJobsView
           jobs={filteredJobs}
+          fetchJobs={fetchStaffJobs} // 🔥 IMPORTANTE
           viewMode={viewMode}
           setViewMode={setViewMode}
-          updateStatus={updateStatus}
-          fetchJobs={fetchJobs}
-          activeStatus={activeStatus}
         />
       ) : (
         <ClientJobsView
@@ -203,13 +274,11 @@ export default function JobsPage() {
           customerLoading={customerLoading}
           form={form}
           setForm={setForm}
-          createCustomerJob={createCustomerJob}
-          updateStatus={updateStatus}
-          clerkId={clerkId}
+          createCustomerJob={createCustomerJob} // ✅ YA FUNCIONA
+          profileId={profileId}
           viewMode={viewMode}
           setViewMode={setViewMode}
           getToken={getToken}
-          activeStatus={activeStatus}
         />
       )}
     </div>

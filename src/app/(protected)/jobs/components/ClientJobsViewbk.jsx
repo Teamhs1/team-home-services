@@ -43,7 +43,7 @@ export default function ClientJobsView({
   setForm,
   createCustomerJob,
   handleRealtimeUpdate,
-  profileId,
+  clerkId,
   getToken,
   viewMode,
   setViewMode,
@@ -68,7 +68,7 @@ export default function ClientJobsView({
 
   // ⭐ Realtime Updates
   useEffect(() => {
-    if (!profileId) return;
+    if (!clerkId) return;
 
     const initRealtime = async () => {
       try {
@@ -83,23 +83,20 @@ export default function ClientJobsView({
         await supabaseRealtime.auth.setSession({ access_token: token });
 
         const channel = supabaseRealtime
-          .channel(`client_jobs_${profileId}`)
+          .channel(`client_jobs_${clerkId}`)
           .on(
             "postgres_changes",
             {
               event: "*",
               schema: "public",
               table: "cleaning_jobs",
-              filter: `assigned_client=eq.${profileId}`,
+              filter: `created_by=eq.${clerkId}`,
             },
             (payload) => {
               const { eventType, new: newJob, old: oldJob } = payload;
-
               if (eventType === "INSERT" || eventType === "UPDATE") {
                 handleRealtimeUpdate?.(newJob);
-              }
-
-              if (eventType === "DELETE") {
+              } else if (eventType === "DELETE") {
                 handleRealtimeUpdate?.({ ...oldJob, deleted: true });
               }
             }
@@ -113,7 +110,7 @@ export default function ClientJobsView({
     };
 
     initRealtime();
-  }, [profileId, getToken, handleRealtimeUpdate]);
+  }, [clerkId, getToken, handleRealtimeUpdate]);
 
   // ⭐ Remove duplicates
   const uniqueJobs = Array.from(

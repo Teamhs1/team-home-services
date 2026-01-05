@@ -30,15 +30,16 @@ export async function GET(req) {
     }
 
     /* =====================
-       READ QUERY PARAMS
+       READ QUERY PARAM
     ===================== */
     const { searchParams } = new URL(req.url);
     const companyIdParam = searchParams.get("company_id");
-    const clientIdParam = searchParams.get("client_id"); // ✅ NUEVO (NO OBLIGATORIO)
+    const clientIdParam = searchParams.get("client_id"); // ✅ NUEVO
 
     /* =====================
-       BASE QUERY
-       (NO SE ROMPE NADA)
+       LOAD PROPERTIES
+       ✅ Owner incluido
+       ✅ Seguro si owner_id es null
     ===================== */
     let query = supabase
       .from("properties")
@@ -49,7 +50,6 @@ export async function GET(req) {
         address,
         unit,
         company_id,
-        client_id,
         owner_id,
         owners:owner_id (
           id,
@@ -62,22 +62,17 @@ export async function GET(req) {
       `
       )
       .eq("is_active", true)
-      .order("address", { ascending: true })
+      .order("address", { ascending: true }) // 🧠 mejor orden visual
       .order("name", { ascending: true });
 
-    /* 🔐 Non-admins → force active company */
+    /* 🔐 Non-admins: force active company */
     if (profile.role !== "admin") {
       query = query.eq("company_id", profile.active_company_id);
     }
 
-    /* 🧠 Admin filter by company (existente) */
+    /* 🧠 Admin + selector */
     if (profile.role === "admin" && companyIdParam) {
       query = query.eq("company_id", companyIdParam);
-    }
-
-    /* 🎯 NUEVO: FILTER BY CLIENT (SOLO SI VIENE) */
-    if (clientIdParam) {
-      query = query.eq("client_id", clientIdParam);
     }
 
     const { data, error } = await query;
@@ -87,7 +82,7 @@ export async function GET(req) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // ✅ Siempre devolvemos array
+    // ✅ Siempre devolvemos array (aunque no haya owner)
     return NextResponse.json(data ?? []);
   } catch (err) {
     console.error("💥 API CRASH:", err);

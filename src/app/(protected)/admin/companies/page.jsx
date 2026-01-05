@@ -1,4 +1,5 @@
 "use client";
+
 import { MoreVertical, LayoutGrid, List } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -22,13 +23,21 @@ export default function CompaniesListPage() {
   ===================== */
   useEffect(() => {
     async function loadCompanies() {
-      const res = await fetch("/api/companies", { cache: "no-store" });
-      const data = await res.json();
+      try {
+        const res = await fetch("/api/admin/companies", { cache: "no-store" });
+        const data = await res.json();
 
-      if (Array.isArray(data)) {
-        setCompanies(data);
+        if (Array.isArray(data)) {
+          setCompanies(data);
+        } else {
+          setCompanies([]);
+        }
+      } catch (err) {
+        console.error("Load companies error:", err);
+        setCompanies([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     loadCompanies();
@@ -59,7 +68,7 @@ export default function CompaniesListPage() {
         return;
       }
 
-      setCompanies((prev) => prev.filter((c) => (c.company_id ?? c.id) !== id));
+      setCompanies((prev) => prev.filter((c) => c.id !== id));
     } catch (err) {
       console.error(err);
       alert("Unexpected error deleting company");
@@ -125,10 +134,10 @@ export default function CompaniesListPage() {
 
             <tbody>
               {companies.map((c) => {
-                const companyId = c.company_id ?? c.id;
-                const propertiesCount = c.properties?.[0]?.count ?? 0;
-                const usersCount = c.users?.[0]?.count ?? 0;
-                const canDelete = propertiesCount === 0 && usersCount === 1;
+                const companyId = c.id;
+                const propertiesCount = c.properties_count ?? 0;
+                const usersCount = c.users_count ?? 0;
+                const canDelete = propertiesCount === 0 && usersCount <= 1;
 
                 return (
                   <tr
@@ -205,7 +214,7 @@ export default function CompaniesListPage() {
         /* GRID VIEW */
         <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {companies.map((c) => {
-            const companyId = c.company_id ?? c.id;
+            const companyId = c.id;
 
             return (
               <div

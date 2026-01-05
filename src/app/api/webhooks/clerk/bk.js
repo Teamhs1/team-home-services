@@ -19,19 +19,12 @@ export async function POST(req) {
 
     const clerkId = user.id;
     const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
-
-    // ✅ Email correcto (primary)
-    const email =
-      user.email_addresses?.find((e) => e.id === user.primary_email_address_id)
-        ?.email_address || "";
-
+    const email = user.email_addresses?.[0]?.email_address || "";
     let role = user.public_metadata?.role;
 
-    // ✅ Rol por defecto SOLO en user.created
-    if (
-      eventType === "user.created" &&
-      (!role || role === "null" || role === "")
-    ) {
+    // 🧩 Rol por defecto
+    if (!role || role === "null" || role === "") {
+      console.log(`⚙️ Asignando rol 'client' por defecto a ${email}`);
       role = "client";
 
       try {
@@ -43,8 +36,11 @@ export async function POST(req) {
           },
           body: JSON.stringify({ public_metadata: { role } }),
         });
-      } catch (err) {
-        console.warn("⚠️ No se pudo setear rol en Clerk:", err.message);
+      } catch (clerkError) {
+        console.warn(
+          "⚠️ No se pudo actualizar rol en Clerk:",
+          clerkError.message
+        );
       }
     }
 
@@ -60,14 +56,14 @@ export async function POST(req) {
     );
 
     if (error) {
-      console.error("❌ Supabase sync error:", error);
+      console.error("❌ Error sincronizando en Supabase:", error);
       return NextResponse.json(
         { error: "Supabase sync failed" },
         { status: 500 }
       );
     }
 
-    console.log(`✅ ${eventType}: ${email} (${role})`);
+    console.log(`✅ ${eventType}: ${email} (role: ${role})`);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("❌ Webhook error:", err);

@@ -29,12 +29,55 @@ import {
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useSidebar } from "@/components/SidebarContext";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
+/*const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
+*/
+import { createClient } from "@supabase/supabase-js";
+
+let supabaseClient = null;
+
+async function getSupabase(getToken) {
+  if (supabaseClient) return supabaseClient;
+
+  const token = await getToken({ template: "supabase" });
+  if (!token) throw new Error("No Clerk token");
+
+  supabaseClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    }
+  );
+
+  return supabaseClient;
+}
+
+import { useAuth } from "@clerk/nextjs";
+
+const getSupabaseWithAuth = async (getToken) => {
+  const token = await getToken({ template: "supabase" });
+  if (!token) throw new Error("No Clerk token");
+
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    }
+  );
+};
 
 /* =========================
    CONSTANTES
@@ -62,6 +105,8 @@ export default function Sidebar() {
   const { isSidebarOpen: isOpen, toggleSidebar } = useSidebar();
   const { user } = useUser();
   const NO_CACHE = { cache: "no-store" };
+  const supabaseRef = useRef(null);
+
   const prevResourcesRef = useRef([]);
 
   const [role, setRole] = useState("user");
@@ -69,7 +114,9 @@ export default function Sidebar() {
   const [hasSyncError, setHasSyncError] = useState(false);
   const [sidebarTheme, setSidebarTheme] = useState("dark");
   const [allowedResources, setAllowedResources] = useState([]);
+  const [permissionsReady, setPermissionsReady] = useState(false);
   const fetchPermissionsRef = useRef(null);
+  const { getToken } = useAuth();
 
   /* =========================
      THEME
@@ -91,20 +138,21 @@ export default function Sidebar() {
   useEffect(() => {
     if (!user?.id) return;
 
-    async function fetchRole() {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("role, staff_type")
-        .eq("clerk_id", user.id)
-        .single();
+    async function fetchMe() {
+      try {
+        const res = await fetch("/api/me", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to fetch /api/me");
 
-      if (!error && data) {
+        const data = await res.json();
+
         setRole(data.role || "user");
-        setStaffType(data.staff_type || null);
+      } catch (err) {
+        console.error("❌ /api/me failed:", err.message);
+        setRole("user");
       }
     }
 
-    fetchRole();
+    fetchMe();
   }, [user?.id]);
 
   /* =========================
@@ -112,13 +160,21 @@ export default function Sidebar() {
    👉 staff_profile_id REAL
 ========================= */
   useEffect(() => {
-    if (!user?.id || role === "admin") {
+    if (!user?.id) return;
+
+    // ✅ ADMIN: permisos inmediatos
+    if (role === "admin") {
       setAllowedResources(ALL_RESOURCES);
+      setPermissionsReady(true); // 🔥 IMPORTANTE
       return;
     }
 
     async function fetchPermissions() {
       try {
+        // 🔑 1. Crear Supabase con Clerk JWT
+        const supabase = await getSupabase(getToken);
+
+        // 🔎 2. Obtener el profile real desde Supabase
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("id")
@@ -127,49 +183,50 @@ export default function Sidebar() {
 
         if (profileError || !profile?.id) {
           setAllowedResources(ALL_RESOURCES);
+          setPermissionsReady(true);
           return;
         }
 
+        // 🌐 3. Pedir permisos al API (ya validado server-side)
         const res = await fetch(
           `/api/admin/staff-permissions?staff_profile_id=${profile.id}`,
-          { cache: "no-store" } // 🔥 CLAVE
+          { cache: "no-store" }
         );
 
         if (!res.ok) {
           setAllowedResources(ALL_RESOURCES);
+          setPermissionsReady(true);
           return;
         }
 
         const data = await res.json();
 
+        // 🔐 4. Permisos por defecto si no hay nada
         if (!data || data.length === 0) {
-          // 🔐 DEFAULT STAFF PERMISSIONS
           setAllowedResources(["jobs"]);
+          setPermissionsReady(true);
           return;
         }
 
+        // 📦 5. Normalizar permisos
         const newResources = data.map((p) => p.resource);
         const prevResources = prevResourcesRef.current || [];
 
-        // Detectar cambios
+        // 🔔 6. Feedback visual
         const added = newResources.filter((r) => !prevResources.includes(r));
         const removed = prevResources.filter((r) => !newResources.includes(r));
 
-        // Mostrar feedback
-        added.forEach((r) => {
-          toast.success(`"${r}" added to sidebar`);
-        });
+        added.forEach((r) => toast.success(`"${r}" added to sidebar`));
+        removed.forEach((r) => toast.warning(`"${r}" removed from sidebar`));
 
-        removed.forEach((r) => {
-          toast.warning(`"${r}" removed from sidebar`);
-        });
-
-        // Guardar estado
+        // 💾 7. Guardar estado
         prevResourcesRef.current = newResources;
         setAllowedResources(newResources);
+        setPermissionsReady(true); // 🔥 AQUÍ
       } catch (err) {
-        console.error(err);
+        console.error("❌ fetchPermissions error:", err);
         setAllowedResources(ALL_RESOURCES);
+        setPermissionsReady(true);
       }
     }
 
@@ -188,6 +245,9 @@ export default function Sidebar() {
     let channel;
 
     async function subscribe() {
+      const supabase = await getSupabase(getToken);
+      supabaseRef.current = supabase; // ✅ GUARDAR CLIENT
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("id")
@@ -207,7 +267,6 @@ export default function Sidebar() {
             filter: `staff_profile_id=eq.${profile.id}`,
           },
           () => {
-            // 🔥 permisos cambiaron → re-fetch
             fetchPermissionsRef.current?.();
           }
         )
@@ -217,8 +276,8 @@ export default function Sidebar() {
     subscribe();
 
     return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
+      if (channel && supabaseRef.current) {
+        supabaseRef.current.removeChannel(channel);
       }
     };
   }, [user?.id, role]);
@@ -270,6 +329,8 @@ export default function Sidebar() {
     if (role !== "admin") return;
 
     async function checkRecentSyncErrors() {
+      const supabase = await getSupabase(getToken);
+
       const since = new Date();
       since.setDate(since.getDate() - 1);
 
@@ -432,6 +493,13 @@ export default function Sidebar() {
 
   const publicRoutes = ["/", "/sign-in", "/sign-up"];
   if (publicRoutes.includes(pathname)) return null;
+
+  // ⛔️ BLOQUEA RENDER HASTA QUE PERMISOS ESTÉN LISTOS
+  if (!permissionsReady) {
+    return (
+      <aside className="hidden md:flex fixed top-0 left-0 h-screen w-[5rem] bg-slate-900 border-r border-slate-800 z-[50]" />
+    );
+  }
 
   /* =========================
      RENDER

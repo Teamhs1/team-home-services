@@ -7,6 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
 
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
@@ -15,13 +16,31 @@ import { Loader2, Search, RefreshCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+import { useAuth } from "@clerk/nextjs";
+
+async function getSupabase(getToken) {
+  const token = await getToken({ template: "supabase" });
+  if (!token) throw new Error("No Clerk token");
+
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    }
+  );
+}
 
 export default function AdminUsersPage() {
   const { user } = useUser();
+  const router = useRouter();
+
+  const { getToken } = useAuth();
+
   const currentRole = user?.publicMetadata?.role || "client";
 
   const [users, setUsers] = useState([]);
@@ -33,22 +52,41 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // 🔹 Cargar usuarios desde Supabase
+  // 🔹 Cargar usuarios desde Supabase (con Clerk JWT)
   const fetchUsers = async () => {
     try {
       setLoading(true);
+
+      // 🔑 Supabase autenticado con Clerk
+      const supabase = await getSupabase(getToken);
+
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, clerk_id, full_name, email, avatar_url, role, status, created_at, is_property_manager, company_id, companies:company_id ( id, name )"
+          `
+        id,
+        clerk_id,
+        full_name,
+        email,
+        avatar_url,
+        role,
+        status,
+        created_at,
+        is_property_manager,
+        company_id,
+        companies:company_id (
+          id,
+          name
         )
-
+      `
+        )
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setUsers(data);
+
+      setUsers(data || []);
     } catch (err) {
-      console.error("❌ Error loading users:", err.message);
+      console.error("❌ Error loading users:", err);
       setError("Could not load users.");
     } finally {
       setLoading(false);
@@ -57,20 +95,31 @@ export default function AdminUsersPage() {
 
   // 🔄 Escucha cambios en tiempo real
   useEffect(() => {
-    fetchUsers();
-    const channel = supabase
-      .channel("profiles-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        (payload) => {
-          console.log("🔁 Realtime update:", payload);
-          fetchUsers();
-        }
-      )
-      .subscribe();
+    let channel;
+
+    async function init() {
+      await fetchUsers();
+
+      const supabase = await getSupabase(getToken);
+
+      channel = supabase
+        .channel("profiles-changes")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "profiles" },
+          () => {
+            fetchUsers();
+          }
+        )
+        .subscribe();
+    }
+
+    init();
+
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        channel.unsubscribe();
+      }
     };
   }, []);
 
@@ -83,24 +132,34 @@ export default function AdminUsersPage() {
       const backfillRes = await fetch("/api/admin/backfill-clerk-users", {
         method: "POST",
       });
+
       const backfillData = await backfillRes.json();
 
-      if (!backfillRes.ok)
+      if (!backfillRes.ok) {
         throw new Error(backfillData.error || "Backfill failed");
+      }
 
-      toast.success("✅ Step 1: Clerk users backfilled successfully.");
+      // ✅ MENSAJE HONESTO
+      if (backfillData.updated > 0) {
+        toast.success(`✅ ${backfillData.updated} users synchronized`);
+      } else {
+        toast.info("ℹ️ No users needed synchronization");
+      }
 
       const syncRes = await fetch("/api/admin/sync-roles", {
         method: "POST",
         credentials: "include",
       });
-      const syncData = await syncRes.text();
 
-      if (!syncRes.ok)
-        throw new Error(syncData || "Role synchronization failed");
+      if (!syncRes.ok) {
+        const text = await syncRes.text();
+        throw new Error(text || "Role synchronization failed");
+      }
 
-      toast.success("✅ Step 2: Roles synced successfully!");
+      toast.success("✅ Roles synced successfully!");
+
       await fetchUsers();
+      router.refresh();
     } catch (err) {
       console.error("❌ Full sync error:", err);
       toast.error("⚠️ Sync failed: " + err.message);
@@ -245,23 +304,28 @@ export default function AdminUsersPage() {
         </h1>
 
         {currentRole === "admin" && (
-          <button
-            onClick={handleSyncAll}
-            disabled={syncingAll}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition"
-          >
-            {syncingAll ? (
-              <>
-                <Loader2 className="animate-spin" size={18} />
-                Syncing...
-              </>
-            ) : (
-              <>
-                <RefreshCcw size={18} />
-                Sync All Users
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSyncAll}
+              disabled={syncingAll}
+              className="flex items-center gap-2 px-4 py-2
+                   bg-indigo-600 hover:bg-indigo-700
+                   text-white text-sm font-medium rounded-lg
+                   disabled:opacity-50 transition"
+            >
+              {syncingAll ? (
+                <>
+                  <Loader2 className="animate-spin" size={18} />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCcw size={18} />
+                  Sync All Users
+                </>
+              )}
+            </button>
+          </div>
         )}
       </div>
 
@@ -353,18 +417,20 @@ export default function AdminUsersPage() {
                   className="cursor-pointer border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition"
                 >
                   <td className="px-4 py-2">
-                    <Image
-                      src={
-                        user.avatar_url ||
-                        `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                          user.full_name || "User"
-                        )}&background=random&color=fff`
-                      }
-                      alt={user.full_name || "User"}
-                      width={40}
-                      height={40}
-                      className="rounded-full object-cover"
-                    />
+                    <div className="relative w-10 h-10">
+                      <Image
+                        src={
+                          user.avatar_url ||
+                          `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                            user.full_name || user.email || "User"
+                          )}&background=2563eb&color=fff`
+                        }
+                        alt={user.full_name || "User"}
+                        fill
+                        sizes="40px"
+                        className="rounded-full object-cover border"
+                      />
+                    </div>
                   </td>
 
                   <td

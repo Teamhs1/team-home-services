@@ -10,14 +10,10 @@ export async function GET() {
       `
       id,
       name,
-      email,
-      phone,
       owners (
         id,
         full_name
-      ),
-      properties:properties ( count ),
-      members:company_members ( count )
+      )
     `
     )
     .order("name");
@@ -26,14 +22,11 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Normalizamos para el frontend
   const normalized = (data || []).map((c) => ({
     id: c.id,
     name: c.name,
-    email: c.email,
-    phone: c.phone,
-    owner: c.owners?.[0] || null,
-    properties_count: c.properties?.[0]?.count ?? 0,
-    users_count: c.members?.[0]?.count ?? 0,
+    owner: c.owners?.[0] || null, // 1 owner por company
   }));
 
   return NextResponse.json(normalized);

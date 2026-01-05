@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { UserButton, useUser, useAuth } from "@clerk/nextjs"; // ✅ agregado useAuth
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
-
 import { useSidebar } from "@/components/SidebarContext";
 import { Bell, Sun, Moon } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
@@ -20,37 +19,12 @@ export default function GlobalNavbar() {
   const { getToken } = useAuth(); // ✅ Clerk token
 
   const [navBg, setNavBg] = useState(false);
-  const [profileId, setProfileId] = useState(null); // ✅ UUID de profiles
-
   const [pendingCount, setPendingCount] = useState(0);
   const [recentApps, setRecentApps] = useState([]);
   const [recentJobs, setRecentJobs] = useState([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const dropdownRef = useRef(null);
-  // 🔑 Load profile UUID (required for jobs filters)
-  useEffect(() => {
-    if (!isLoaded || !user?.id) return;
-
-    const loadProfileId = async () => {
-      try {
-        const supabase = await getSupabaseClient();
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("clerk_id", user.id)
-          .single();
-
-        if (error) throw error;
-        setProfileId(data.id);
-      } catch (err) {
-        console.error("❌ Navbar profileId error:", err.message);
-      }
-    };
-
-    loadProfileId();
-  }, [isLoaded, user?.id]);
-
   // 🎨 Sidebar Theme (light / dark) — sin romper darkMode
   const [sidebarTheme, setSidebarTheme] = useState("light");
 
@@ -143,13 +117,12 @@ export default function GlobalNavbar() {
 
   // 👷 Staff: cargar jobs pendientes asignados a sí mismo
   async function fetchPendingJobs() {
-    if (role !== "staff" || !profileId) return;
-
-    const supabase = await getSupabaseClient();
+    if (role !== "staff") return;
+    const supabase = await getSupabaseClient(); // ✅ token Clerk
     const { data, count, error } = await supabase
       .from("cleaning_jobs")
       .select("*", { count: "exact" })
-      .eq("assigned_to", profileId) // ✅ FIX
+      .eq("assigned_to", user?.id)
       .eq("status", "pending")
       .order("scheduled_date", { ascending: true })
       .limit(5);
@@ -157,18 +130,19 @@ export default function GlobalNavbar() {
     if (!error) {
       setPendingCount(count || 0);
       setRecentJobs(data || []);
+    } else {
+      console.error("❌ Error fetching staff jobs:", error.message);
     }
   }
 
   // 👤 Client: cargar sus propios trabajos pendientes
   async function fetchClientPendingJobs() {
-    if (role !== "client" || !profileId) return;
-
-    const supabase = await getSupabaseClient();
+    if (role !== "client") return;
+    const supabase = await getSupabaseClient(); // ✅ token Clerk
     const { data, count, error } = await supabase
       .from("cleaning_jobs")
       .select("*", { count: "exact" })
-      .eq("created_by", profileId) // ✅ FIX
+      .eq("created_by", user?.id)
       .eq("status", "pending")
       .order("scheduled_date", { ascending: true })
       .limit(5);
@@ -176,6 +150,8 @@ export default function GlobalNavbar() {
     if (!error) {
       setPendingCount(count || 0);
       setRecentJobs(data || []);
+    } else {
+      console.error("❌ Error fetching client jobs:", error.message);
     }
   }
 
@@ -199,8 +175,8 @@ export default function GlobalNavbar() {
   // 🔄 Escucha realtime de cleaning_jobs (admin + staff + client)
   useEffect(() => {
     if (!["admin", "staff", "client"].includes(role)) return;
-    if (role === "admin") return;
 
+    if (role === "admin") fetchStaffApplications();
     if (role === "staff") fetchPendingJobs();
     if (role === "client") fetchClientPendingJobs();
 
@@ -213,9 +189,9 @@ export default function GlobalNavbar() {
           (payload) => {
             console.log("🧩 Job change detected:", payload);
             if (role === "admin") fetchStaffApplications();
-            if (role === "staff" && payload.new?.assigned_to === profileId)
+            if (role === "staff" && payload.new?.assigned_to === user?.id)
               fetchPendingJobs();
-            if (role === "client" && payload.new?.created_by === profileId)
+            if (role === "client" && payload.new?.created_by === user?.id)
               fetchClientPendingJobs();
           }
         )
@@ -223,7 +199,7 @@ export default function GlobalNavbar() {
 
       return () => supabase.removeChannel(channel);
     });
-  }, [role, user, profileId]);
+  }, [role, user]);
 
   // 🔹 Config visual
   const baseClasses =
