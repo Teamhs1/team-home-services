@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@clerk/nextjs";
 
 import { FEATURE_ICONS } from "./featureIcons";
 import CategoryBlock from "./CategoryBlock";
@@ -151,9 +152,7 @@ export function JobUploadModal({
   // SUBIR TODO
   // --------------------------------------------------------
   const uploadAllPhotos = async () => {
-    const token = await window.Clerk.session.getToken({
-      template: "supabase",
-    });
+    const token = await getToken({ template: "supabase" });
 
     if (!token) throw new Error("No Clerk token");
 
@@ -178,7 +177,9 @@ export function JobUploadModal({
 
         const res = await fetch("/api/job-photos/upload", {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
           body: formData,
         });
 
