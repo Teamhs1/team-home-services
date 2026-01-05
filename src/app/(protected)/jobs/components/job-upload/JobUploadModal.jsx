@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 import { FEATURE_ICONS } from "./featureIcons";
 import CategoryBlock from "./CategoryBlock";
@@ -24,6 +25,8 @@ export function JobUploadModal({
   updateStatus,
   fetchJobs,
 }) {
+  const { getToken } = useAuth();
+  const router = useRouter();
   const [uploading, setUploading] = useState(false);
 
   const [photosByCategory, setPhotosByCategory] = useState({});
@@ -175,16 +178,37 @@ export function JobUploadModal({
         formData.append("category", category);
         formData.append("type", folderType);
 
-        const res = await fetch("/api/job-photos/upload", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        });
+        // ⏱️ timeout de seguridad (20s)
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
 
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error);
+        let res;
+        try {
+          res = await fetch("/api/job-photos/upload", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+            signal: controller.signal,
+          });
+        } catch (err) {
+          if (err.name === "AbortError") {
+            throw new Error("Upload timed out. Please try again.");
+          }
+          throw err;
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        let json = {};
+        try {
+          json = await res.json();
+        } catch {}
+
+        if (!res.ok) {
+          throw new Error(json.error || "Photo upload failed");
+        }
       }
     }
   };
@@ -211,9 +235,15 @@ export function JobUploadModal({
         });
 
         await updateStatus(jobId, "completed");
+
+        toast.success("Job completed!");
+        fetchJobs?.();
+        onClose();
       } else {
+        // 1️⃣ CAMBIAR STATUS
         await updateStatus(jobId, "in_progress");
 
+        // 2️⃣ GUARDAR UNIT TYPE + FEATURES
         if (unitType) {
           await fetch("/api/job-unit-type", {
             method: "POST",
@@ -226,6 +256,7 @@ export function JobUploadModal({
           });
         }
 
+        // 3️⃣ REGISTRAR ACTIVIDAD
         await fetch("/api/job-activity", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -236,7 +267,13 @@ export function JobUploadModal({
           }),
         });
 
-        setStartTime(new Date());
+        toast.success("Job started!");
+
+        // 4️⃣ CERRAR MODAL
+        onClose();
+
+        // 🚀 5️⃣ NAVEGAR AL JOB
+        router.push(`/jobs/${jobId}`);
       }
 
       toast.success(type === "after" ? "Job completed!" : "Job started!");

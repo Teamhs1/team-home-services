@@ -36,7 +36,7 @@ import {
 
 export default function StaffJobsView({
   jobs: initialJobs,
-  updateStatus,
+
   fetchJobs,
   viewMode,
   setViewMode,
@@ -141,6 +141,40 @@ export default function StaffJobsView({
     setJobs((prev) =>
       prev.map((j) => (j.id === jobId ? { ...j, ...updates } : j))
     );
+  };
+  const updateStatus = async (jobId, status) => {
+    if (!jobId) {
+      toast.error("Job ID missing in updateStatus");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/jobs/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: jobId, // 🔥 CLAVE CORRECTA
+          status,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update job status");
+
+      // 🔄 Update UI immediately
+      updateLocalJob(jobId, {
+        status,
+        ...(status === "in_progress"
+          ? { started_at: new Date().toISOString() }
+          : {}),
+        ...(status === "completed"
+          ? { completed_at: new Date().toISOString() }
+          : {}),
+      });
+    } catch (err) {
+      toast.error(err.message);
+      throw err;
+    }
   };
 
   // ===================================================
