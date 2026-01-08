@@ -163,9 +163,16 @@ export function JobUploadModal({
       for (const file of localFiles[category]) {
         const optimized = await processImage(file);
 
-        const folderType = generalCategories.some((g) => g.key === category)
-          ? "after"
-          : type;
+        const isCompareCategory = dynamicCompareCategories.some(
+          (c) => c.key === category
+        );
+
+        let folderType = type;
+
+        // 🔥 si el job se está COMPLETANDO
+        if (type === "after") {
+          folderType = isCompareCategory ? "after" : "general";
+        }
 
         const path = `${jobId}/${folderType}/${category}/${Date.now()}_${
           file.name
@@ -234,7 +241,15 @@ export function JobUploadModal({
           body: JSON.stringify({ job_id: jobId }),
         });
 
+        // 1️⃣ marcar como completed
         await updateStatus(jobId, "completed");
+
+        // 2️⃣ 🔥 normalizar fotos
+        await fetch("/api/job-photos/normalize-general", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId }),
+        });
 
         toast.success("Job completed!");
         fetchJobs?.();

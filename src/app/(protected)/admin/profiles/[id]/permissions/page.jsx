@@ -16,6 +16,13 @@ const STAFF_MODULES = [
   },
   { key: "keys", label: "Keys", description: "Manage physical & digital keys" },
   { key: "tenants", label: "Tenants", description: "View tenant information" },
+
+  // ✅ NUEVO
+  {
+    key: "expenses",
+    label: "Expenses",
+    description: "View and manage expenses",
+  },
 ];
 
 /* =========================
@@ -23,8 +30,8 @@ const STAFF_MODULES = [
 ========================= */
 const STAFF_TEMPLATES = {
   cleaner: ["jobs"],
-  maintenance: ["jobs", "properties", "keys"],
-  manager: ["jobs", "properties", "keys", "tenants"],
+  maintenance: ["jobs", "properties", "keys", "expenses"],
+  manager: ["jobs", "properties", "keys", "tenants", "expenses"],
 };
 
 export default function StaffPermissionsPage() {
@@ -115,6 +122,9 @@ export default function StaffPermissionsPage() {
       }));
     } else {
       toast.success("Permission updated");
+
+      // 🔥 NOTIFICAR A TODA LA APP
+      window.dispatchEvent(new CustomEvent("staff-permissions-updated"));
     }
   }
 

@@ -130,6 +130,25 @@ export default function JobsPage() {
       setLoading(false);
     }
   };
+  /**===========================
+   * Delete ======================*/
+  const deleteJob = async (jobId) => {
+    try {
+      const res = await fetch("/api/jobs/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: jobId }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      toast.success("🗑️ Job deleted");
+      await fetchAdminJobs(); // 🔥 refresca jobs
+    } catch (err) {
+      toast.error(err.message || "Error deleting job");
+    }
+  };
 
   /* ======================
      CREATE CLIENT JOB ✅ FIX
@@ -205,11 +224,10 @@ export default function JobsPage() {
     }
   };
 
-  const [viewMode, setViewMode] = useState("list");
-
-  useEffect(() => {
-    if (role !== "client") setViewMode("list");
-  }, [role]);
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window === "undefined") return "list";
+    return window.innerWidth < 640 ? "list" : "list";
+  });
 
   useEffect(() => {
     if (!ready || !clerkId) return;
@@ -250,7 +268,7 @@ export default function JobsPage() {
     );
 
   return (
-    <div className="pt-24 px-4 md:px-6 lg:px-8">
+    <div className="pt-4 sm:pt-24 px-2 sm:px-4 md:px-6 lg:px-8">
       {role === "admin" ? (
         <AdminJobsView
           jobs={filteredJobs}
@@ -259,6 +277,7 @@ export default function JobsPage() {
           viewMode={viewMode}
           setViewMode={setViewMode}
           fetchJobs={fetchAdminJobs}
+          deleteJob={deleteJob}
           activeStatus={activeStatus}
         />
       ) : role === "staff" ? (

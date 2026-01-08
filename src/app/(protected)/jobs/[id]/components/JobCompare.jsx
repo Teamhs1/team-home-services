@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
 import dynamic from "next/dynamic";
 import FullscreenViewer from "@/components/FullscreenViewer";
+import { ArrowLeft, Maximize2 } from "lucide-react";
 
 const ReactCompareImage = dynamic(() => import("react-compare-image"), {
   ssr: false,
@@ -40,13 +40,13 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
   const total = pairs.length;
 
   // ==========================================================
-  // 🔥 FULLSCREEN HANDLER
+  // FULLSCREEN HANDLER (solo botón)
   // ==========================================================
   const openFullscreen = (pair) => {
-    const beforeUrl = publicUrl(pair.before.image_url);
-    const afterUrl = publicUrl(pair.after.image_url);
-
-    setFullscreenImages([beforeUrl, afterUrl]); // two-frame viewer
+    setFullscreenImages([
+      publicUrl(pair.before.image_url),
+      publicUrl(pair.after.image_url),
+    ]);
     setFullscreenIndex(0);
     setIsFullscreen(true);
   };
@@ -66,16 +66,15 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
             exit={{ opacity: 0, x: -60 }}
             className="relative w-full"
           >
-            {/* Título categoría */}
+            {/* CATEGORY */}
             <div className="text-center text-sm font-medium bg-gray-900 text-white py-1 rounded-md mb-4 uppercase tracking-wide shadow-sm">
               {pairs[currentIndex].key.replace("_", " ")}
             </div>
 
-            {/* CONTENEDOR DEL COMPARADOR */}
+            {/* COMPARE CONTAINER */}
             <div
-              className="relative w-full rounded-lg overflow-hidden cursor-pointer"
+              className="relative w-full rounded-lg overflow-hidden select-none"
               style={{ height: "360px" }}
-              onClick={() => openFullscreen(pairs[currentIndex])} // 👈 FULLSCREEN ON CLICK
             >
               {/* BEFORE */}
               <span className="absolute top-3 left-3 z-20 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-semibold">
@@ -83,11 +82,19 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
               </span>
 
               {/* AFTER */}
-              <span className="absolute top-3 right-3 z-20 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-semibold">
+              <span className="absolute top-3 right-14 z-20 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-semibold">
                 After
               </span>
 
-              {/* COMPARADOR */}
+              {/* EXPAND BUTTON */}
+              <button
+                onClick={() => openFullscreen(pairs[currentIndex])}
+                className="absolute top-3 right-3 z-30 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full shadow transition"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
+
+              {/* COMPARE */}
               <ReactCompareImage
                 leftImage={publicUrl(pairs[currentIndex].before.image_url)}
                 rightImage={publicUrl(pairs[currentIndex].after.image_url)}
@@ -100,7 +107,7 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
           </motion.div>
         </AnimatePresence>
 
-        {/* BOTÓN IZQUIERDA */}
+        {/* LEFT */}
         <button
           onClick={() => setCurrentIndex((prev) => (prev - 1 + total) % total)}
           className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 p-3 rounded-full shadow-md hover:bg-white transition"
@@ -108,7 +115,7 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
           <ArrowLeft className="w-5 h-5 text-gray-700" />
         </button>
 
-        {/* BOTÓN DERECHA */}
+        {/* RIGHT */}
         <button
           onClick={() => setCurrentIndex((prev) => (prev + 1) % total)}
           className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 p-3 rounded-full shadow-md hover:bg-white transition"
@@ -117,9 +124,7 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
         </button>
       </motion.div>
 
-      {/* ==========================================================
-          FULLSCREEN VIEWER
-      ========================================================== */}
+      {/* FULLSCREEN */}
       {isFullscreen && (
         <FullscreenViewer
           images={fullscreenImages}

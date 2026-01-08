@@ -47,7 +47,6 @@ const isUUID = (v) =>
 
 export default function AdminJobsView({
   jobs,
-
   clientList,
   viewMode,
   setViewMode,
@@ -113,22 +112,28 @@ export default function AdminJobsView({
       try {
         const supabase = await getClientWithToken();
 
+        if (!supabase) {
+          throw new Error("Supabase client not available (JWT missing)");
+        }
+
         const { data, error } = await supabase
           .from("profiles")
           .select("id, clerk_id, full_name, email, role")
-          .eq("role", "client");
+          .or("role.eq.client,role.eq.customer,role.is.null");
 
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase error:", error);
+          throw error;
+        }
 
-        // 🔒 FILTRO FINAL DE SEGURIDAD (UUID ONLY)
         const safeClients = (data || []).filter(
-          (c) => c.id && typeof c.id === "string" && !c.id.startsWith("user_")
+          (c) => typeof c.id === "string" && !c.id.startsWith("user_")
         );
 
         setLoadedClients(safeClients);
       } catch (err) {
-        console.error("❌ Error fetching clients:", err);
-        toast.error("Could not load clients.");
+        console.error("❌ Error fetching clients:", err?.message || err);
+        toast.error("Could not load clients");
         setLoadedClients([]);
       }
     }
@@ -251,25 +256,29 @@ export default function AdminJobsView({
     }
   }, [viewMode, setViewMode]);
 
-  // ASSIGN STAFF
-  const assignToStaff = async (jobId, assigned_to) => {
+  // ASSIGN STAFF (USA API)
+  const assignToStaff = async (jobId, staffClerkId) => {
     try {
-      const supabase = await getClientWithToken();
-      const cleanValue = assigned_to?.trim() ? assigned_to : null;
+      const res = await fetch("/api/jobs/assign-staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId,
+          staffClerkId: staffClerkId || null,
+        }),
+      });
 
-      const { error } = await supabase
-        .from("cleaning_jobs")
-        .update({ assigned_to: cleanValue })
-        .eq("id", jobId);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
 
-      if (error) throw new Error(error.message);
-      toast.success("✅ Job assigned successfully!");
+      toast.success("✅ Staff assigned successfully");
+      await fetchJobs(); // 🔥 CLAVE PARA FILTROS + UI
     } catch (err) {
-      toast.error("Error assigning job: " + err.message);
+      toast.error(err.message);
     }
   };
 
-  // ASSIGN CLIENT
+  // ASSIGN CLIENT (USA API + SERVICE ROLE)
   const assignToClient = async (jobId, client_id) => {
     if (!isUUID(client_id)) {
       toast.error("Invalid client selected");
@@ -277,21 +286,25 @@ export default function AdminJobsView({
     }
 
     try {
-      const supabase = await getClientWithToken();
+      const res = await fetch("/api/jobs/assign-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId,
+          clientId: client_id,
+        }),
+      });
 
-      const { error } = await supabase
-        .from("cleaning_jobs")
-        .update({ assigned_client: client_id }) // UUID ONLY
-        .eq("id", jobId);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
 
-      if (error) throw error;
-
-      toast.success("✅ Cliente asignado correctamente!");
-      await fetchJobs();
+      toast.success("✅ Cliente asignado correctamente");
+      await fetchJobs(); // 🔥 CLAVE para que el filtro funcione
     } catch (err) {
-      toast.error("Error assigning client: " + err.message);
+      toast.error(err.message);
     }
   };
+
   /* =======================
      LOAD STAFF
   ======================= */
@@ -461,7 +474,7 @@ export default function AdminJobsView({
             <option value="all">All Clients</option>
             {loadedClients.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.full_name ? c.full_name : c.email}
+                {c.full_name || c.email}
               </option>
             ))}
           </select>
@@ -818,27 +831,34 @@ export default function AdminJobsView({
                 <div className="flex items-center gap-2 text-sm">
                   <User className="w-4 h-4 text-gray-500" />
                   <select
+                    className="border rounded-md p-1 text-xs flex-1"
                     value={
                       isUUID(job.assigned_client) ? job.assigned_client : ""
                     }
+                    onClick={(e) => e.stopPropagation()}
                     onChange={(e) => {
                       const val = e.target.value;
+
+                      if (!val) {
+                        assignToClient(job.id, null);
+                        return;
+                      }
+
                       if (!isUUID(val)) {
                         toast.error("Invalid client selected");
                         return;
                       }
+
                       assignToClient(job.id, val);
                     }}
                   >
                     <option value="">No client</option>
 
-                    {clientList
-                      .filter((c) => c.id && !c.id.startsWith("user_"))
-                      .map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.full_name || c.email}
-                        </option>
-                      ))}
+                    {loadedClients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.full_name || c.email}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

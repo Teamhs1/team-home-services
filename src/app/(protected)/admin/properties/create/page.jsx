@@ -73,8 +73,8 @@ export default function CreatePropertyPage() {
   const selectedOwner = selectedCompany?.owners || null;
 
   /* =====================
-     SUBMIT
-  ===================== */
+   SUBMIT
+===================== */
   async function handleSubmit(e) {
     e.preventDefault();
 
@@ -106,15 +106,32 @@ export default function CreatePropertyPage() {
 
       const json = await res.json();
 
+      // ❌ ERROR DE NEGOCIO (NO THROW)
       if (!res.ok) {
-        throw new Error(json?.error || "Failed to create property");
+        toast.error(
+          json?.error ||
+            "Unable to create property. Please review the information and try again.",
+          {
+            description:
+              json?.error ===
+              "This property is already registered under this company."
+                ? "This address already exists for the selected company."
+                : undefined,
+          }
+        );
+        return;
       }
 
+      // ✅ SUCCESS
       toast.success("Property created successfully");
       router.push("/admin/properties");
     } catch (err) {
       console.error("CREATE PROPERTY ERROR:", err);
-      toast.error(err.message || "Failed to create property");
+
+      toast.error("Unexpected error", {
+        description:
+          "Something went wrong while creating the property. Please try again.",
+      });
     }
   }
 

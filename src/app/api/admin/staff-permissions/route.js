@@ -7,7 +7,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const VALID_RESOURCES = ["jobs", "properties", "keys", "tenants"];
+const VALID_RESOURCES = ["jobs", "properties", "keys", "tenants", "expenses"];
+
 const VALID_ACTIONS = ["view", "create", "edit", "delete"];
 
 /* =========================

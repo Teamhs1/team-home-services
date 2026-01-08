@@ -63,3 +63,54 @@ Regla d eoro para politicasSi el admin crea algo → API
 Si el client crea algo → Supabase directo con RLS
 ---------------------------------------
 select * from pg_policies where tablename = 'cleaning_jobs';
+------------------------------------------
+Insertar propiedades desde Supabase: 
+INSERT INTO properties (
+  id,
+  name,
+  address,
+  unit,
+  company_id,
+  created_at
+)
+SELECT
+  gen_random_uuid(),
+  p.address,
+  p.address,
+  NULL,
+  '490d5aa3-2ace-477c-ace6-cd8deedd6eaa',
+  NOW()
+FROM (
+  VALUES
+    ('5 Bristol Cres'),
+    ('11 Storey Road West'),
+    ('14 Lefurgey Ave'),
+    ('15 West Lane'),
+    ('18 Prince Street'),
+    ('22 MacAleese Lane'),
+    ('23 Falkland St'),
+    ('27 Devonshire Crt'),
+    ('34 ch Thaddee-A-Sam'),
+    ('38 ch Thaddee-A-Sam'),
+    ('44 Cameron Street'),
+    ('45-47 Cameron St'),
+    ('46 St George St'),
+    ('2492 Amirault St'),
+    ('270-274 Robinson Street'),
+    ('282 Mill Road'),
+    ('286 Mill Road'),
+    ('320 Saint George Street'),
+    ('401 Elmwood Dr'),
+    ('420 Robinson St'),
+    ('427 High St'),
+    ('457-459 High Street'),
+    ('485 Lutz St'),
+    ('747 Gauvin Road'),
+    ('2107 Champlain St')
+) AS p(address)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM properties pr
+  WHERE pr.company_id = '490d5aa3-2ace-477c-ace6-cd8deedd6eaa'
+    AND LOWER(pr.address) = LOWER(p.address)
+);

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import FullscreenViewer from "@/components/FullscreenViewer";
 
 export default function JobGallery({
@@ -31,47 +31,71 @@ export default function JobGallery({
   return (
     <>
       <div className="space-y-8">
-        {[
-          ["before", beforePhotos],
-          ["after", afterPhotos],
-        ].map(([type, list]) => (
-          <section key={type}>
-            <h2
-              className={`text-xl font-semibold mb-3 ${
-                type === "before" ? "text-yellow-600" : "text-green-600"
-              }`}
-            >
-              {type === "before" ? "Before Photos" : "After Photos"}
+        {/* ===============================
+            BEFORE PHOTOS
+        =============================== */}
+        {beforePhotos.length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold mb-3 text-yellow-600">
+              Before Photos
             </h2>
 
-            {list.length ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {list.map((p, i) => (
-                  <motion.div
-                    key={p.id || p.image_url}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="rounded-lg overflow-hidden shadow-md cursor-pointer"
-                    onClick={() => openFullscreen(list, i)} // 👈 FULLSCREEN ON CLICK
-                  >
-                    <Image
-                      src={publicUrl(p.image_url)}
-                      alt={p.category || type}
-                      width={400}
-                      height={400}
-                      className="object-cover w-full h-48"
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-sm">
-                No {type} photos uploaded.
-              </p>
-            )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {beforePhotos.map((p, i) => (
+                <motion.div
+                  key={p.id || p.image_url}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-lg overflow-hidden shadow-md cursor-pointer"
+                  onClick={() => openFullscreen(beforePhotos, i)}
+                >
+                  <Image
+                    src={publicUrl(p.image_url)}
+                    alt="before"
+                    width={400}
+                    height={400}
+                    className="object-cover w-full h-48"
+                  />
+                </motion.div>
+              ))}
+            </div>
           </section>
-        ))}
+        )}
 
+        {/* ===============================
+            AFTER PHOTOS
+        =============================== */}
+        {afterPhotos.length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold mb-3 text-green-600">
+              After Photos
+            </h2>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {afterPhotos.map((p, i) => (
+                <motion.div
+                  key={p.id || p.image_url}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-lg overflow-hidden shadow-md cursor-pointer"
+                  onClick={() => openFullscreen(afterPhotos, i)}
+                >
+                  <Image
+                    src={publicUrl(p.image_url)}
+                    alt="after"
+                    width={400}
+                    height={400}
+                    className="object-cover w-full h-48"
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ===============================
+            GENERAL PHOTOS
+        =============================== */}
         {generalPhotos.length > 0 && (
           <section>
             <h2 className="text-xl font-semibold mb-3 text-blue-600">
@@ -85,11 +109,11 @@ export default function JobGallery({
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   className="rounded-lg overflow-hidden shadow-md cursor-pointer"
-                  onClick={() => openFullscreen(generalPhotos, i)} // 👈 FULLSCREEN
+                  onClick={() => openFullscreen(generalPhotos, i)}
                 >
                   <Image
                     src={publicUrl(p.image_url)}
-                    alt={p.category}
+                    alt="general"
                     width={400}
                     height={400}
                     className="object-cover w-full h-48"

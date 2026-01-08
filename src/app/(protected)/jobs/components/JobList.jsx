@@ -14,11 +14,14 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
-import { MoreVertical, Eye, RefreshCcw, Trash2 } from "lucide-react";
+import { MoreVertical, Eye, RefreshCcw } from "lucide-react";
 
 // FEATURES
 import { FEATURE_ICONS } from "./job-upload/featureIcons";
 import { FEATURES } from "./job-upload/features";
+
+// 🔥 UNIT TYPE ICONS
+import { UNIT_TYPE_ICONS } from "./job-upload/unitTypeIcons";
 
 export function JobList({ jobs, openModal }) {
   const router = useRouter();
@@ -41,7 +44,7 @@ export function JobList({ jobs, openModal }) {
   const renderFeatureIcons = (features = []) =>
     features
       .filter((f) => FEATURE_ICONS[f])
-      .slice(0, 5)
+      .slice(0, 3)
       .map((f) => {
         const Icon = FEATURE_ICONS[f];
         const label =
@@ -50,13 +53,27 @@ export function JobList({ jobs, openModal }) {
         return (
           <span
             key={f}
-            className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full text-[10px]"
+            className="flex items-center gap-1 bg-gray-100 px-1.5 py-0.5 rounded-full text-[10px]"
           >
             <Icon className="w-3 h-3 text-primary" />
             {label}
           </span>
         );
       });
+
+  // 🔥 UNIT TYPE BADGE (mobile)
+  const renderUnitTypeBadge = (unitType) => {
+    if (!unitType) return null;
+
+    const Icon = UNIT_TYPE_ICONS[unitType.toLowerCase()];
+
+    return (
+      <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0">
+        {Icon && <Icon className="w-3 h-3" />}
+        {unitType}
+      </span>
+    );
+  };
 
   /* ======================
      MOBILE — CARDS
@@ -68,23 +85,18 @@ export function JobList({ jobs, openModal }) {
           <div
             key={job.id}
             onClick={() => router.push(`/jobs/${job.id}`)}
-            className="p-4 bg-white border rounded-xl shadow-sm cursor-pointer"
+            className="w-full px-3 py-2.5 bg-white border rounded-xl shadow-sm cursor-pointer"
           >
-            <h3 className="font-semibold text-lg">{job.title}</h3>
+            {/* TITLE + UNIT TYPE + STATUS */}
+            <div className="flex items-center gap-2 mb-0.5">
+              <h3 className="font-semibold text-base truncate flex-1">
+                {job.title}
+              </h3>
 
-            <p className="text-sm text-gray-500">
-              {job.service_type} • {formatDate(job.scheduled_date)}
-            </p>
+              {job.unit_type && renderUnitTypeBadge(job.unit_type)}
 
-            {job.features?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {renderFeatureIcons(job.features)}
-              </div>
-            )}
-
-            <div className="mt-3">
               <span
-                className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                   job.status === "pending"
                     ? "bg-yellow-100 text-yellow-700"
                     : job.status === "in_progress"
@@ -96,14 +108,25 @@ export function JobList({ jobs, openModal }) {
               </span>
             </div>
 
+            <p className="text-[13px] text-gray-500 leading-tight">
+              {job.service_type} • {formatDate(job.scheduled_date)}
+            </p>
+
+            {job.features?.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {renderFeatureIcons(job.features)}
+              </div>
+            )}
+
             {job.status === "in_progress" && <JobTimer jobId={job.id} />}
             {job.status === "completed" && <JobDuration jobId={job.id} />}
 
-            {/* ACTIONS (mobile buttons) */}
-            <div className="mt-4 flex justify-end gap-2">
+            {/* ACTIONS */}
+            <div className="mt-2">
               {job.status === "pending" && (
                 <Button
                   size="sm"
+                  className="w-full"
                   onClick={(e) => {
                     e.stopPropagation();
                     openModal(job.id, "before");
@@ -117,6 +140,7 @@ export function JobList({ jobs, openModal }) {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="w-full"
                   onClick={(e) => {
                     e.stopPropagation();
                     openModal(job.id, "after");
@@ -131,7 +155,7 @@ export function JobList({ jobs, openModal }) {
       </div>
 
       {/* ======================
-         DESKTOP — TABLE
+         DESKTOP — TABLE (UNCHANGED)
       ====================== */}
       <div className="hidden sm:block overflow-x-auto bg-white border rounded-lg">
         <table className="min-w-full text-sm">
@@ -186,7 +210,6 @@ export function JobList({ jobs, openModal }) {
                   {job.status === "completed" && <JobDuration jobId={job.id} />}
                 </td>
 
-                {/* ACTIONS — 3 DOTS */}
                 <td
                   className="px-4 py-2 text-right"
                   onClick={(e) => e.stopPropagation()}
@@ -199,7 +222,6 @@ export function JobList({ jobs, openModal }) {
                     </DropdownMenuTrigger>
 
                     <DropdownMenuContent align="end">
-                      {/* VIEW */}
                       <DropdownMenuItem
                         onClick={() => router.push(`/jobs/${job.id}`)}
                       >
@@ -207,7 +229,6 @@ export function JobList({ jobs, openModal }) {
                         View job
                       </DropdownMenuItem>
 
-                      {/* START */}
                       {job.status === "pending" && (
                         <DropdownMenuItem
                           onClick={() => openModal(job.id, "before")}
@@ -216,7 +237,6 @@ export function JobList({ jobs, openModal }) {
                         </DropdownMenuItem>
                       )}
 
-                      {/* COMPLETE */}
                       {job.status === "in_progress" && (
                         <DropdownMenuItem
                           onClick={() => openModal(job.id, "after")}
@@ -225,7 +245,6 @@ export function JobList({ jobs, openModal }) {
                         </DropdownMenuItem>
                       )}
 
-                      {/* RESET (info only) */}
                       <DropdownMenuItem
                         onClick={() =>
                           toast.info("Reset not enabled for staff yet")

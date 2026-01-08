@@ -1,4 +1,3 @@
-// src/app/api/me/route.js
 import { NextResponse } from "next/server";
 import { getAuth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
@@ -10,15 +9,28 @@ const supabase = createClient(
 
 export async function GET(req) {
   const { userId } = getAuth(req);
+
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
-    .select("role, active_company_id")
+    .select(
+      `
+      id,
+      clerk_id,
+      role,
+      active_company_id,
+      full_name
+    `
+    )
     .eq("clerk_id", userId)
     .single();
+
+  if (error || !data) {
+    return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+  }
 
   return NextResponse.json(data);
 }

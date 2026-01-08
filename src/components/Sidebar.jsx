@@ -83,7 +83,7 @@ const getSupabaseWithAuth = async (getToken) => {
    CONSTANTES
 ========================= */
 
-const ALL_RESOURCES = ["jobs", "properties", "keys", "tenants"];
+const ALL_RESOURCES = ["jobs", "properties", "keys", "tenants", "expenses"];
 
 const SIDEBAR_THEMES = {
   light: {
@@ -305,22 +305,6 @@ export default function Sidebar() {
       );
     };
   }, [user?.id, role]);
-  /* =========================
-   PERMISSIONS SAFETY REFRESH
-   (BACKUP REALTIME)
-========================= */
-  useEffect(() => {
-    if (!user?.id || role === "admin") return;
-
-    // 🚫 Evitar polling mientras estás en la página de permisos
-    if (pathname.startsWith("/admin/permissions")) return;
-
-    const interval = setInterval(() => {
-      fetchPermissionsRef.current?.();
-    }, 4000); // cada 4 segundos
-
-    return () => clearInterval(interval);
-  }, [user?.id, role, pathname]);
 
   /* =========================
      SYNC ERRORS (ADMIN)
@@ -374,6 +358,14 @@ export default function Sidebar() {
       icon: ClipboardList,
       resource: "jobs",
     },
+    {
+      id: "expenses",
+      name: "Expenses",
+      href: "/expenses",
+      icon: FileSpreadsheet,
+      resource: "expenses",
+    },
+
     {
       id: "properties-dashboard",
       name: "Properties",

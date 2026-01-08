@@ -9,7 +9,10 @@ import { useUser } from "@clerk/nextjs";
 
 export default function JobHeader({ job, router, openModal }) {
   const { user } = useUser();
+
+  // 🔐 PERMISOS REALES
   const role = user?.publicMetadata?.role || "client";
+  const canManageJob = role === "staff" || role === "admin";
 
   const dateLabel = job?.scheduled_date
     ? new Date(job.scheduled_date).toLocaleDateString()
@@ -68,9 +71,10 @@ export default function JobHeader({ job, router, openModal }) {
         </div>
       </div>
 
-      {/* DERECHA */}
-      {role !== "client" && (
+      {/* DERECHA — ACCIONES */}
+      {canManageJob && (
         <div className="flex items-center gap-3">
+          {/* START */}
           {job?.status === "pending" && (
             <Button
               size="sm"
@@ -81,8 +85,10 @@ export default function JobHeader({ job, router, openModal }) {
             </Button>
           )}
 
+          {/* IN PROGRESS */}
           {job?.status === "in_progress" && (
             <>
+              {/* ⏱ TIMER (SEGURO) */}
               <div className="bg-blue-50 text-blue-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
                 <JobTimer jobId={job.id} />
               </div>
@@ -98,6 +104,7 @@ export default function JobHeader({ job, router, openModal }) {
             </>
           )}
 
+          {/* COMPLETED */}
           {job?.status === "completed" && (
             <div className="bg-green-50 text-green-700 text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm">
               <JobDuration jobId={job.id} />

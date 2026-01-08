@@ -540,6 +540,98 @@ export default function PropertiesListPage() {
           </table>
         </div>
       )}
+
+      {/* GRID VIEW */}
+      {viewMode === "grid" && filteredProperties.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sortedProperties.map((p) => (
+            <div
+              key={p.id}
+              onClick={() => router.push(`/admin/properties/${p.id}`)}
+              className="
+          bg-white border rounded-xl p-5 cursor-pointer
+          hover:shadow-md hover:border-primary transition
+          relative
+        "
+            >
+              {/* CHECKBOX */}
+              <input
+                type="checkbox"
+                checked={selectedProperties.has(p.id)}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => togglePropertySelection(p.id)}
+                className="absolute top-4 right-4"
+              />
+
+              {/* NAME */}
+              <h3 className="text-lg font-semibold">{p.name}</h3>
+
+              {/* ADDRESS */}
+              <p className="text-sm text-gray-500 mt-1">
+                {p.address}
+                {p.unit && `, Unit ${p.unit}`}
+              </p>
+
+              {/* META */}
+              <div className="mt-3 space-y-1 text-sm text-gray-600">
+                <p>
+                  <span className="font-medium">Company:</span>{" "}
+                  {p.companies?.name || "—"}
+                </p>
+                <p>
+                  <span className="font-medium">Owner:</span>{" "}
+                  {p.owners?.full_name || "—"}
+                </p>
+              </div>
+
+              {/* ACTIONS */}
+              <div className="absolute bottom-4 right-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link href={`/admin/properties/${p.id}`}>
+                        View Property
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem asChild>
+                      <Link href={`/admin/properties/${p.id}/edit`}>
+                        Edit Property
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem
+                      className="text-orange-600"
+                      onClick={() => handleDeleteProperty(p.id, p.name)}
+                    >
+                      Archive Property
+                    </DropdownMenuItem>
+
+                    {p.is_active === false && (
+                      <DropdownMenuItem
+                        className="text-red-700 font-semibold"
+                        onClick={() => handleHardDeleteProperty(p.id, p.name)}
+                      >
+                        Delete Permanently
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </main>
   );
 }

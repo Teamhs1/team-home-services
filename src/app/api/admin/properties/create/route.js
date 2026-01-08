@@ -1,4 +1,3 @@
-// src/app/api/admin/properties/create/route.js
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAuth } from "@clerk/nextjs/server";
@@ -25,7 +24,9 @@ export async function POST(req) {
     );
   }
 
-  // 🔐 validar admin
+  /* =====================
+     VALIDATE ADMIN
+  ===================== */
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
@@ -36,14 +37,43 @@ export async function POST(req) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // ✅ BUSCAR OWNER REAL POR COMPANY
+  /* =====================
+     🔎 CHECK DUPLICATE PROPERTY
+     SAME COMPANY + SAME ADDRESS (+ UNIT)
+  ===================== */
+  let duplicateQuery = supabase
+    .from("properties")
+    .select("id")
+    .eq("company_id", company_id)
+    .eq("address", address);
+
+  if (unit) {
+    duplicateQuery = duplicateQuery.eq("unit", unit);
+  }
+
+  const { data: existing } = await duplicateQuery.maybeSingle();
+
+  if (existing) {
+    return NextResponse.json(
+      {
+        error: "A property with this address already exists for this company.",
+      },
+      { status: 409 } // 👈 Conflict
+    );
+  }
+
+  /* =====================
+     FIND OWNER (OPTIONAL)
+  ===================== */
   const { data: owner } = await supabase
     .from("owners")
     .select("id")
     .eq("company_id", company_id)
     .maybeSingle();
 
-  // 🏠 crear propiedad
+  /* =====================
+     CREATE PROPERTY
+  ===================== */
   const { data, error } = await supabase
     .from("properties")
     .insert({
@@ -53,7 +83,7 @@ export async function POST(req) {
       street_number,
       street_name,
       company_id,
-      owner_id: owner?.id ?? null, // 🔑 CLAVE
+      owner_id: owner?.id ?? null,
     })
     .select()
     .single();

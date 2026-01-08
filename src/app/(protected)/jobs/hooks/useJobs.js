@@ -27,9 +27,18 @@ export function useJobs({ clerkId, role, getToken }) {
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || "Failed to load jobs");
 
-        const safeJobs = Array.isArray(json.data) ? json.data : [];
-        setJobs(safeJobs);
-        return safeJobs;
+        const rawJobs = Array.isArray(json.data) ? json.data : [];
+
+        // 🔒 NORMALIZE ADMIN JOBS (MATCH STAFF/CLIENT SHAPE)
+        const normalized = rawJobs.map((job) => ({
+          ...job,
+          photos: job.photos || [],
+          client: job.client || null,
+          staff: job.staff || null,
+        }));
+
+        setJobs(normalized);
+        return normalized;
       } catch (err) {
         console.error("❌ Admin jobs error:", err.message);
         toast.error("Error loading admin jobs");

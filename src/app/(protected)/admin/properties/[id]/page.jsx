@@ -10,6 +10,7 @@ import {
   KeyRound,
   Plus,
   ArrowLeft,
+  Pencil,
 } from "lucide-react";
 
 /* =====================
@@ -38,6 +39,10 @@ export default function PropertyDetailPage() {
   const [units, setUnits] = useState([]);
   const [keys, setKeys] = useState([]);
 
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
   /* =====================
      LOAD PROPERTY DATA
   ===================== */
@@ -56,6 +61,7 @@ export default function PropertyDetailPage() {
         const data = await res.json();
 
         setProperty(data.property || null);
+        setNameDraft(data.property?.name || "");
         setUnits(data.units || []);
         setKeys(data.keys || []);
       } catch (err) {
@@ -83,6 +89,46 @@ export default function PropertyDetailPage() {
       </div>
     );
   }
+  async function saveName() {
+    if (!nameDraft.trim() || nameDraft === property.name) {
+      setIsEditingName(false);
+      return;
+    }
+
+    try {
+      setSavingName(true);
+
+      const res = await fetch(`/api/admin/properties/${property.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          name: nameDraft,
+          address: property.address,
+          unit: property.unit,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      // 🔥 actualiza UI sin recargar
+      setProperty((prev) => ({
+        ...prev,
+        name: nameDraft,
+      }));
+
+      setIsEditingName(false);
+    } catch (err) {
+      console.error(err);
+      setNameDraft(property.name); // rollback
+      alert(err.message || "Failed to update property name");
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   return (
     <div className="p-8 pt-[130px] space-y-8 max-w-[1400px] mx-auto">
@@ -97,10 +143,52 @@ export default function PropertyDetailPage() {
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
+          {/* NAME (INLINE EDITABLE) */}
+          <div className="flex items-center gap-2 group">
             <Building2 className="text-primary" />
-            {property.name}
-          </h1>
+
+            {isEditingName ? (
+              <input
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onBlur={saveName}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveName();
+                  if (e.key === "Escape") {
+                    setNameDraft(property.name);
+                    setIsEditingName(false);
+                  }
+                }}
+                disabled={savingName}
+                className="text-3xl font-bold border-b border-gray-300 focus:outline-none focus:border-primary bg-transparent"
+              />
+            ) : (
+              <>
+                {/* 📝 TEXT (clickable) */}
+                <h1
+                  onClick={() => setIsEditingName(true)}
+                  title="Click to edit name"
+                  className="text-3xl font-bold cursor-text hover:text-primary"
+                >
+                  {property.name}
+                </h1>
+
+                {/* ✏️ ICON (hover only) */}
+                <button
+                  onClick={() => setIsEditingName(true)}
+                  title="Edit property name"
+                  className="
+          opacity-0 group-hover:opacity-100
+          transition
+          text-gray-400 hover:text-primary
+        "
+                >
+                  <Pencil size={18} />
+                </button>
+              </>
+            )}
+          </div>
 
           <p className="text-gray-600 mt-1 flex items-center gap-2">
             <MapPin size={14} />
@@ -114,7 +202,8 @@ export default function PropertyDetailPage() {
           )}
         </div>
 
-        <div className="flex gap-2">
+        {/* ACTION BUTTONS */}
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() =>
               router.push(`/admin/properties/${property.id}/units/create`)
@@ -131,6 +220,38 @@ export default function PropertyDetailPage() {
             className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90"
           >
             <Plus size={16} /> Add Key
+          </button>
+
+          {/* 🗑️ DELETE PROPERTY */}
+          <button
+            onClick={async () => {
+              const confirmed = confirm(
+                "⚠️ This will permanently delete this property.\n\nAll units, keys and related data will be removed.\n\nThis action CANNOT be undone.\n\nDo you want to continue?"
+              );
+
+              if (!confirmed) return;
+
+              try {
+                const res = await fetch(
+                  `/api/admin/properties/${property.id}`,
+                  {
+                    method: "DELETE",
+                    credentials: "include",
+                  }
+                );
+
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error);
+
+                alert("✅ Property deleted successfully");
+                router.push("/admin/properties");
+              } catch (err) {
+                alert(err.message || "Failed to delete property");
+              }
+            }}
+            className="flex items-center gap-2 border border-red-300 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50"
+          >
+            🗑️ Delete Property
           </button>
         </div>
       </div>

@@ -184,7 +184,7 @@ export default function Slider({
               alt={`slide-${index}`}
               fill
               unoptimized
-              className="object-contain rounded-t-xl bg-black"
+              className="object-cover rounded-t-xl"
               sizes="(max-width: 768px) 100vw, 50vw"
               placeholder="blur"
               blurDataURL={`data:image/svg+xml;base64,${toBase64(shimmer)}`}

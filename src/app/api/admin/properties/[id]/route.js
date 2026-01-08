@@ -35,8 +35,8 @@ export async function GET(req, { params }) {
 
     /* =====================
        LOAD PROPERTY
-       - Admin: cualquier compañía
-       - Otros: solo su company_id
+       - Admin: any company
+       - Others: only their company
     ===================== */
     let query = supabase
       .from("properties")
@@ -146,6 +146,54 @@ export async function PATCH(req, { params }) {
     console.error("❌ PATCH PROPERTY ERROR:", err);
     return NextResponse.json(
       { error: "Failed to update property" },
+      { status: 500 }
+    );
+  }
+}
+
+/* =========================
+   DELETE PROPERTY (ADMIN ONLY)
+========================= */
+export async function DELETE(req, { params }) {
+  try {
+    const { userId } = await auth();
+    const propertyId = params.id;
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    /* =====================
+       LOAD PROFILE
+    ===================== */
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, role")
+      .eq("clerk_id", userId)
+      .single();
+
+    if (profileError || profile.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    /* =====================
+       HARD DELETE PROPERTY
+       (units & keys should be CASCADE in DB)
+    ===================== */
+    const { error } = await supabase
+      .from("properties")
+      .delete()
+      .eq("id", propertyId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("❌ DELETE PROPERTY ERROR:", err);
+    return NextResponse.json(
+      { error: "Failed to delete property" },
       { status: 500 }
     );
   }

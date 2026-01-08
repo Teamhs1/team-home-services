@@ -1,17 +1,27 @@
 "use client";
-import { MoreVertical, RefreshCcw, Trash2, Eye } from "lucide-react";
 
+import {
+  MoreVertical,
+  RefreshCcw,
+  Trash2,
+  Eye,
+  ClipboardList,
+  LayoutGrid,
+  List,
+  CalendarDays,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { UNIT_TYPE_ICONS } from "./job-upload/unitTypeIcons";
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ClipboardList, LayoutGrid, List, CalendarDays } from "lucide-react";
+
 import { toast } from "sonner";
 import { JobList } from "./JobList";
 import { JobUploadModal } from "./job-upload/JobUploadModal";
@@ -45,10 +55,18 @@ export default function StaffJobsView({
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null);
   const [currentJob, setCurrentJob] = useState(null);
+  const [currentSlide, setCurrentSlide] = useState({});
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const statusFilter = searchParams.get("status") || "all";
+
+  const STATUS_STYLES = {
+    pending: "bg-gray-100 text-gray-800",
+    in_progress: "bg-blue-100 text-blue-700",
+    completed: "bg-green-100 text-green-700",
+    cancelled: "bg-red-100 text-red-700",
+  };
 
   // ===================================================
   // FILTER JOBS (debe estar antes del useEffect)
@@ -115,15 +133,32 @@ export default function StaffJobsView({
           </div>
         );
       });
+  const renderUnitTypeBadge = (unitType) => {
+    if (!unitType) return null;
+
+    const key = unitType.toLowerCase();
+    const Icon = UNIT_TYPE_ICONS[key];
+
+    return (
+      <span
+        className="
+        inline-flex items-center gap-1
+        bg-blue-50 text-blue-700
+        px-2 py-0.5
+        rounded-full
+        text-[11px]
+        font-semibold
+      "
+      >
+        {Icon && <Icon className="w-3 h-3" />}
+        {unitType}
+      </span>
+    );
+  };
 
   // ===================================================
   // AUTO-FORZAR GRID EN MOBILE
   // ===================================================
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 640) {
-      setViewMode("grid");
-    }
-  }, []);
 
   const openModal = (jobId, type) => {
     setModalType(type);
@@ -220,9 +255,9 @@ export default function StaffJobsView({
   );
 
   return (
-    <main className="py-6 sm:px-6 sm:py-10 max-w-[1600px] mx-auto space-y-10">
+    <main className="pt-3 pb-6 sm:px-6 sm:py-10 max-w-[1600px] mx-auto space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mt-1">
         <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
           <ClipboardList className="w-6 h-6 text-primary" />
           My Jobs
@@ -253,7 +288,7 @@ export default function StaffJobsView({
             gap-4 sm:gap-6 
             place-items-stretch 
             grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
-            auto-rows-[1fr]
+            auto-rows-auto
           "
         >
           {filteredJobs.map((job) => (
@@ -263,7 +298,7 @@ export default function StaffJobsView({
     h-full flex flex-col
     relative border shadow-sm hover:shadow-md transition-all 
 rounded-xl bg-white overflow-visible sm:overflow-hidden
-    w-[90%] sm:w-[90%] md:w-full mx-auto
+    w-full sm:w-[90%] md:w-full
   "
             >
               {/* IMAGE */}
@@ -316,32 +351,64 @@ rounded-xl bg-white overflow-visible sm:overflow-hidden
                 </div>
 
                 {/* SLIDER */}
-                <Slider jobId={job.id} mini />
+                <Slider
+                  jobId={job.id}
+                  mini
+                  onSlideChange={(index) =>
+                    setCurrentSlide((prev) => ({ ...prev, [job.id]: index }))
+                  }
+                />
 
                 {/* PHOTO COUNT */}
-                <div className="absolute top-2 left-2 ...">
-                  {(photoCounts[job.id] ?? 0) + " photos"}
+                <div
+                  className="
+    absolute top-2 left-2 z-30 sm:hidden
+    flex items-center gap-1
+    bg-black/60 backdrop-blur
+    text-white
+    px-2 py-1
+    rounded-full
+    text-[11px]
+    font-semibold
+    shadow-sm
+  "
+                >
+                  📷 {(currentSlide[job.id] ?? 0) + 1} /{" "}
+                  {photoCounts[job.id] ?? 0}
                 </div>
 
                 {/* STATUS */}
-                <span className="absolute bottom-2 left-2 ...">
+                <span
+                  className={`
+    absolute bottom-2 left-2 z-20
+    px-3 py-1
+    rounded-full
+    text-xs font-semibold capitalize
+    shadow-sm
+    ${STATUS_STYLES[job.status] || "bg-gray-100 text-gray-700"}
+  `}
+                >
                   {job.status.replace("_", " ")}
                 </span>
               </div>
 
               {/* CONTENT */}
-              <CardHeader className="pb-1">
+              <CardHeader className="pb-1 pt-2 sm:pt-6 space-y-1">
                 <CardTitle className="text-lg font-semibold truncate">
                   {job.title}
                 </CardTitle>
 
-                <CardDescription className="flex items-center gap-2 text-xs text-gray-500">
-                  <CalendarDays className="w-3 h-3" />
-                  {job.scheduled_date || "No date"}
-                </CardDescription>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="flex items-center gap-1 text-xs text-gray-500">
+                    <CalendarDays className="w-3 h-3" />
+                    {job.scheduled_date || "No date"}
+                  </span>
+
+                  {job.unit_type && renderUnitTypeBadge(job.unit_type)}
+                </div>
               </CardHeader>
 
-              <CardContent className="space-y-3 pt-1 flex-grow">
+              <CardContent className="space-y-1 pt-1 pb-2 sm:pb-6">
                 {/* TYPE */}
                 <p className="text-sm capitalize text-gray-700">
                   <strong className="text-gray-800">Type:</strong>{" "}
@@ -400,10 +467,18 @@ rounded-xl bg-white overflow-visible sm:overflow-hidden
                 </div>
 
                 {/* ACTIONS */}
-                <div className="pt-1 flex justify-end mt-auto">
+                <div
+                  className="
+    pt-2
+    flex
+    sm:justify-end
+    justify-stretch
+  "
+                >
                   {job.status === "pending" && (
                     <Button
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={(e) => {
                         e.stopPropagation();
                         openModal(job.id, "before");
@@ -417,6 +492,7 @@ rounded-xl bg-white overflow-visible sm:overflow-hidden
                     <Button
                       size="sm"
                       variant="outline"
+                      className="w-full sm:w-auto"
                       onClick={(e) => {
                         e.stopPropagation();
                         openModal(job.id, "after");
