@@ -19,6 +19,9 @@ export async function GET(req, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    /* =====================
+       LOAD PROFILE
+    ===================== */
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("id, role, company_id")
@@ -29,6 +32,9 @@ export async function GET(req, { params }) {
       return NextResponse.json({ error: "Profile not found" }, { status: 403 });
     }
 
+    /* =====================
+       LOAD PROPERTY
+    ===================== */
     let query = supabase
       .from("properties")
       .select(
@@ -39,7 +45,6 @@ export async function GET(req, { params }) {
   postal_code,
   latitude,
   longitude,
-  year_built,
   company_id,
   company:company_id (
     id,
@@ -63,12 +68,18 @@ export async function GET(req, { params }) {
       );
     }
 
+    /* =====================
+       LOAD UNITS
+    ===================== */
     const { data: units } = await supabase
       .from("units")
       .select("*")
       .eq("property_id", propertyId)
       .order("unit", { ascending: true });
 
+    /* =====================
+       LOAD KEYS
+    ===================== */
     const { data: keys } = await supabase
       .from("keys")
       .select("*")
@@ -101,56 +112,45 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, company_id")
       .eq("clerk_id", userId)
       .single();
 
-    if (!profile || profile.role !== "admin") {
+    if (profileError || profile.role !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const body = await req.json();
+    /* ✅ AHORA SÍ */
+    const { latitude, longitude, postal_code } = await req.json();
 
-    const updates = {};
-
-    if (typeof body.latitude === "number") {
-      updates.latitude = body.latitude;
-    }
-
-    if (typeof body.longitude === "number") {
-      updates.longitude = body.longitude;
-    }
-
-    if (typeof body.postal_code === "string") {
-      updates.postal_code =
-        body.postal_code.trim() === "" ? null : body.postal_code;
-    }
-    // 🏗 Built year
-    if (body.year_built === null || typeof body.year_built === "number") {
-      updates.year_built = body.year_built;
-    }
-
-    if (Object.keys(updates).length === 0) {
+    if (latitude == null || longitude == null) {
       return NextResponse.json(
-        { error: "No valid fields to update" },
+        { error: "Latitude and longitude are required" },
         { status: 400 }
       );
     }
 
     const { error } = await supabase
       .from("properties")
-      .update(updates)
-      .eq("id", propertyId);
+      .update({
+        latitude,
+        longitude,
+        postal_code: postal_code ?? null, // 👈 CLAVE
+      })
+      .eq("id", propertyId)
+      .eq("company_id", profile.company_id);
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("❌ PATCH PROPERTY ERROR:", err);
+    console.error("❌ PATCH LOCATION ERROR:", err);
     return NextResponse.json(
-      { error: "Failed to update property" },
+      { error: "Failed to update location" },
       { status: 500 }
     );
   }
@@ -168,9 +168,12 @@ export async function DELETE(req, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    /* =====================
+       LOAD PROFILE
+    ===================== */
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("role")
+      .select("id, role")
       .eq("clerk_id", userId)
       .single();
 
@@ -178,6 +181,9 @@ export async function DELETE(req, { params }) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    /* =====================
+       HARD DELETE PROPERTY
+    ===================== */
     const { error } = await supabase
       .from("properties")
       .delete()

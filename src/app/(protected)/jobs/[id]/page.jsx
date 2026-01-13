@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { useUser, useAuth } from "@clerk/nextjs";
@@ -11,7 +11,15 @@ import JobCompare from "./components/JobCompare";
 import JobGallery from "./components/JobGallery";
 
 import { JobUploadModal } from "../components/job-upload/JobUploadModal";
+
 import { AnimatePresence } from "framer-motion";
+
+// ✅ FUENTE DE VERDAD
+import {
+  staticCompare,
+  compareFromFeatures,
+  generalAreas,
+} from "../components/job-upload/categories";
 
 // ===============================
 // PUBLIC URL GENERATOR
@@ -39,7 +47,7 @@ export default function JobPhotosPage() {
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // MODAL (Start / Complete Job)
+  // MODAL
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null);
   const [currentJob, setCurrentJob] = useState(null);
@@ -51,7 +59,7 @@ export default function JobPhotosPage() {
   };
 
   // ===============================
-  // 🔐 SUPABASE WITH CLERK TOKEN
+  // 🔐 SUPABASE
   // ===============================
   const getSupabase = async () => {
     const token = await getToken({ template: "supabase" });
@@ -60,64 +68,35 @@ export default function JobPhotosPage() {
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
+        global: { headers: { Authorization: `Bearer ${token}` } },
       }
     );
   };
 
   // ===============================
-  // 📸 REFRESH PHOTOS (NO RELOAD)
+  // 📸 PHOTOS
   // ===============================
   const refreshPhotos = async () => {
     const res = await fetch(`/api/job-photos/list?job_id=${id}`);
     const result = await res.json();
 
-    const grouped = result.data || {
-      before: [],
-      after: [],
-      general: [],
-    };
-
-    const detectType = (p) => {
-      if (p.type) return p.type.toLowerCase();
-
-      const url = (p.image_url || "").toLowerCase();
-      if (url.includes("/before/") || url.includes("before_")) return "before";
-      if (url.includes("/after/") || url.includes("after_")) return "after";
-
-      return "general";
-    };
-
-    const allPhotos = [
-      ...grouped.before.map((p) => ({ ...p, type: detectType(p) })),
-      ...grouped.after.map((p) => ({ ...p, type: detectType(p) })),
-      ...grouped.general.map((p) => ({ ...p, type: detectType(p) })),
-    ];
-
-    setPhotos(allPhotos);
+    const grouped = result.data || { before: [], after: [], general: [] };
+    setPhotos([...grouped.before, ...grouped.after, ...grouped.general]);
   };
 
   // ===============================
-  // 🔄 REFRESH JOB DATA (WITH RLS)
+  // 🔄 JOB
   // ===============================
   const refreshJobData = async () => {
     const supabase = await getSupabase();
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("cleaning_jobs")
       .select(
         "id, title, service_type, scheduled_date, status, unit_type, features"
       )
       .eq("id", id)
       .maybeSingle();
-
-    if (error) {
-      console.error("❌ Error refreshing job:", error);
-    }
 
     setJob(data || null);
   };
@@ -126,77 +105,75 @@ export default function JobPhotosPage() {
     setModalOpen(false);
     setModalType(null);
     setCurrentJob(null);
-
     await refreshPhotos();
     await refreshJobData();
   };
 
   // ===============================
-  // 🚀 INITIAL LOAD
+  // 🚀 INIT
   // ===============================
   useEffect(() => {
     if (!id || !user) return;
 
     (async () => {
-      try {
-        setLoading(true);
-
-        const supabase = await getSupabase();
-
-        const { data, error } = await supabase
-          .from("cleaning_jobs")
-          .select(
-            "id, title, service_type, scheduled_date, status, unit_type, features"
-          )
-          .eq("id", id)
-          .maybeSingle();
-
-        if (error) {
-          console.error("❌ Error loading job:", error);
-        }
-
-        setJob(data || null);
-        await refreshPhotos();
-      } finally {
-        setLoading(false);
-      }
+      setLoading(true);
+      await refreshJobData();
+      await refreshPhotos();
+      setLoading(false);
     })();
   }, [id, user]);
 
   const publicUrl = getPublicUrl;
 
   // ===============================
-  // 🎯 VISUAL LOGIC
+  // 🎯 CATEGORY LOGIC (CORRECTO)
   // ===============================
-  const showCompare = job?.status === "completed";
+  const compareKeys = useMemo(() => {
+    if (!job) return [];
+    return [
+      ...staticCompare.map((c) => c.key),
+      ...compareFromFeatures(job.features || []).map((c) => c.key),
+    ];
+  }, [job]);
 
+  const areaKeys = useMemo(() => {
+    if (!job) return [];
+    return generalAreas(job.features || [], "after", job.unit_type).map(
+      (a) => a.key
+    );
+  }, [job]);
+
+  const isImage = (url) => /\.(jpg|jpeg|png|webp|gif)$/i.test(publicUrl(url));
+
+  // ===============================
+  // 📸 FILTERS (FINAL)
+  // ===============================
   const beforePhotos = photos.filter(
     (p) =>
       p.type === "before" &&
-      /\.(jpg|jpeg|png|webp|gif)$/i.test(publicUrl(p.image_url))
+      compareKeys.includes(p.category) &&
+      isImage(p.image_url)
   );
 
   const afterPhotos = photos.filter(
     (p) =>
       p.type === "after" &&
-      /\.(jpg|jpeg|png|webp|gif)$/i.test(publicUrl(p.image_url))
+      compareKeys.includes(p.category) &&
+      isImage(p.image_url)
   );
 
-  const generalPhotos = showCompare
-    ? photos.filter(
-        (p) =>
-          p.type === "general" &&
-          /\.(jpg|jpeg|png|webp|gif)$/i.test(publicUrl(p.image_url))
-      )
-    : [];
-
-  const galleryBeforePhotos = showCompare ? [] : beforePhotos;
-  const galleryAfterPhotos = showCompare ? [] : afterPhotos;
+  const generalPhotos = photos.filter(
+    (p) =>
+      p.type === "after" && // ✅ ES AFTER
+      areaKeys.includes(p.category) && // ✅ SOLO ÁREAS
+      !compareKeys.includes(p.category) && // ✅ NO COMPARE
+      isImage(p.image_url)
+  );
 
   if (loading)
     return (
       <div className="flex justify-center items-center h-[60vh]">
-        <Loader2 className="animate-spin text-gray-500 w-6 h-6" />
+        <Loader2 className="animate-spin w-6 h-6 text-gray-500" />
       </div>
     );
 
@@ -212,8 +189,8 @@ export default function JobPhotosPage() {
         />
 
         <JobGallery
-          beforePhotos={galleryBeforePhotos}
-          afterPhotos={galleryAfterPhotos}
+          beforePhotos={beforePhotos}
+          afterPhotos={afterPhotos}
           generalPhotos={generalPhotos}
           publicUrl={publicUrl}
         />

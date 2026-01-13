@@ -133,9 +133,10 @@ export function generalAreas(features, type, unitType) {
   if (
     type === "after" &&
     unitType &&
-    ["1 Bed", "2 Beds", "3 Beds", "4 Beds"].includes(unitType)
+    ["1_bed", "2_beds", "3_beds", "4_beds"].includes(unitType)
   ) {
-    const count = parseInt(unitType);
+    const count = parseInt(unitType); // "1_bed" -> 1
+
     for (let i = 1; i <= count; i++) {
       base.push({
         key: `bedroom_${i}`,

@@ -199,7 +199,7 @@ export default function JobPhotos({ jobId, readOnly = false }) {
         <TabsContent value="before">
           <Slider
             imageList={groupedPhotos.before.map((p) =>
-              getPublicUrl(p.image_url)
+              getPublicUrl(p.image_url || p.file_path || p.path)
             )}
             mini
           />
@@ -220,7 +220,7 @@ export default function JobPhotos({ jobId, readOnly = false }) {
         <TabsContent value="after">
           <Slider
             imageList={groupedPhotos.after.map((p) =>
-              getPublicUrl(p.image_url)
+              getPublicUrl(p.image_url || p.file_path || p.path)
             )}
             mini
           />
@@ -241,7 +241,7 @@ export default function JobPhotos({ jobId, readOnly = false }) {
         <TabsContent value="general">
           <Slider
             imageList={groupedPhotos.general.map((p) =>
-              getPublicUrl(p.image_url)
+              getPublicUrl(p.image_url || p.file_path || p.path)
             )}
             mini
           />

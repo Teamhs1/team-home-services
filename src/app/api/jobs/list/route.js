@@ -10,7 +10,20 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("cleaning_jobs")
-      .select("*")
+      .select(
+        `
+        id,
+        title,
+        service_type,
+        scheduled_date,
+        status,
+        unit_type,
+        features,
+        duration_minutes,
+        completed_at,
+        created_at
+      `
+      )
       .order("created_at", { ascending: false });
 
     if (error) throw error;

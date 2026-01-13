@@ -151,6 +151,16 @@ export async function GET(req) {
       else if (p.type === "after") grouped.after.push(p);
       else grouped.general.push(p);
     });
+    // ============================================================
+    // 7.1) AGRUPAR GENERAL POR CATEGORÍA
+    // ============================================================
+    const generalByCategory = {};
+
+    grouped.general.forEach((p) => {
+      const cat = p.category || "other";
+      if (!generalByCategory[cat]) generalByCategory[cat] = [];
+      generalByCategory[cat].push(p);
+    });
 
     // ============================================================
     // 8) Ordenar: primero Compare, luego General Areas
@@ -168,6 +178,7 @@ export async function GET(req) {
     return NextResponse.json({
       success: true,
       data: grouped,
+      general_by_category: generalByCategory,
       total_photos:
         grouped.before.length + grouped.after.length + grouped.general.length,
     });

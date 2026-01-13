@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
@@ -14,24 +14,55 @@ import {
 } from "@/components/ui/card";
 
 import JobForm from "../components/JobForm";
-import { useStaff } from "../hooks/useStaff";
-import { useClients } from "../hooks/useClients"; // ✅ NUEVO
 
 export default function NewJobPage() {
   const router = useRouter();
 
-  const { staffList, fetchStaff } = useStaff();
-  const { clientList, fetchClients } = useClients(); // ✅ NUEVO
+  /* =====================
+     STAFF (LOCAL – like JobForm)
+  ===================== */
+  const [staffList, setStaffList] = useState([]);
 
-  // Cargar staff y clients
+  /* =====================
+     COMPANIES (REQUIRED by JobForm)
+  ===================== */
+  const [companyList, setCompanyList] = useState([]);
+
   useEffect(() => {
-    fetchStaff();
-    fetchClients();
+    async function loadData() {
+      // 🔹 Load staff
+      try {
+        const res = await fetch("/api/admin/staff", {
+          cache: "no-store",
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setStaffList(data || []);
+      } catch (err) {
+        console.error("Error loading staff:", err);
+        setStaffList([]);
+      }
+
+      // 🔹 Load companies (THIS WAS MISSING)
+      try {
+        const res = await fetch("/api/admin/companies", {
+          cache: "no-store",
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setCompanyList(data || []);
+      } catch (err) {
+        console.error("Error loading companies:", err);
+        setCompanyList([]);
+      }
+    }
+
+    loadData();
   }, []);
 
   return (
     <main className="px-4 sm:px-6 py-6 sm:py-10 max-w-[1600px] mx-auto space-y-8 sm:space-y-10">
-      {/* Botón Volver */}
+      {/* Back */}
       <Button
         variant="outline"
         onClick={() => router.push("/jobs")}
@@ -41,24 +72,23 @@ export default function NewJobPage() {
         Volver
       </Button>
 
-      {/* Título principal */}
+      {/* Header */}
       <h1 className="text-3xl font-bold">Crear Nuevo Trabajo</h1>
       <p className="text-gray-600">
         Completa la información para crear un nuevo job.
       </p>
 
-      {/* FORMULARIO */}
+      {/* FORM */}
       <Card className="border border-border/50 shadow-md rounded-xl p-2 sm:p-4">
         <CardHeader>
           <CardTitle>Create New Job</CardTitle>
           <CardDescription>Add a new cleaning job.</CardDescription>
         </CardHeader>
 
-        {/* ✅ IMPORTANTE PARA MOBILE */}
         <CardContent className="overflow-visible">
           <JobForm
-            staffList={staffList}
-            clientList={clientList} // ✅ CLAVE
+            staffList={staffList} // ✅ OK
+            companyList={companyList} // ✅ CLAVE (arregla Company)
           />
         </CardContent>
       </Card>

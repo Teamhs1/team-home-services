@@ -24,6 +24,8 @@ export async function POST(req) {
     assigned_client,
     company_id,
     scheduled_date,
+    unit_type, // ✅ AÑADIDO
+    features, // ✅ AÑADIDO
   } = body;
 
   if (!title || !scheduled_date || !company_id || !assigned_client) {
@@ -63,9 +65,12 @@ export async function POST(req) {
       assigned_client,
       company_id,
       scheduled_date,
+      unit_type: unit_type || null, // ✅
+      features: Array.isArray(features) ? features : [], // ✅
       status: "pending",
       created_by: creatorProfile.id,
     })
+
     .select()
     .single();
 

@@ -224,10 +224,7 @@ export default function JobsPage() {
     }
   };
 
-  const [viewMode, setViewMode] = useState(() => {
-    if (typeof window === "undefined") return "list";
-    return window.innerWidth < 640 ? "list" : "list";
-  });
+  const [viewMode, setViewMode] = useState("list");
 
   useEffect(() => {
     if (!ready || !clerkId) return;

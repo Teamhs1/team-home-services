@@ -8,22 +8,24 @@ import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  ClipboardList,
-  User,
+  Briefcase,
+  DollarSign,
+  Building2,
+  KeyRound,
+  UsersRound,
+  Shield,
+  Activity,
+  PenTool,
+  UserPlus,
+  CircleUser,
   Settings,
   Palette,
   Users,
   ChevronLeft,
   ChevronRight,
-  FileEdit,
-  FileSpreadsheet,
-  FileClock,
   AlertCircle,
   Mail,
-  Key,
-  Building,
-  ShieldCheck,
-  Home,
+  Factory,
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
@@ -77,6 +79,31 @@ const getSupabaseWithAuth = async (getToken) => {
       },
     }
   );
+};
+/* =========================
+   ICON MAP (SINGLE SOURCE)
+========================= */
+const ICONS = {
+  // Core
+  dashboard: LayoutDashboard,
+  jobs: Briefcase,
+  expenses: DollarSign,
+  properties: Building2,
+  keys: KeyRound,
+  tenants: UsersRound,
+
+  // Admin
+  users: Users,
+  content: PenTool,
+  staffApps: UserPlus,
+  syncLogs: Activity,
+  companies: Factory, // 👈 distinto a properties
+  permissions: Shield,
+
+  // System
+  profile: CircleUser,
+  settings: Settings,
+  theme: Palette,
 };
 
 /* =========================
@@ -349,44 +376,43 @@ export default function Sidebar() {
       id: "dashboard",
       name: "Dashboard",
       href: "/dashboard",
-      icon: LayoutDashboard,
+      icon: ICONS.dashboard,
     },
     {
       id: "jobs",
       name: "Jobs",
       href: "/jobs",
-      icon: ClipboardList,
+      icon: ICONS.jobs,
       resource: "jobs",
     },
     {
       id: "expenses",
       name: "Expenses",
       href: "/expenses",
-      icon: FileSpreadsheet,
+      icon: ICONS.expenses,
       resource: "expenses",
     },
-
     {
       id: "properties-dashboard",
       name: "Properties",
       href: "/dashboard/properties",
-      icon: Building,
+      icon: ICONS.properties,
       resource: "properties",
-      hideForAdmin: true, // ✅ Escode propiedades de usuarios normales
+      hideForAdmin: true,
     },
     {
       id: "keys-dashboard",
       name: "Keys",
       href: "/dashboard/keys",
-      icon: Key,
+      icon: ICONS.keys,
       resource: "keys",
-      hideForAdmin: true, // 👈 Escode Llaves de usuarios normales
+      hideForAdmin: true,
     },
     {
       id: "tenants",
       name: "Tenants",
       href: "/dashboard/tenants",
-      icon: Home, // ✅ Icono correcto para Tenants
+      icon: ICONS.tenants,
       resource: "tenants",
     },
   ];
@@ -395,67 +421,77 @@ export default function Sidebar() {
     role === "admin"
       ? [
           {
-            id: "admin-messages",
-            name: "Messages",
-            href: "/admin/messages",
-            icon: Mail,
-          },
-          {
             id: "admin-content",
             name: "Edit Landing Content",
             href: "/admin/content",
-            icon: FileEdit,
+            icon: ICONS.content,
           },
+          {
+            id: "admin-users",
+            name: "Users",
+            href: "/admin/users",
+            icon: ICONS.users,
+          },
+
           {
             id: "admin-staff-apps",
             name: "Staff Applications",
             href: "/admin/staff-applications",
-            icon: FileSpreadsheet,
+            icon: ICONS.staffApps,
           },
           {
             id: "admin-sync-logs",
             name: "Sync Logs",
             href: "/admin/sync-logs",
-            icon: FileClock,
+            icon: ICONS.syncLogs,
             hasError: hasSyncError,
           },
           {
             id: "admin-properties",
             name: "Properties",
             href: "/admin/properties",
-            icon: ClipboardList,
+            icon: ICONS.properties,
           },
           {
             id: "admin-companies",
             name: "Companies",
             href: "/admin/companies",
-            icon: Building,
+            icon: ICONS.companies,
           },
-          { id: "admin-keys", name: "Keys", href: "/admin/keys", icon: Key },
+          {
+            id: "admin-keys",
+            name: "Keys",
+            href: "/admin/keys",
+            icon: ICONS.keys,
+          },
           {
             id: "admin-permissions",
             name: "Permissions",
             href: "/admin/permissions",
-            icon: ShieldCheck,
-          },
-          {
-            id: "admin-users",
-            name: "Users",
-            href: "/admin/users",
-            icon: Users,
-          },
-          {
-            id: "admin-theme",
-            name: "Theme Preview",
-            href: "/admin/theme-preview",
-            icon: Palette,
+            icon: ICONS.permissions,
           },
         ]
       : [];
 
   const staticItems = [
-    { name: "Profile", href: "/profile", icon: User },
-    { name: "Settings", href: "/settings", icon: Settings },
+    {
+      id: "profile",
+      name: "Profile",
+      href: "/profile",
+      icon: CircleUser,
+    },
+    {
+      id: "settings",
+      name: "Settings",
+      href: "/settings",
+      icon: Settings,
+    },
+    {
+      id: "theme-preview",
+      name: "Theme Preview",
+      href: "/theme-preview",
+      icon: Palette,
+    },
   ];
 
   const menuItems = [

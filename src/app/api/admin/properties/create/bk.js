@@ -38,7 +38,8 @@ export async function POST(req) {
   }
 
   /* =====================
-     CHECK DUPLICATE
+     🔎 CHECK DUPLICATE PROPERTY
+     SAME COMPANY + SAME ADDRESS (+ UNIT)
   ===================== */
   let duplicateQuery = supabase
     .from("properties")
@@ -46,7 +47,9 @@ export async function POST(req) {
     .eq("company_id", company_id)
     .eq("address", address);
 
-  if (unit) duplicateQuery = duplicateQuery.eq("unit", unit);
+  if (unit) {
+    duplicateQuery = duplicateQuery.eq("unit", unit);
+  }
 
   const { data: existing } = await duplicateQuery.maybeSingle();
 
@@ -55,13 +58,21 @@ export async function POST(req) {
       {
         error: "A property with this address already exists for this company.",
       },
-      { status: 409 }
+      { status: 409 } // 👈 Conflict
     );
   }
 
   /* =====================
+     FIND OWNER (OPTIONAL)
+  ===================== */
+  const { data: owner } = await supabase
+    .from("owners")
+    .select("id")
+    .eq("company_id", company_id)
+    .maybeSingle();
+
+  /* =====================
      CREATE PROPERTY
-     (owner_id queda NULL)
   ===================== */
   const { data, error } = await supabase
     .from("properties")
@@ -72,7 +83,7 @@ export async function POST(req) {
       street_number,
       street_name,
       company_id,
-      owner_id: null, // 👈 opcional, explícito
+      owner_id: owner?.id ?? null,
     })
     .select()
     .single();

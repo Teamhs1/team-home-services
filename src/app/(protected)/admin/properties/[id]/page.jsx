@@ -1,4 +1,6 @@
 "use client";
+import PropertyMap from "@/components/PropertyMap";
+import { useUser } from "@clerk/nextjs";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -42,6 +44,8 @@ export default function PropertyDetailPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const { user } = useUser();
+  const isAdmin = user?.publicMetadata?.role === "admin";
 
   /* =====================
      LOAD PROPERTY DATA
@@ -190,9 +194,17 @@ export default function PropertyDetailPage() {
             )}
           </div>
 
-          <p className="text-gray-600 mt-1 flex items-center gap-2">
-            <MapPin size={14} />
-            {property.address}
+          <p className="mt-2 flex items-center gap-2 text-gray-700">
+            <MapPin size={16} className="text-primary" />
+
+            <span className="text-base font-medium">
+              {property.address}
+              {property.postal_code && (
+                <span className="ml-2 font-semibold text-gray-900">
+                  {property.postal_code}
+                </span>
+              )}
+            </span>
           </p>
 
           {property.company?.name && (
@@ -201,6 +213,42 @@ export default function PropertyDetailPage() {
             </p>
           )}
         </div>
+        {/* BUILT YEAR */}
+        {isAdmin ? (
+          <div className="mt-2 text-sm text-gray-600">
+            Built{" "}
+            <input
+              type="number"
+              value={property.year_built ?? ""}
+              onChange={(e) =>
+                setProperty((p) => ({
+                  ...p,
+                  year_built: e.target.value ? Number(e.target.value) : null,
+                }))
+              }
+              onBlur={async () => {
+                try {
+                  await fetch(`/api/admin/properties/${property.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({
+                      year_built: property.year_built,
+                    }),
+                  });
+                } catch {
+                  alert("Failed to update built year");
+                }
+              }}
+              className="ml-2 w-24 border-b border-gray-300 bg-transparent focus:outline-none focus:border-primary"
+              placeholder="Year"
+            />
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-gray-600">
+            Built {property.year_built ?? "—"}
+          </p>
+        )}
 
         {/* ACTION BUTTONS */}
         <div className="flex flex-wrap gap-2">
@@ -273,6 +321,28 @@ export default function PropertyDetailPage() {
           <p className="font-medium">{property.company?.name || "—"}</p>
         </div>
       </div>
+      {/* LOCATION */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <MapPin size={18} /> Location
+          </h2>
+
+          {isAdmin && (
+            <button
+              onClick={() =>
+                router.push(`/admin/properties/${property.id}/set-location`)
+              }
+              className="flex items-center gap-2 border px-3 py-1.5 rounded-md text-sm hover:bg-gray-50"
+            >
+              <MapPin size={14} />
+              Set location
+            </button>
+          )}
+        </div>
+
+        <PropertyMap lat={property.latitude} lng={property.longitude} />
+      </section>
 
       {/* UNITS */}
       <section className="space-y-4">

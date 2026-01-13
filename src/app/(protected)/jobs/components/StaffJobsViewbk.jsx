@@ -1,5 +1,4 @@
 "use client";
-import { useAuth } from "@clerk/nextjs";
 
 import {
   MoreVertical,
@@ -52,8 +51,6 @@ export default function StaffJobsView({
   viewMode,
   setViewMode,
 }) {
-  const { getToken } = useAuth(); // ✅ OBLIGATORIO
-
   const [jobs, setJobs] = useState(initialJobs || []);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null);
@@ -117,30 +114,25 @@ export default function StaffJobsView({
   // ===================================================
   // Feature Icons renderer
   // ===================================================
-  const renderFeatureIcons = (jobFeatures) => {
-    if (!Array.isArray(jobFeatures)) return null;
-
-    return jobFeatures
+  const renderFeatureIcons = (jobFeatures = []) =>
+    jobFeatures
       .filter((f) => FEATURE_ICONS[f])
       .slice(0, 5)
       .map((f) => {
         const Icon = FEATURE_ICONS[f];
         const label =
           FEATURES.find((x) => x.key === f)?.label || f.replaceAll("_", " ");
-
         return (
           <div
             key={f}
             className="flex items-center gap-1 text-gray-700 dark:text-gray-300 
-          bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full text-[10px] font-medium"
+            bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full text-[10px] font-medium"
           >
             <Icon className="w-3 h-3 text-primary" />
             {label}
           </div>
         );
       });
-  };
-
   const renderUnitTypeBadge = (unitType) => {
     if (!unitType) return null;
 
@@ -191,21 +183,12 @@ export default function StaffJobsView({
       return;
     }
 
-    const token = await getToken({ template: "supabase" });
-
-    if (!token) {
-      throw new Error("No auth token");
-    }
-
     try {
       const res = await fetch("/api/jobs/update", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // ✅ CLAVE
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: jobId,
+          id: jobId, // 🔥 CLAVE CORRECTA
           status,
         }),
       });
@@ -223,8 +206,6 @@ export default function StaffJobsView({
           ? { completed_at: new Date().toISOString() }
           : {}),
       });
-
-      return json;
     } catch (err) {
       toast.error(err.message);
       throw err;

@@ -1,4 +1,6 @@
 "use client";
+import ViewToggleButton from "@/components/ViewToggleButton";
+
 import AdminEditDuration from "@/components/jobs/AdminEditDuration";
 import React, { useEffect, useState } from "react";
 import {
@@ -79,6 +81,80 @@ export default function AdminJobsView({
   const { getClientWithToken } = useSupabaseWithClerk();
   const [localJobs, setLocalJobs] = useState(jobs);
   const [lastCheckedAt, setLastCheckedAt] = useState(new Date().toISOString());
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  function AdminListCards({
+    jobs,
+    staffList,
+    loadedClients,
+    assignToStaff,
+    assignToClient,
+    isUUID,
+  }) {
+    return (
+      <div className="space-y-3">
+        {jobs.map((job) => (
+          <Card
+            key={job.id}
+            className="border shadow-sm rounded-xl overflow-hidden"
+            onClick={() => (window.location.href = `/jobs/${job.id}`)}
+          >
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base truncate">{job.title}</CardTitle>
+
+              <CardDescription className="text-xs text-gray-500 flex items-center gap-1">
+                <CalendarDays className="w-3 h-3" />
+                {job.scheduled_date || "No date"}
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-2 text-sm">
+              <p>
+                <strong>Type:</strong> {job.service_type}
+              </p>
+
+              {/* STAFF */}
+              <select
+                className="border rounded-md p-1 w-full"
+                value={job.assigned_to || ""}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => assignToStaff(job.id, e.target.value || null)}
+              >
+                <option value="">Unassigned</option>
+                {staffList.map((s) => (
+                  <option key={s.clerk_id} value={s.clerk_id}>
+                    {s.full_name || s.email}
+                  </option>
+                ))}
+              </select>
+
+              {/* CLIENT */}
+              <select
+                className="border rounded-md p-1 w-full"
+                value={isUUID(job.assigned_client) ? job.assigned_client : ""}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => assignToClient(job.id, e.target.value || null)}
+              >
+                <option value="">No client</option>
+                {loadedClients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.full_name || c.email}
+                  </option>
+                ))}
+              </select>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
   // 🔁 Sync props → local state (CLAVE)
   useEffect(() => {
     console.log("🧪 AdminJobsView jobs:", jobs);
@@ -249,13 +325,6 @@ export default function AdminJobsView({
     return `${m} min`;
   };
 
-  // FORCE GRID ON MOBILE
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 640) {
-      if (viewMode !== "grid") setViewMode("grid");
-    }
-  }, [viewMode, setViewMode]);
-
   // ASSIGN STAFF (USA API)
   const assignToStaff = async (jobId, staffClerkId) => {
     try {
@@ -416,7 +485,7 @@ export default function AdminJobsView({
   };
 
   return (
-    <main className="px-4 sm:px-6 py-6 sm:py-10 max-w-[1600px] mx-auto space-y-8 sm:space-y-10">
+    <main className="px-2 sm:px-6 py-4 sm:py-10 max-w-[1600px] mx-auto space-y-6 sm:space-y-10 overflow-x-hidden">
       {/* EMPTY STATE */}
       {paginatedJobs.length === 0 && (
         <div className="text-center text-gray-500 py-20">
@@ -425,21 +494,88 @@ export default function AdminJobsView({
       )}
 
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          🧽 Jobs Management
-        </h1>
+      <div>
+        {/* TÍTULO + TOGGLE (MOBILE) */}
+        <div className="flex items-center justify-between sm:hidden">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            🧽 All Jobs
+          </h1>
 
-        <div className="flex items-center gap-3">
+          {/* TOGGLE SOLO MOBILE */}
+          <ViewToggleButton viewMode={viewMode} setViewMode={setViewMode} />
+        </div>
+
+        {/* DESKTOP HEADER */}
+        <div className="hidden sm:flex sm:items-center sm:justify-between">
+          {/* TÍTULO */}
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            🧽 All Jobs
+          </h1>
+
+          {/* FILTROS + TOGGLE */}
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              placeholder="Search by property or job..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="border rounded-md px-3 py-2 text-sm w-56
+          focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+
+            <select
+              className="border rounded-md p-2 text-sm"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+            >
+              <option value="all">All Jobs</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+
+            <select
+              className="border rounded-md p-2 text-sm"
+              value={staffFilter}
+              onChange={(e) => setStaffFilter(e.target.value)}
+            >
+              <option value="all">All Staff</option>
+              <option value="unassigned">Unassigned</option>
+              {staffList.map((s) => (
+                <option key={s.clerk_id} value={s.clerk_id}>
+                  {s.full_name || s.email}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="border rounded-md p-2 text-sm"
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+            >
+              <option value="all">All Clients</option>
+              {loadedClients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.full_name || c.email}
+                </option>
+              ))}
+            </select>
+
+            {/* TOGGLE SOLO DESKTOP */}
+            <ViewToggleButton viewMode={viewMode} setViewMode={setViewMode} />
+          </div>
+        </div>
+
+        {/* FILTROS MOBILE */}
+        <div className="mt-4 flex flex-col gap-3 sm:hidden">
           <input
             type="text"
             placeholder="Search by property or job..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="border rounded-md px-3 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border rounded-md px-3 py-2 text-sm w-full
+        focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
 
-          {/* ⭐ DATE FILTER */}
           <select
             className="border rounded-md p-2 text-sm"
             value={dateFilter}
@@ -450,14 +586,13 @@ export default function AdminJobsView({
             <option value="month">This Month</option>
           </select>
 
-          {/* ⭐ STAFF FILTER */}
           <select
+            className="border rounded-md p-2 text-sm"
             value={staffFilter}
             onChange={(e) => setStaffFilter(e.target.value)}
           >
             <option value="all">All Staff</option>
             <option value="unassigned">Unassigned</option>
-
             {staffList.map((s) => (
               <option key={s.clerk_id} value={s.clerk_id}>
                 {s.full_name || s.email}
@@ -465,7 +600,6 @@ export default function AdminJobsView({
             ))}
           </select>
 
-          {/* ⭐ NEW CLIENT FILTER */}
           <select
             className="border rounded-md p-2 text-sm"
             value={clientFilter}
@@ -478,20 +612,6 @@ export default function AdminJobsView({
               </option>
             ))}
           </select>
-
-          {/* VIEW MODE BUTTON */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
-            className="hidden sm:flex items-center gap-2"
-          >
-            {viewMode === "grid" ? (
-              <List className="w-4 h-4" />
-            ) : (
-              <LayoutGrid className="w-4 h-4" />
-            )}
-          </Button>
         </div>
       </div>
 
@@ -530,258 +650,272 @@ export default function AdminJobsView({
         </div>
       )}
 
-      {/* CREATE JOB */}
-      <Card className="border shadow-md rounded-xl p-2 sm:p-4">
-        <CardHeader>
-          <CardTitle>Create New Job</CardTitle>
-          <CardDescription>Add a new cleaning job.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <JobForm
-            staffList={staffList}
-            clientList={loadedClients}
-            companyList={companyList} // ✅ ESTA LÍNEA FALTABA
-            fetchJobs={fetchJobs}
-          />
-        </CardContent>
-      </Card>
+      {/* CREATE JOB (HIDDEN ON MOBILE) */}
+      {!isMobile && (
+        <Card className="border shadow-md rounded-xl p-2 sm:p-4">
+          <CardHeader>
+            <CardTitle>Create New Job</CardTitle>
+            <CardDescription>Add a new cleaning job.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <JobForm
+              staffList={staffList}
+              clientList={loadedClients}
+              companyList={companyList}
+              fetchJobs={fetchJobs}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* LIST VIEW */}
       {viewMode === "list" ? (
-        <div className="hidden sm:block bg-white shadow rounded-lg border">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-100 text-gray-700">
-              <tr>
-                {/* SELECT ALL */}
-                <th className="px-4 py-2 w-10">
-                  <input
-                    type="checkbox"
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedJobs(
-                          new Set(finalFilteredJobs.map((j) => j.id))
-                        );
-                      } else {
-                        clearSelection();
-                      }
-                    }}
-                    checked={
-                      finalFilteredJobs.length > 0 &&
-                      finalFilteredJobs.every((j) => selectedJobs.has(j.id))
-                    }
-                  />
-                </th>
-
-                <th className="px-4 py-2">Job</th>
-                <th className="px-4 py-2">Address</th>
-                <th className="px-4 py-2">Date</th>
-                <th className="px-4 py-2">Type</th>
-                <th className="px-4 py-2">Staff</th>
-                <th className="px-4 py-2">Client</th>
-                <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2">Duration</th>
-                <th className="px-4 py-2 text-right">Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {paginatedJobs.map((job) => (
-                <tr
-                  key={job.id}
-                  className="border-t hover:bg-gray-50 cursor-pointer"
-                  onClick={(e) => {
-                    // 🔥 SI HAY SELECCIÓN, NO HAGAS NADA
-                    if (selectedJobs.size > 0) return;
-
-                    const tag = e.target.tagName.toLowerCase();
-                    if (
-                      [
-                        "button",
-                        "select",
-                        "option",
-                        "svg",
-                        "path",
-                        "input",
-                      ].includes(tag)
-                    )
-                      return;
-
-                    window.location.href = `/jobs/${job.id}`;
-                  }}
-                >
-                  <td
-                    className="px-4 py-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+        isMobile ? (
+          /* 📱 MOBILE → CARDS (como Staff) */
+          <AdminListCards
+            jobs={paginatedJobs}
+            staffList={staffList}
+            loadedClients={loadedClients}
+            assignToStaff={assignToStaff}
+            assignToClient={assignToClient}
+            isUUID={isUUID}
+          />
+        ) : (
+          <div className="block bg-white shadow rounded-lg border overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
+              <thead className="bg-gray-100 text-gray-700">
+                <tr>
+                  {/* SELECT ALL */}
+                  <th className="px-4 py-2 w-10">
                     <input
                       type="checkbox"
-                      checked={isSelected(job.id)}
-                      onChange={() => toggleJobSelection(job.id)}
-                    />
-                  </td>
-
-                  <td className="px-4 py-2">{job.title}</td>
-                  <td className="px-4 py-2">{job.property_address}</td>
-                  <td className="px-4 py-2">{job.scheduled_date}</td>
-                  <td className="px-4 py-2">{job.service_type}</td>
-
-                  {/* STAFF */}
-                  <td className="px-4 py-2">
-                    <select
-                      className="border rounded-md p-1 text-sm"
-                      value={job.assigned_to || ""}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) =>
-                        assignToStaff(job.id, e.target.value || null)
-                      }
-                    >
-                      <option value="">Unassigned</option>
-                      {staffList.map((staff) => (
-                        <option key={staff.id} value={staff.clerk_id}>
-                          {staff.full_name || staff.email}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-
-                  {/* CLIENT */}
-                  <td className="px-4 py-2">
-                    <select
-                      className="border rounded-md p-1 text-sm bg-white"
-                      value={
-                        isUUID(job.assigned_client) ? job.assigned_client : ""
-                      }
-                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        if (!val) {
-                          assignToClient(job.id, null);
-                          return;
+                        if (e.target.checked) {
+                          setSelectedJobs(
+                            new Set(finalFilteredJobs.map((j) => j.id))
+                          );
+                        } else {
+                          clearSelection();
                         }
-                        if (!isUUID(val)) {
-                          toast.error("Invalid client selected");
-                          return;
-                        }
-                        assignToClient(job.id, val);
                       }}
-                    >
-                      <option value="">No client</option>
+                      checked={
+                        finalFilteredJobs.length > 0 &&
+                        finalFilteredJobs.every((j) => selectedJobs.has(j.id))
+                      }
+                    />
+                  </th>
 
-                      {loadedClients
-                        .filter((c) => isUUID(c.id))
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.full_name || c.email}
+                  <th className="px-4 py-2">Job</th>
+                  <th className="px-4 py-2">Address</th>
+                  <th className="px-4 py-2">Date</th>
+                  <th className="px-4 py-2">Type</th>
+                  <th className="px-4 py-2">Staff</th>
+                  <th className="px-4 py-2">Client</th>
+                  <th className="px-4 py-2">Status</th>
+                  <th className="px-4 py-2">Duration</th>
+                  <th className="px-4 py-2 text-right">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {paginatedJobs.map((job) => (
+                  <tr
+                    key={job.id}
+                    className="border-t hover:bg-gray-50 cursor-pointer"
+                    onClick={(e) => {
+                      // 🔥 SI HAY SELECCIÓN, NO HAGAS NADA
+                      if (selectedJobs.size > 0) return;
+
+                      const tag = e.target.tagName.toLowerCase();
+                      if (
+                        [
+                          "button",
+                          "select",
+                          "option",
+                          "svg",
+                          "path",
+                          "input",
+                        ].includes(tag)
+                      )
+                        return;
+
+                      window.location.href = `/jobs/${job.id}`;
+                    }}
+                  >
+                    <td
+                      className="px-4 py-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected(job.id)}
+                        onChange={() => toggleJobSelection(job.id)}
+                      />
+                    </td>
+
+                    <td className="px-4 py-2">{job.title}</td>
+                    <td className="px-4 py-2">{job.property_address}</td>
+                    <td className="px-4 py-2">{job.scheduled_date}</td>
+                    <td className="px-4 py-2">{job.service_type}</td>
+
+                    {/* STAFF */}
+                    <td className="px-4 py-2">
+                      <select
+                        className="border rounded-md p-1 text-sm"
+                        value={job.assigned_to || ""}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) =>
+                          assignToStaff(job.id, e.target.value || null)
+                        }
+                      >
+                        <option value="">Unassigned</option>
+                        {staffList.map((staff) => (
+                          <option key={staff.id} value={staff.clerk_id}>
+                            {staff.full_name || staff.email}
                           </option>
                         ))}
-                    </select>
-                  </td>
+                      </select>
+                    </td>
 
-                  <td className="px-4 py-2">
-                    <span
-                      className={`px-2 py-1 rounded-full text-sm font-semibold ${
-                        job.status === "pending"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : job.status === "in_progress"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {job.status.replace("_", " ")}
-                    </span>
-                  </td>
+                    {/* CLIENT */}
+                    <td className="px-4 py-2">
+                      <select
+                        className="border rounded-md p-1 text-sm bg-white"
+                        value={
+                          isUUID(job.assigned_client) ? job.assigned_client : ""
+                        }
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (!val) {
+                            assignToClient(job.id, null);
+                            return;
+                          }
+                          if (!isUUID(val)) {
+                            toast.error("Invalid client selected");
+                            return;
+                          }
+                          assignToClient(job.id, val);
+                        }}
+                      >
+                        <option value="">No client</option>
 
-                  <td className="px-4 py-2">
-                    {job.status === "in_progress" && (
-                      <JobTimer jobId={job.id} />
-                    )}
+                        {loadedClients
+                          .filter((c) => isUUID(c.id))
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.full_name || c.email}
+                            </option>
+                          ))}
+                      </select>
+                    </td>
 
-                    {job.status === "completed" &&
-                      (job.duration_minutes != null ? (
-                        <span className="flex items-center gap-1 text-green-700 font-semibold">
-                          ⏱️ {formatDuration(job.duration_minutes)} total
-                        </span>
-                      ) : (
-                        <JobDuration jobId={job.id} />
-                      ))}
+                    <td className="px-4 py-2">
+                      <span
+                        className={`px-2 py-1 rounded-full text-sm font-semibold ${
+                          job.status === "pending"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : job.status === "in_progress"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-green-100 text-green-700"
+                        }`}
+                      >
+                        {job.status.replace("_", " ")}
+                      </span>
+                    </td>
 
-                    {job.status === "pending" && "—"}
-                  </td>
+                    <td className="px-4 py-2">
+                      {job.status === "in_progress" && (
+                        <JobTimer jobId={job.id} />
+                      )}
 
-                  {/* ACTIONS */}
-                  <td className="px-4 py-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 p-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
+                      {job.status === "completed" &&
+                        (job.duration_minutes != null ? (
+                          <span className="flex items-center gap-1 text-green-700 font-semibold">
+                            ⏱️ {formatDuration(job.duration_minutes)} total
+                          </span>
+                        ) : (
+                          <JobDuration jobId={job.id} />
+                        ))}
 
-                      <DropdownMenuContent align="end">
-                        {/* ⏱️ EDIT DURATION */}
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingJob(job);
-                          }}
-                        >
-                          ⏱️ Edit duration
-                        </DropdownMenuItem>
+                      {job.status === "pending" && "—"}
+                    </td>
 
-                        {/* 🔄 RESET */}
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            resetJob(job.id);
-                          }}
-                        >
-                          <RefreshCcw className="mr-2 h-4 w-4" />
-                          Reset Job
-                        </DropdownMenuItem>
+                    {/* ACTIONS */}
+                    <td className="px-4 py-2 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
 
-                        {/* 🗑️ DELETE */}
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                        <DropdownMenuContent align="end">
+                          {/* ⏱️ EDIT DURATION */}
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingJob(job);
+                            }}
+                          >
+                            ⏱️ Edit duration
+                          </DropdownMenuItem>
 
-                            if (selectedJobs.size > 1) {
-                              toast.info(
-                                "Use bulk actions to delete multiple jobs"
-                              );
-                              return;
-                            }
+                          {/* 🔄 RESET */}
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              resetJob(job.id);
+                            }}
+                          >
+                            <RefreshCcw className="mr-2 h-4 w-4" />
+                            Reset Job
+                          </DropdownMenuItem>
 
-                            if (
-                              selectedJobs.size === 1 &&
-                              !selectedJobs.has(job.id)
-                            ) {
-                              toast.info("This job is not the selected one");
-                              return;
-                            }
+                          {/* 🗑️ DELETE */}
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={(e) => {
+                              e.stopPropagation();
 
-                            deleteJob(job.id);
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                              if (selectedJobs.size > 1) {
+                                toast.info(
+                                  "Use bulk actions to delete multiple jobs"
+                                );
+                                return;
+                              }
+
+                              if (
+                                selectedJobs.size === 1 &&
+                                !selectedJobs.has(job.id)
+                              ) {
+                                toast.info("This job is not the selected one");
+                                return;
+                              }
+
+                              deleteJob(job.id);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       ) : (
         /* GRID VIEW */
-        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {paginatedJobs.map((job) => (
             <Card
               key={job.id}
@@ -795,8 +929,10 @@ export default function AdminJobsView({
               </div>
 
               <CardHeader className="pb-1">
-                <CardTitle className="truncate text-lg">{job.title}</CardTitle>
-                <CardDescription className="text-xs text-gray-500 flex items-center gap-1">
+                <CardTitle className="text-base sm:text-lg truncate">
+                  {job.title}
+                </CardTitle>
+                <CardDescription className="text-xs text-gray-500 flex items-center gap-1 TRUNCATE">
                   <CalendarDays className="w-3 h-3" />
                   {job.scheduled_date || "No date"}
                 </CardDescription>
@@ -811,7 +947,7 @@ export default function AdminJobsView({
                 <div className="flex items-center gap-2 text-sm">
                   <User className="w-4 h-4 text-gray-500" />
                   <select
-                    className="border rounded-md p-1 text-xs flex-1"
+                    className="border rounded-md p-1 text-xs w-full min-w-0"
                     value={job.assigned_to || ""}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) =>
@@ -831,7 +967,7 @@ export default function AdminJobsView({
                 <div className="flex items-center gap-2 text-sm">
                   <User className="w-4 h-4 text-gray-500" />
                   <select
-                    className="border rounded-md p-1 text-xs flex-1"
+                    className="border rounded-md p-1 text-xs w-full min-w-0"
                     value={
                       isUUID(job.assigned_client) ? job.assigned_client : ""
                     }

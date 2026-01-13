@@ -312,12 +312,31 @@ ${
           <a href="/#about" className="hover:text-blue-600 transition-colors">
             About
           </a>
+
           <a
             href="/#services"
             className="hover:text-blue-600 transition-colors"
           >
             Services
           </a>
+
+          {/* 🔐 RENTALS — solo admin */}
+          {role === "admin" && (
+            <Link
+              href="/rentals"
+              className={`relative hover:text-blue-600 transition-colors ${
+                pathname.startsWith("/rentals")
+                  ? "text-blue-600 font-semibold"
+                  : ""
+              }`}
+            >
+              Rentals
+              <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                Admin
+              </span>
+            </Link>
+          )}
+
           <a href="/#contact" className="hover:text-blue-600 transition-colors">
             Contact
           </a>

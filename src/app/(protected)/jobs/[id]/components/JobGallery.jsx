@@ -6,23 +6,19 @@ import { motion } from "framer-motion";
 import FullscreenViewer from "@/components/FullscreenViewer";
 
 export default function JobGallery({
-  beforePhotos,
-  afterPhotos,
-  generalPhotos,
+  beforePhotos = [],
+  afterPhotos = [],
+  generalPhotos = [],
   publicUrl,
 }) {
-  // ------------------------------
-  // 🔥 FULLSCREEN STATE
-  // ------------------------------
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenImages, setFullscreenImages] = useState([]);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
 
-  // ------------------------------
-  // 🔥 OPEN FULLSCREEN
-  // ------------------------------
   const openFullscreen = (list, index) => {
-    const urls = list.map((p) => publicUrl(p.image_url));
+    const urls = list.map((p) =>
+      publicUrl(p.image_url || p.file_path || p.path)
+    );
     setFullscreenImages(urls);
     setFullscreenIndex(index);
     setIsFullscreen(true);
@@ -31,9 +27,7 @@ export default function JobGallery({
   return (
     <>
       <div className="space-y-8">
-        {/* ===============================
-            BEFORE PHOTOS
-        =============================== */}
+        {/* BEFORE */}
         {beforePhotos.length > 0 && (
           <section>
             <h2 className="text-xl font-semibold mb-3 text-yellow-600">
@@ -43,17 +37,16 @@ export default function JobGallery({
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {beforePhotos.map((p, i) => (
                 <motion.div
-                  key={p.id || p.image_url}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="rounded-lg overflow-hidden shadow-md cursor-pointer"
+                  key={p.id || p.image_url || p.file_path || p.path}
                   onClick={() => openFullscreen(beforePhotos, i)}
+                  className="rounded-lg overflow-hidden shadow-md cursor-pointer"
                 >
                   <Image
-                    src={publicUrl(p.image_url)}
+                    src={publicUrl(p.image_url || p.file_path || p.path)}
                     alt="before"
                     width={400}
                     height={400}
+                    unoptimized
                     className="object-cover w-full h-48"
                   />
                 </motion.div>
@@ -62,9 +55,7 @@ export default function JobGallery({
           </section>
         )}
 
-        {/* ===============================
-            AFTER PHOTOS
-        =============================== */}
+        {/* AFTER */}
         {afterPhotos.length > 0 && (
           <section>
             <h2 className="text-xl font-semibold mb-3 text-green-600">
@@ -74,17 +65,16 @@ export default function JobGallery({
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {afterPhotos.map((p, i) => (
                 <motion.div
-                  key={p.id || p.image_url}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="rounded-lg overflow-hidden shadow-md cursor-pointer"
+                  key={p.id || p.image_url || p.file_path || p.path}
                   onClick={() => openFullscreen(afterPhotos, i)}
+                  className="rounded-lg overflow-hidden shadow-md cursor-pointer"
                 >
                   <Image
-                    src={publicUrl(p.image_url)}
+                    src={publicUrl(p.image_url || p.file_path || p.path)}
                     alt="after"
                     width={400}
                     height={400}
+                    unoptimized
                     className="object-cover w-full h-48"
                   />
                 </motion.div>
@@ -93,29 +83,26 @@ export default function JobGallery({
           </section>
         )}
 
-        {/* ===============================
-            GENERAL PHOTOS
-        =============================== */}
+        {/* FINAL / GENERAL */}
         {generalPhotos.length > 0 && (
           <section>
             <h2 className="text-xl font-semibold mb-3 text-blue-600">
-              General Photos
+              Final / General Photos
             </h2>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {generalPhotos.map((p, i) => (
                 <motion.div
-                  key={p.id || p.image_url}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="rounded-lg overflow-hidden shadow-md cursor-pointer"
+                  key={p.id || p.image_url || p.file_path || p.path}
                   onClick={() => openFullscreen(generalPhotos, i)}
+                  className="rounded-lg overflow-hidden shadow-md cursor-pointer"
                 >
                   <Image
-                    src={publicUrl(p.image_url)}
-                    alt="general"
+                    src={publicUrl(p.image_url || p.file_path || p.path)}
+                    alt="final"
                     width={400}
                     height={400}
+                    unoptimized
                     className="object-cover w-full h-48"
                   />
                 </motion.div>
@@ -125,9 +112,6 @@ export default function JobGallery({
         )}
       </div>
 
-      {/* -----------------------------------------------
-          🔥 FULLSCREEN VIEWER
-      ------------------------------------------------ */}
       {isFullscreen && (
         <FullscreenViewer
           images={fullscreenImages}
