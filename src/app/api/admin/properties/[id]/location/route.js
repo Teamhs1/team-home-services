@@ -10,7 +10,7 @@ const supabase = createClient(
 export async function PATCH(req, { params }) {
   try {
     const { userId } = auth(); // ✅ App Router
-    const { id: propertyId } = params;
+    const { id } = await params;
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

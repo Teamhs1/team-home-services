@@ -18,6 +18,7 @@ import {
 /* =====================
    HELPERS
 ===================== */
+
 const getStatusStyles = (status) => {
   switch (status) {
     case "available":
@@ -56,11 +57,14 @@ export default function PropertyDetailPage() {
     async function loadProperty() {
       try {
         const res = await fetch(`/api/admin/properties/${id}`, {
-          cache: "no-store",
           credentials: "include",
+          cache: "no-store",
         });
 
-        if (!res.ok) throw new Error("Failed to load property");
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Failed to load property");
+        }
 
         const data = await res.json();
 
@@ -68,8 +72,13 @@ export default function PropertyDetailPage() {
         setNameDraft(data.property?.name || "");
         setUnits(data.units || []);
         setKeys(data.keys || []);
+
+        setProperty(data.property || null);
+        setNameDraft(data.property?.name || "");
+        setUnits(data.units || []);
+        setKeys(data.keys || []);
       } catch (err) {
-        console.error("❌ Load property error:", err);
+        console.error("❌ Load property error:", err.message);
       } finally {
         setLoading(false);
       }
@@ -169,24 +178,16 @@ export default function PropertyDetailPage() {
               />
             ) : (
               <>
-                {/* 📝 TEXT (clickable) */}
                 <h1
                   onClick={() => setIsEditingName(true)}
-                  title="Click to edit name"
                   className="text-3xl font-bold cursor-text hover:text-primary"
                 >
                   {property.name}
                 </h1>
 
-                {/* ✏️ ICON (hover only) */}
                 <button
                   onClick={() => setIsEditingName(true)}
-                  title="Edit property name"
-                  className="
-          opacity-0 group-hover:opacity-100
-          transition
-          text-gray-400 hover:text-primary
-        "
+                  className="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-primary"
                 >
                   <Pencil size={18} />
                 </button>
@@ -194,9 +195,9 @@ export default function PropertyDetailPage() {
             )}
           </div>
 
+          {/* ADDRESS */}
           <p className="mt-2 flex items-center gap-2 text-gray-700">
             <MapPin size={16} className="text-primary" />
-
             <span className="text-base font-medium">
               {property.address}
               {property.postal_code && (
@@ -207,12 +208,56 @@ export default function PropertyDetailPage() {
             </span>
           </p>
 
+          {/* OWNER */}
+          {property.owner ? (
+            <div className="mt-1 text-sm text-gray-600 flex items-center gap-2">
+              <span className="font-medium">Owner:</span>
+
+              <button
+                onClick={() =>
+                  router.push(`/admin/owners/${property.owner.id}`)
+                }
+                className="text-primary hover:underline"
+              >
+                {property.owner.full_name}
+              </button>
+
+              {property.owner.email && (
+                <span className="text-gray-400">· {property.owner.email}</span>
+              )}
+
+              {isAdmin && (
+                <button
+                  onClick={() =>
+                    router.push(`/admin/properties/${property.id}/assign-owner`)
+                  }
+                  className="ml-2 text-xs text-gray-400 hover:text-primary underline"
+                >
+                  change
+                </button>
+              )}
+            </div>
+          ) : (
+            isAdmin && (
+              <button
+                onClick={() =>
+                  router.push(`/admin/properties/${property.id}/assign-owner`)
+                }
+                className="mt-1 text-sm text-primary underline"
+              >
+                Assign owner
+              </button>
+            )
+          )}
+
+          {/* COMPANY */}
           {property.company?.name && (
             <p className="text-sm text-gray-500 mt-1">
               Company: {property.company.name}
             </p>
           )}
         </div>
+
         {/* BUILT YEAR */}
         {isAdmin ? (
           <div className="mt-2 text-sm text-gray-600">
@@ -227,18 +272,14 @@ export default function PropertyDetailPage() {
                 }))
               }
               onBlur={async () => {
-                try {
-                  await fetch(`/api/admin/properties/${property.id}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                    body: JSON.stringify({
-                      year_built: property.year_built,
-                    }),
-                  });
-                } catch {
-                  alert("Failed to update built year");
-                }
+                await fetch(`/api/admin/properties/${property.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({
+                    year_built: property.year_built,
+                  }),
+                });
               }}
               className="ml-2 w-24 border-b border-gray-300 bg-transparent focus:outline-none focus:border-primary"
               placeholder="Year"
@@ -249,59 +290,6 @@ export default function PropertyDetailPage() {
             Built {property.year_built ?? "—"}
           </p>
         )}
-
-        {/* ACTION BUTTONS */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() =>
-              router.push(`/admin/properties/${property.id}/units/create`)
-            }
-            className="flex items-center gap-2 border px-4 py-2 rounded-lg hover:bg-gray-50"
-          >
-            <Plus size={16} /> Add Unit
-          </button>
-
-          <button
-            onClick={() =>
-              router.push(`/admin/keys/create?property_id=${property.id}`)
-            }
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90"
-          >
-            <Plus size={16} /> Add Key
-          </button>
-
-          {/* 🗑️ DELETE PROPERTY */}
-          <button
-            onClick={async () => {
-              const confirmed = confirm(
-                "⚠️ This will permanently delete this property.\n\nAll units, keys and related data will be removed.\n\nThis action CANNOT be undone.\n\nDo you want to continue?"
-              );
-
-              if (!confirmed) return;
-
-              try {
-                const res = await fetch(
-                  `/api/admin/properties/${property.id}`,
-                  {
-                    method: "DELETE",
-                    credentials: "include",
-                  }
-                );
-
-                const json = await res.json();
-                if (!res.ok) throw new Error(json.error);
-
-                alert("✅ Property deleted successfully");
-                router.push("/admin/properties");
-              } catch (err) {
-                alert(err.message || "Failed to delete property");
-              }
-            }}
-            className="flex items-center gap-2 border border-red-300 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50"
-          >
-            🗑️ Delete Property
-          </button>
-        </div>
       </div>
 
       {/* SUMMARY */}
@@ -409,7 +397,7 @@ export default function PropertyDetailPage() {
                     <td className="px-4 py-2">
                       <span
                         className={`text-xs px-3 py-1 rounded-full ${getStatusStyles(
-                          k.status
+                          k.status,
                         )}`}
                       >
                         {k.status}

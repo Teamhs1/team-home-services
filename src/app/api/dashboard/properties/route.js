@@ -5,7 +5,7 @@ import { getProfileByClerkId } from "@/lib/permissions";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 export async function GET(req) {
@@ -20,8 +20,14 @@ export async function GET(req) {
       return NextResponse.json({ data: [] });
     }
 
-    // ✅ CLIENT y STAFF dependen SOLO de active_company_id
+    // ✅ usar company activa o fallback a company principal
     const companyId = profile.active_company_id;
+
+    if (!companyId) {
+      console.warn("❌ No active company for user", userId);
+      return NextResponse.json({ data: [] });
+    }
+
     if (!companyId) {
       return NextResponse.json({ data: [] });
     }
@@ -45,7 +51,7 @@ export async function GET(req) {
           id,
           name
         )
-      `
+      `,
       )
       .eq("company_id", companyId)
       .order("created_at", { ascending: false });

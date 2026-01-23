@@ -26,6 +26,7 @@ import { toast } from "sonner";
 export default function ExpensesPage() {
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
+  const canAssignStaff = role === "admin" || role === "client";
 
   /* =====================
      ROLE (REAL SOURCE)
@@ -43,6 +44,8 @@ export default function ExpensesPage() {
 
   const [units, setUnits] = useState([]);
   const [selectedUnit, setSelectedUnit] = useState("");
+  const [staffMembers, setStaffMembers] = useState([]);
+  const [selectedStaff, setSelectedStaff] = useState("");
 
   /* =====================
    BULK SELECTION
@@ -96,7 +99,7 @@ export default function ExpensesPage() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         global: { headers: { Authorization: `Bearer ${token}` } },
-      }
+      },
     );
   }
 
@@ -144,6 +147,31 @@ export default function ExpensesPage() {
       toast.error("Failed to load units");
     }
   }
+  useEffect(() => {
+    if (!isLoaded || !canAssignStaff) return;
+
+    async function loadStaff() {
+      try {
+        const res = await fetch("/api/company/staff", {
+          credentials: "include",
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          toast.error("Failed to load staff");
+          return;
+        }
+
+        setStaffMembers(data || []);
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load staff");
+      }
+    }
+
+    loadStaff();
+  }, [isLoaded, canAssignStaff]);
 
   /* =====================
      LOAD EXPENSES
@@ -217,7 +245,7 @@ export default function ExpensesPage() {
 
     if (
       !confirm(
-        `Delete ${selectedExpenses.size} selected expense(s)? This action cannot be undone.`
+        `Delete ${selectedExpenses.size} selected expense(s)? This action cannot be undone.`,
       )
     )
       return;
@@ -247,6 +275,11 @@ export default function ExpensesPage() {
       toast.error("Failed to delete expenses");
     }
   }
+  if (canAssignStaff && !selectedStaff) {
+    toast.error("Please assign this expense to a staff member");
+    setSubmitting(false);
+    return;
+  }
 
   /* =====================
      SUBMIT EXPENSE
@@ -273,6 +306,12 @@ export default function ExpensesPage() {
       formData.append("property_id", selectedProperty);
       formData.append("unit_id", selectedUnit);
       formData.append("file", file);
+      formData.append(
+        "contractor_id",
+        canAssignStaff && selectedStaff ? selectedStaff : profileId,
+      );
+
+      formData.append("created_by", profileId);
 
       console.log("SUBMIT DATA:", {
         amount,
@@ -343,7 +382,7 @@ export default function ExpensesPage() {
         </div>
 
         {/* CREATE EXPENSE */}
-        {role === "staff" && (
+        {(role === "staff" || role === "client") && (
           <Card className="max-w-md border shadow-md rounded-xl">
             <CardHeader>
               <CardTitle>Submit Expense</CardTitle>
@@ -353,6 +392,20 @@ export default function ExpensesPage() {
             </CardHeader>
 
             <CardContent className="space-y-3">
+              {canAssignStaff && (
+                <select
+                  value={selectedStaff}
+                  onChange={(e) => setSelectedStaff(e.target.value)}
+                  className="w-full border rounded-md p-2 text-sm"
+                >
+                  <option value="">Assign to staff</option>
+                  {staffMembers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.full_name}
+                    </option>
+                  ))}
+                </select>
+              )}
               <select
                 value={selectedProperty}
                 onChange={(e) => {
@@ -453,7 +506,7 @@ export default function ExpensesPage() {
                         onChange={(e) => {
                           if (e.target.checked) {
                             setSelectedExpenses(
-                              new Set(expenses.map((e) => e.id))
+                              new Set(expenses.map((e) => e.id)),
                             );
                           } else {
                             clearSelection();
@@ -554,7 +607,7 @@ export default function ExpensesPage() {
                             onClick={() => {
                               if (selectedExpenses.size > 0) {
                                 toast.info(
-                                  "Use bulk actions to delete multiple expenses"
+                                  "Use bulk actions to delete multiple expenses",
                                 );
                                 return;
                               }

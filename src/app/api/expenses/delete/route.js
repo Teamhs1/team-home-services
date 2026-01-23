@@ -18,13 +18,15 @@ export async function DELETE(req) {
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    // 🔎 Obtener profile
+    /* =========================
+       LOAD PROFILE
+    ========================= */
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, role")
+      .select("id, role, company_id")
       .eq("clerk_id", userId)
       .single();
 
@@ -32,10 +34,21 @@ export async function DELETE(req) {
       return NextResponse.json({ error: "Profile not found" }, { status: 403 });
     }
 
-    // 🔎 Obtener expense
+    /* =========================
+       LOAD EXPENSE
+    ========================= */
     const { data: expense, error: expenseError } = await supabase
       .from("expenses")
-      .select("id, contractor_id, invoice_url")
+      .select(
+        `
+        id,
+        contractor_id,
+        invoice_url,
+        contractor:profiles (
+          company_id
+        )
+      `,
+      )
       .eq("id", expenseId)
       .single();
 
@@ -43,19 +56,31 @@ export async function DELETE(req) {
       return NextResponse.json({ error: "Expense not found" }, { status: 404 });
     }
 
-    // 🔒 Permisos
-    if (profile.role !== "admin" && expense.contractor_id !== profile.id) {
+    /* =========================
+       PERMISSIONS
+    ========================= */
+    const isAdmin = profile.role === "admin";
+    const isStaffOwner = expense.contractor_id === profile.id;
+    const isClientOwner =
+      profile.role === "client" &&
+      expense.contractor?.company_id === profile.company_id;
+
+    if (!isAdmin && !isStaffOwner && !isClientOwner) {
       return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
 
-    // 🗑️ Borrar archivo (si existe)
+    /* =========================
+       DELETE FILE (IF EXISTS)
+    ========================= */
     if (expense.invoice_url) {
       await supabase.storage
         .from("expense-invoices")
         .remove([expense.invoice_url]);
     }
 
-    // 🗑️ Borrar expense
+    /* =========================
+       DELETE EXPENSE
+    ========================= */
     const { error: deleteError } = await supabase
       .from("expenses")
       .delete()
@@ -64,7 +89,7 @@ export async function DELETE(req) {
     if (deleteError) {
       return NextResponse.json(
         { error: "Failed to delete expense" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -73,7 +98,7 @@ export async function DELETE(req) {
     console.error("DELETE EXPENSE ERROR:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

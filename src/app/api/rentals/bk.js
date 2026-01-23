@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 export async function GET() {
@@ -21,7 +21,7 @@ export async function GET() {
         id,
         address
       )
-    `
+    `,
     )
     .eq("is_for_rent", true)
     .eq("availability_status", "available");

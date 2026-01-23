@@ -12,33 +12,34 @@ export async function POST(req) {
   // ✅ SERVICE ROLE (NO JWT, NO RLS)
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
   const body = await req.json();
 
   const {
     title,
+    property_address, // ✅ AÑADIDO
     service_type,
     assigned_to,
     assigned_client,
     company_id,
     scheduled_date,
-    unit_type, // ✅ AÑADIDO
-    features, // ✅ AÑADIDO
+    unit_type,
+    features,
   } = body;
 
   if (!title || !scheduled_date || !company_id || !assigned_client) {
     return NextResponse.json(
       { error: "Missing required fields" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (assigned_client.startsWith("user_")) {
     return NextResponse.json(
       { error: "assigned_client must be a profile UUID" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -52,7 +53,7 @@ export async function POST(req) {
   if (creatorError || !creatorProfile) {
     return NextResponse.json(
       { error: "Creator profile not found" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -60,17 +61,17 @@ export async function POST(req) {
     .from("cleaning_jobs")
     .insert({
       title: title.trim(),
+      property_address: property_address?.trim() || null, // ✅ AQUÍ
       service_type: service_type || "standard",
       assigned_to: assigned_to || null,
       assigned_client,
       company_id,
       scheduled_date,
-      unit_type: unit_type || null, // ✅
-      features: Array.isArray(features) ? features : [], // ✅
+      unit_type: unit_type || null,
+      features: Array.isArray(features) ? features : [],
       status: "pending",
       created_by: creatorProfile.id,
     })
-
     .select()
     .single();
 

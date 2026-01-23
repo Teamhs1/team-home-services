@@ -78,6 +78,7 @@ export default function EditPropertyPage() {
         throw new Error(json?.error || "Failed to update property");
       }
 
+      toast.success("Property updated successfully");
       router.push(`/admin/properties/${id}`);
     } catch (err) {
       console.error(err);

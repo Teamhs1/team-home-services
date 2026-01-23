@@ -128,8 +128,8 @@ export default function PropertiesListPage() {
 
           return String(companyId) === String(selectedCompany);
         })
-        .map((p) => [p.owners.id, p.owners])
-    ).values()
+        .map((p) => [p.owners.id, p.owners]),
+    ).values(),
   );
 
   /* =====================
@@ -183,7 +183,7 @@ export default function PropertiesListPage() {
   ===================== */
   async function handleDeleteProperty(id, name) {
     const confirmed = confirm(
-      `Archive "${name}"?\nYou can restore it later if needed.`
+      `Archive "${name}"?\nYou can restore it later if needed.`,
     );
     if (!confirmed) return;
 
@@ -205,7 +205,7 @@ export default function PropertiesListPage() {
 
       // 🔥 UI sync sin recargar
       setProperties((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, is_active: false } : p))
+        prev.map((p) => (p.id === id ? { ...p, is_active: false } : p)),
       );
     } catch (err) {
       console.error(err);
@@ -217,7 +217,7 @@ export default function PropertiesListPage() {
 ===================== */
   async function handleHardDeleteProperty(id, name) {
     const confirmed = confirm(
-      `⚠️ DELETE "${name}" permanently?\n\nThis action CANNOT be undone.`
+      `⚠️ DELETE "${name}" permanently?\n\nThis action CANNOT be undone.`,
     );
     if (!confirmed) return;
 
@@ -262,7 +262,7 @@ export default function PropertiesListPage() {
     if (selectedProperties.size === 0) return;
 
     const confirmed = confirm(
-      `Archive ${selectedProperties.size} selected properties?`
+      `Archive ${selectedProperties.size} selected properties?`,
     );
     if (!confirmed) return;
 
@@ -284,7 +284,7 @@ export default function PropertiesListPage() {
 
       // 🔥 sync UI
       setProperties((prev) =>
-        prev.map((p) => (ids.includes(p.id) ? { ...p, is_active: false } : p))
+        prev.map((p) => (ids.includes(p.id) ? { ...p, is_active: false } : p)),
       );
 
       clearSelection();
@@ -420,13 +420,13 @@ export default function PropertiesListPage() {
                     checked={
                       filteredProperties.length > 0 &&
                       filteredProperties.every((p) =>
-                        selectedProperties.has(p.id)
+                        selectedProperties.has(p.id),
                       )
                     }
                     onChange={(e) =>
                       e.target.checked
                         ? setSelectedProperties(
-                            new Set(filteredProperties.map((p) => p.id))
+                            new Set(filteredProperties.map((p) => p.id)),
                           )
                         : clearSelection()
                     }

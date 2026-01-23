@@ -44,7 +44,7 @@ import {
 const isUUID = (v) =>
   typeof v === "string" &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    v
+    v,
   );
 
 export default function AdminJobsView({
@@ -203,7 +203,7 @@ export default function AdminJobsView({
         }
 
         const safeClients = (data || []).filter(
-          (c) => typeof c.id === "string" && !c.id.startsWith("user_")
+          (c) => typeof c.id === "string" && !c.id.startsWith("user_"),
         );
 
         setLoadedClients(safeClients);
@@ -285,7 +285,7 @@ export default function AdminJobsView({
 
   const paginatedJobs = searchedJobs.slice(
     (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
+    currentPage * PAGE_SIZE,
   );
   useEffect(() => {
     async function loadCompanies() {
@@ -392,7 +392,7 @@ export default function AdminJobsView({
         const data = await res.json();
 
         const safeStaff = (data || []).filter(
-          (s) => s.clerk_id && typeof s.clerk_id === "string"
+          (s) => s.clerk_id && typeof s.clerk_id === "string",
         );
 
         setStaffList(safeStaff);
@@ -632,7 +632,7 @@ export default function AdminJobsView({
 
                 if (
                   confirm(
-                    `Delete ${selectedJobs.size} selected job(s)? This action cannot be undone.`
+                    `Delete ${selectedJobs.size} selected job(s)? This action cannot be undone.`,
                   )
                 ) {
                   deleteJobsBulk(Array.from(selectedJobs));
@@ -682,7 +682,7 @@ export default function AdminJobsView({
           />
         ) : (
           <div className="block bg-white shadow rounded-lg border overflow-x-auto">
-            <table className="w-full text-sm min-w-[720px]">
+            <table className="w-full text-sm min-w-[720px] table-fixed">
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
                   {/* SELECT ALL */}
@@ -692,7 +692,7 @@ export default function AdminJobsView({
                       onChange={(e) => {
                         if (e.target.checked) {
                           setSelectedJobs(
-                            new Set(finalFilteredJobs.map((j) => j.id))
+                            new Set(finalFilteredJobs.map((j) => j.id)),
                           );
                         } else {
                           clearSelection();
@@ -705,14 +705,15 @@ export default function AdminJobsView({
                     />
                   </th>
 
-                  <th className="px-4 py-2">Job</th>
-                  <th className="px-4 py-2">Address</th>
-                  <th className="px-4 py-2">Date</th>
-                  <th className="px-4 py-2">Type</th>
-                  <th className="px-4 py-2">Staff</th>
-                  <th className="px-4 py-2">Client</th>
-                  <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2">Duration</th>
+                  <th className="px-4 py-2 w-[180px] text-left">Job</th>
+                  <th className="px-4 py-2 w-[320px] text-left">Address</th>
+                  <th className="px-4 py-2 w-[110px] text-left">Date</th>
+                  <th className="px-4 py-2 w-[90px] text-left">Type</th>
+
+                  <th className="px-4 py-2 text-left">Staff</th>
+                  <th className="px-4 py-2 text-left">Client</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-left">Duration</th>
                   <th className="px-4 py-2 text-right">Actions</th>
                 </tr>
               </thead>
@@ -754,7 +755,10 @@ export default function AdminJobsView({
                     </td>
 
                     <td className="px-4 py-2">{job.title}</td>
-                    <td className="px-4 py-2">{job.property_address}</td>
+                    <td className="px-4 py-2 truncate whitespace-nowrap text-gray-600">
+                      {job.property_address || "—"}
+                    </td>
+
                     <td className="px-4 py-2">{job.scheduled_date}</td>
                     <td className="px-4 py-2">{job.service_type}</td>
 
@@ -816,8 +820,8 @@ export default function AdminJobsView({
                           job.status === "pending"
                             ? "bg-yellow-100 text-yellow-700"
                             : job.status === "in_progress"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-green-100 text-green-700"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-green-100 text-green-700"
                         }`}
                       >
                         {job.status.replace("_", " ")}
@@ -885,7 +889,7 @@ export default function AdminJobsView({
 
                               if (selectedJobs.size > 1) {
                                 toast.info(
-                                  "Use bulk actions to delete multiple jobs"
+                                  "Use bulk actions to delete multiple jobs",
                                 );
                                 return;
                               }

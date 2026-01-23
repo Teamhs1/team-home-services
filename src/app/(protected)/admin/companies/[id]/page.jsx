@@ -179,12 +179,7 @@ export default function CompanyPortfolioPage() {
                   </p>
                 </div>
 
-                <Link
-                  href={`/admin/profiles/${u.id}/edit`}
-                  className="text-blue-600 text-sm hover:underline"
-                >
-                  Edit →
-                </Link>
+                <Link href={`/admin/companies/${id}/members`}>Edit →</Link>
               </div>
             ))}
           </div>

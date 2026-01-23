@@ -1,5 +1,12 @@
 "use client";
 
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { useRouter } from "next/navigation";
+import ExpenseForm from "@/components/expenses/ExpenseForm";
+
 import { useEffect, useState } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { createClient } from "@supabase/supabase-js";
@@ -20,9 +27,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 const TAX_RATE = 0.15; // 15% HST NB
 
 export default function ExpensesPage() {
+  const router = useRouter();
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
 
@@ -46,6 +61,7 @@ export default function ExpensesPage() {
 
   const [tax, setTax] = useState(0);
   const [finalCost, setFinalCost] = useState(0);
+  const [openNewExpense, setOpenNewExpense] = useState(false);
 
   /* =====================
    BULK SELECTION
@@ -119,7 +135,7 @@ export default function ExpensesPage() {
         const data = await res.json();
 
         const expensePermission = data.permissions?.find(
-          (p) => p.resource === "expenses"
+          (p) => p.resource === "expenses",
         );
 
         setCanViewExpenses(!!expensePermission?.can_view);
@@ -152,7 +168,7 @@ export default function ExpensesPage() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         global: { headers: { Authorization: `Bearer ${token}` } },
-      }
+      },
     );
   }
 
@@ -284,7 +300,7 @@ export default function ExpensesPage() {
 
     if (
       !confirm(
-        `Delete ${selectedExpenses.size} selected expense(s)? This action cannot be undone.`
+        `Delete ${selectedExpenses.size} selected expense(s)? This action cannot be undone.`,
       )
     )
       return;
@@ -408,261 +424,392 @@ export default function ExpensesPage() {
   }
 
   /* =====================
+   EXPORT HELPERS
+===================== */
+
+  const expensesToExport =
+    selectedExpenses.size > 0
+      ? expenses.filter((e) => selectedExpenses.has(e.id))
+      : expenses;
+
+  /* ===== EXCEL ===== */
+  async function exportToExcel() {
+    if (expensesToExport.length === 0) {
+      toast.info("No expenses to export");
+      return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Expenses", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    });
+
+    /* ===== HEADER ===== */
+    sheet.columns = [
+      { header: "Date", key: "date", width: 14 },
+      { header: "Property", key: "property", width: 32 },
+      { header: "Unit", key: "unit", width: 12 },
+      { header: "Description", key: "description", width: 40 },
+      { header: "Staff", key: "staff", width: 22 },
+      { header: "Amount", key: "amount", width: 14 },
+      { header: "Tax", key: "tax", width: 14 },
+      { header: "Final Cost", key: "final", width: 16 },
+    ];
+
+    /* ===== HEADER STYLE ===== */
+    sheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE5E7EB" }, // gray-200
+      };
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" },
+      };
+    });
+
+    /* ===== DATA ROWS ===== */
+    expensesToExport.forEach((e) => {
+      sheet.addRow({
+        date: e.expense_date
+          ? new Date(e.expense_date).toLocaleDateString()
+          : "",
+        property: propertyMap[e.property_id] || "",
+        unit: e.unit?.unit ? `Unit ${e.unit.unit}` : "",
+        description: e.description,
+        staff: e.contractor_name || "",
+        amount: Number(e.amount),
+        tax: Number(e.tax || 0),
+        final: Number(e.final_cost || e.amount),
+      });
+    });
+
+    /* ===== CURRENCY FORMAT ===== */
+    ["F", "G", "H"].forEach((col) => {
+      sheet.getColumn(col).numFmt = '"$"#,##0.00';
+    });
+
+    /* ===== BORDERS FOR ALL ROWS ===== */
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+      });
+    });
+
+    /* ===== TOTALS ROW ===== */
+    const totalRow = sheet.addRow({
+      description: "TOTAL",
+      amount: {
+        formula: `SUM(F2:F${sheet.rowCount})`,
+      },
+      tax: {
+        formula: `SUM(G2:G${sheet.rowCount})`,
+      },
+      final: {
+        formula: `SUM(H2:H${sheet.rowCount})`,
+      },
+    });
+
+    totalRow.font = { bold: true };
+
+    totalRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: "double" },
+        left: { style: "thin" },
+        bottom: { style: "double" },
+        right: { style: "thin" },
+      };
+    });
+
+    /* ===== EXPORT ===== */
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), "expenses.xlsx");
+  }
+
+  /* ===== PDF ===== */
+  function exportToPDF() {
+    if (expensesToExport.length === 0) {
+      toast.info("No expenses to export");
+      return;
+    }
+
+    const doc = new jsPDF("l", "pt"); // landscape
+
+    doc.setFontSize(14);
+    doc.text("Expenses Report", 40, 30);
+
+    const tableData = expensesToExport.map((e) => [
+      e.expense_date ? new Date(e.expense_date).toLocaleDateString() : "",
+      propertyMap[e.property_id] || "",
+      e.unit?.unit ? `Unit ${e.unit.unit}` : "",
+      e.description,
+      e.contractor_name || "",
+      `$${Number(e.amount).toFixed(2)}`,
+      `$${Number(e.tax || 0).toFixed(2)}`,
+      `$${Number(e.final_cost || e.amount).toFixed(2)}`,
+    ]);
+
+    autoTable(doc, {
+      startY: 50,
+      head: [
+        [
+          "Date",
+          "Property",
+          "Unit",
+          "Description",
+          "Staff",
+          "Amount",
+          "Tax",
+          "Final Cost",
+        ],
+      ],
+      body: tableData,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [22, 163, 74] },
+    });
+
+    doc.save("expenses.pdf");
+  }
+
+  /* =====================
      RENDER
   ===================== */
   return (
-    <main className="px-4 sm:px-6 py-6 sm:py-10 max-w-[1400px] mx-auto space-y-8">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h1 className="text-3xl font-bold">💸 Expenses</h1>
-      </div>
+    <>
+      {/* MODAL: NEW EXPENSE */}
+      <Dialog open={openNewExpense} onOpenChange={setOpenNewExpense}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>New Expense</DialogTitle>
+          </DialogHeader>
 
-      {/* CREATE EXPENSE */}
-      {role === "staff" && (
-        <Card className="max-w-md border shadow-md rounded-xl">
-          <CardHeader>
-            <CardTitle>Submit Expense</CardTitle>
-            <CardDescription>
-              Upload an expense linked to a property
-            </CardDescription>
-          </CardHeader>
+          <ExpenseForm
+            mode={role}
+            onSuccess={() => {
+              setOpenNewExpense(false);
+              loadExpenses();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
-          <CardContent className="space-y-3">
-            <select
-              value={selectedProperty}
-              onChange={(e) => {
-                const propertyId = e.target.value;
-                setSelectedProperty(propertyId);
-                setSelectedUnit(""); // reset unit
-                loadUnits(propertyId); // cargar units
-              }}
-              className="w-full border rounded-md p-2 text-sm"
-            >
-              <option value="">Select property</option>
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.address}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedUnit}
-              onChange={(e) => setSelectedUnit(e.target.value)}
-              className="w-full border rounded-md p-2 text-sm"
-              disabled={!selectedProperty}
-            >
-              <option value="">Select unit</option>
-
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  Unit {u.unit}
-                </option>
-              ))}
-            </select>
-
-            <Input
-              placeholder="Amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-            <div className="text-sm text-muted-foreground">
-              Tax (15%): <strong>${tax.toFixed(2)}</strong>
-            </div>
-
-            <div className="text-sm font-semibold">
-              Final Cost: <strong>${finalCost.toFixed(2)}</strong>
-            </div>
-
-            <Input
-              placeholder="Description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-
-            <Input type="file" onChange={(e) => setFile(e.target.files[0])} />
-
-            <Button onClick={submitExpense} disabled={submitting}>
-              {submitting ? "Submitting..." : "Submit Expense"}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* EMPTY STATE */}
-      {expenses.length === 0 && (
-        <div className="text-center text-gray-500 py-20">
-          No expenses found.
-        </div>
-      )}
-      {/* BULK ACTION BAR */}
-      {role === "admin" && selectedExpenses.size > 0 && (
-        <div className="sticky top-2 z-20 bg-white border shadow-sm rounded-lg px-4 py-2 flex items-center justify-between">
-          <span className="text-sm font-medium">
-            {selectedExpenses.size} expense(s) selected
-          </span>
+      <main className="mt-16 px-4 sm:px-6 py-6 sm:py-10 max-w-[1400px] mx-auto space-y-8">
+        {/* HEADER */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <h1 className="text-3xl font-bold">💸 Expenses</h1>
 
           <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-red-600 border-red-200"
-              onClick={deleteExpensesBulk}
-            >
-              🗑️ Delete
-            </Button>
+            {canViewExpenses && (
+              <Button onClick={() => setOpenNewExpense(true)}>➕ New</Button>
+            )}
 
-            <Button size="sm" variant="ghost" onClick={clearSelection}>
-              Clear
-            </Button>
+            {expenses.length > 0 && (
+              <>
+                <Button variant="outline" onClick={exportToExcel}>
+                  📊 Export Excel
+                </Button>
+
+                <Button variant="outline" onClick={exportToPDF}>
+                  📄 Export PDF
+                </Button>
+              </>
+            )}
           </div>
         </div>
-      )}
 
-      {/* TABLE */}
-      {expenses.length > 0 && (
-        <div className="bg-white shadow rounded-lg border overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-100 text-gray-700">
-              <tr>
-                {role === "admin" && (
-                  <th className="px-4 py-2 w-10">
-                    <input
-                      type="checkbox"
-                      checked={
-                        expenses.length > 0 &&
-                        expenses.every((e) => selectedExpenses.has(e.id))
-                      }
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedExpenses(
-                            new Set(expenses.map((e) => e.id))
-                          );
-                        } else {
-                          clearSelection();
-                        }
-                      }}
-                    />
-                  </th>
-                )}
+        {/* EMPTY STATE */}
+        {expenses.length === 0 && (
+          <div className="text-center text-gray-500 py-20">
+            No expenses found.
+          </div>
+        )}
+        {/* BULK ACTION BAR */}
+        {role === "admin" && selectedExpenses.size > 0 && (
+          <div className="sticky top-2 z-20 bg-white border shadow-sm rounded-lg px-4 py-2 flex items-center justify-between">
+            <span className="text-sm font-medium">
+              {selectedExpenses.size} expense(s) selected
+            </span>
 
-                <th className="px-4 py-2 text-left">Date</th>
-                <th className="px-4 py-2 text-left">Property</th>
-                <th className="px-4 py-2 text-left">Unit</th>
-                <th className="px-4 py-2 text-left">Description</th>
-                <th className="px-4 py-2 text-right">Amount</th>
-                <th className="px-4 py-2 text-left">Staff</th>
-                <th className="px-4 py-2 text-right">Tax</th>
-                <th className="px-4 py-2 text-right">Final Cost</th>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-red-600 border-red-200"
+                onClick={deleteExpensesBulk}
+              >
+                🗑️ Delete
+              </Button>
 
-                <th className="px-4 py-2 text-right">Actions</th>
-              </tr>
-            </thead>
+              <Button size="sm" variant="ghost" onClick={clearSelection}>
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
 
-            <tbody>
-              {expenses.map((e) => (
-                <tr
-                  key={e.id}
-                  className="border-t hover:bg-gray-50 transition-colors"
-                >
+        {/* TABLE */}
+        {expenses.length > 0 && (
+          <div className="bg-white shadow rounded-lg border overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-100 text-gray-700">
+                <tr>
                   {role === "admin" && (
-                    <td
-                      className="px-4 py-3"
-                      onClick={(ev) => ev.stopPropagation()}
-                    >
+                    <th className="px-4 py-2 w-10">
                       <input
                         type="checkbox"
-                        checked={isSelected(e.id)}
-                        onChange={() => toggleExpenseSelection(e.id)}
+                        checked={
+                          expenses.length > 0 &&
+                          expenses.every((e) => selectedExpenses.has(e.id))
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedExpenses(
+                              new Set(expenses.map((e) => e.id)),
+                            );
+                          } else {
+                            clearSelection();
+                          }
+                        }}
                       />
-                    </td>
+                    </th>
                   )}
 
-                  {/* DATE */}
-                  <td className="px-4 py-3 text-left text-sm text-gray-700 whitespace-nowrap">
-                    {e.expense_date
-                      ? new Date(e.expense_date).toLocaleDateString()
-                      : "—"}
-                  </td>
+                  <th className="px-4 py-2 text-left">Date</th>
+                  <th className="px-4 py-2 text-left">Property</th>
+                  <th className="px-4 py-2 text-left">Unit</th>
+                  <th className="px-4 py-2 text-left">Description</th>
+                  <th className="px-4 py-2 text-left">Staff</th>
+                  <th className="px-4 py-2 text-right">Amount</th>
+                  <th className="px-4 py-2 text-right">Tax</th>
 
-                  {/* PROPERTY */}
-                  <td className="px-4 py-3 text-left text-sm text-gray-700 max-w-xs truncate">
-                    {propertyMap[e.property_id] || "—"}
-                  </td>
-                  {/* UNIT */}
-                  <td className="px-4 py-3 text-left text-sm text-gray-700">
-                    {e.unit?.unit ? `Unit ${e.unit.unit}` : "—"}
-                  </td>
+                  <th className="px-4 py-2 text-right">Final Cost</th>
 
-                  {/* DESCRIPTION */}
-                  <td className="px-4 py-3 text-left text-sm text-gray-900">
-                    {e.description}
-                  </td>
-
-                  {/* AMOUNT */}
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">
-                    ${Number(e.amount).toFixed(2)}
-                  </td>
-
-                  {/* STAFF */}
-                  <td className="px-4 py-3 text-left text-sm text-gray-600">
-                    {e.contractor_name || "—"}
-                  </td>
-
-                  {/* TAX */}
-                  <td className="px-4 py-3 text-right text-gray-700">
-                    ${Number(e.tax || 0).toFixed(2)}
-                  </td>
-
-                  {/* FINAL COST */}
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                    ${Number(e.final_cost || e.amount).toFixed(2)}
-                  </td>
-
-                  {/* ACTIONS */}
-                  <td className="px-4 py-3 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-
-                      <DropdownMenuContent align="end">
-                        {e.invoice_url && (
-                          <DropdownMenuItem asChild>
-                            <a
-                              href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/expense-invoices/${e.invoice_url}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              📎 View Invoice
-                            </a>
-                          </DropdownMenuItem>
-                        )}
-
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={() => {
-                            if (selectedExpenses.size > 0) {
-                              toast.info(
-                                "Use bulk actions to delete multiple expenses"
-                              );
-                              return;
-                            }
-                            deleteExpense(e.id);
-                          }}
-                        >
-                          🗑️ Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
+                  <th className="px-4 py-2 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </main>
+              </thead>
+
+              <tbody>
+                {expenses.map((e) => (
+                  <tr
+                    key={e.id}
+                    className="border-t hover:bg-gray-50 transition-colors"
+                  >
+                    {role === "admin" && (
+                      <td
+                        className="px-4 py-3"
+                        onClick={(ev) => ev.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected(e.id)}
+                          onChange={() => toggleExpenseSelection(e.id)}
+                        />
+                      </td>
+                    )}
+
+                    {/* DATE */}
+                    <td className="px-4 py-3 text-left text-sm text-gray-700 whitespace-nowrap">
+                      {e.expense_date
+                        ? new Date(e.expense_date).toLocaleDateString()
+                        : "—"}
+                    </td>
+
+                    {/* PROPERTY */}
+                    <td className="px-4 py-3 text-left text-sm text-gray-700 max-w-xs truncate">
+                      {propertyMap[e.property_id] || "—"}
+                    </td>
+                    {/* UNIT */}
+                    <td className="px-4 py-3 text-left text-sm text-gray-700">
+                      {e.unit?.unit ? `Unit ${e.unit.unit}` : "—"}
+                    </td>
+
+                    {/* DESCRIPTION */}
+                    <td className="px-4 py-3 text-left text-sm text-gray-900">
+                      {e.description}
+                    </td>
+
+                    {/* STAFF */}
+                    <td className="px-4 py-3 text-left text-sm text-gray-600">
+                      {e.contractor_name || "—"}
+                    </td>
+
+                    {/* AMOUNT */}
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">
+                      ${Number(e.amount).toFixed(2)}
+                    </td>
+
+                    {/* TAX */}
+                    <td className="px-4 py-3 text-right text-gray-700">
+                      ${Number(e.tax || 0).toFixed(2)}
+                    </td>
+
+                    {/* FINAL COST */}
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                      ${Number(e.final_cost || e.amount).toFixed(2)}
+                    </td>
+
+                    {/* ACTIONS */}
+                    <td className="px-4 py-3 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent align="end">
+                          {e.invoice_url && (
+                            <DropdownMenuItem asChild>
+                              <a
+                                href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/expense-invoices/${e.invoice_url}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                📎 View Invoice
+                              </a>
+                            </DropdownMenuItem>
+                          )}
+
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => {
+                              if (selectedExpenses.size > 0) {
+                                toast.info(
+                                  "Use bulk actions to delete multiple expenses",
+                                );
+                                return;
+                              }
+                              deleteExpense(e.id);
+                            }}
+                          >
+                            🗑️ Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </main>
+    </>
   );
 }

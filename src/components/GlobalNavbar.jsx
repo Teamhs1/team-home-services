@@ -28,6 +28,22 @@ export default function GlobalNavbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const dropdownRef = useRef(null);
+  const [rentalsEnabled, setRentalsEnabled] = useState(false);
+
+  useEffect(() => {
+    async function loadAppSettings() {
+      try {
+        const res = await fetch("/api/app-settings", { cache: "no-store" });
+        const data = await res.json();
+        setRentalsEnabled(!!data?.rentals_enabled);
+      } catch (err) {
+        console.error("Failed to load app settings");
+      }
+    }
+
+    loadAppSettings();
+  }, []);
+
   // 🔑 Load profile UUID (required for jobs filters)
   useEffect(() => {
     if (!isLoaded || !user?.id) return;
@@ -75,7 +91,7 @@ export default function GlobalNavbar() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         global: { headers: { Authorization: `Bearer ${token}` } },
-      }
+      },
     );
   }
 
@@ -111,7 +127,7 @@ export default function GlobalNavbar() {
   // 🌙 Sincronizar dark mode
   useEffect(() => {
     const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
+      "(prefers-color-scheme: dark)",
     ).matches;
     setDarkMode(prefersDark);
     document.documentElement.classList.toggle("dark", prefersDark);
@@ -189,7 +205,7 @@ export default function GlobalNavbar() {
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "staff_applications" },
-          () => fetchStaffApplications()
+          () => fetchStaffApplications(),
         )
         .subscribe();
       return () => supabase.removeChannel(channel);
@@ -217,7 +233,7 @@ export default function GlobalNavbar() {
               fetchPendingJobs();
             if (role === "client" && payload.new?.created_by === profileId)
               fetchClientPendingJobs();
-          }
+          },
         )
         .subscribe();
 
@@ -238,15 +254,16 @@ export default function GlobalNavbar() {
             : "bg-white/90 border-gray-200 text-gray-900")
         : "bg-transparent border-transparent text-white"
       : sidebarTheme === "dark"
-      ? "bg-slate-900 border-slate-800 text-white shadow-sm"
-      : "bg-white border-gray-200 text-gray-900 shadow-sm";
+        ? "bg-slate-900 border-slate-800 text-white shadow-sm"
+        : "bg-white border-gray-200 text-gray-900 shadow-sm";
 
   const isPrivatePage =
     pathname?.startsWith("/dashboard") ||
     pathname?.startsWith("/admin") ||
     pathname?.startsWith("/jobs") ||
     pathname?.startsWith("/profile") ||
-    pathname?.startsWith("/settings");
+    pathname?.startsWith("/settings") ||
+    pathname?.startsWith("/expenses");
 
   // Detectar mobile (para ignorar sidebar)
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
@@ -255,18 +272,20 @@ export default function GlobalNavbar() {
   const marginLeft = isMobile
     ? "0"
     : isPrivatePage
-    ? isSidebarOpen
-      ? "16rem"
-      : "5rem"
-    : "0";
+      ? isSidebarOpen
+        ? "16rem"
+        : "5rem"
+      : "0";
 
   const width = isMobile
     ? "100%"
     : isPrivatePage
-    ? isSidebarOpen
-      ? "calc(100% - 16rem)"
-      : "calc(100% - 5rem)"
-    : "100%";
+      ? isSidebarOpen
+        ? "calc(100% - 16rem)"
+        : "calc(100% - 5rem)"
+      : "100%";
+
+  const canShowRentals = isLoaded && (rentalsEnabled || role === "admin");
 
   return (
     <motion.nav
@@ -305,8 +324,8 @@ ${
   pathname === "/" && !navBg
     ? "text-white"
     : sidebarTheme === "dark"
-    ? "text-white"
-    : "text-gray-800"
+      ? "text-white"
+      : "text-gray-800"
 }`}
         >
           <a href="/#about" className="hover:text-blue-600 transition-colors">
@@ -320,8 +339,8 @@ ${
             Services
           </a>
 
-          {/* 🔐 RENTALS — solo admin */}
-          {role === "admin" && (
+          {/* 🌍 RENTALS — controlado por feature flag */}
+          {canShowRentals && (
             <Link
               href="/rentals"
               className={`relative hover:text-blue-600 transition-colors ${
@@ -331,9 +350,9 @@ ${
               }`}
             >
               Rentals
-              <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
-                Admin
-              </span>
+              {!rentalsEnabled && role === "admin" && (
+                <span className="ml-2 text-xs text-yellow-500">(preview)</span>
+              )}
             </Link>
           )}
 
@@ -361,8 +380,8 @@ ${
                     pathname === "/" && !navBg
                       ? "text-white"
                       : sidebarTheme === "dark"
-                      ? "text-slate-300 hover:text-blue-400"
-                      : "text-gray-700 hover:text-blue-600"
+                        ? "text-slate-300 hover:text-blue-400"
+                        : "text-gray-700 hover:text-blue-600"
                   }`}
                 />
                 {pendingCount > 0 && (
@@ -387,8 +406,8 @@ ${
                         {role === "admin"
                           ? "Staff Applications"
                           : role === "staff"
-                          ? "Assigned Jobs"
-                          : "Your Pending Jobs"}
+                            ? "Assigned Jobs"
+                            : "Your Pending Jobs"}
                       </h3>
                       <span className="text-xs text-gray-500">
                         {pendingCount} pending
@@ -429,8 +448,8 @@ ${
         item.status === "pending"
           ? "bg-yellow-100 text-yellow-700"
           : item.status === "in_progress"
-          ? "bg-blue-100 text-blue-700"
-          : "bg-green-100 text-green-700"
+            ? "bg-blue-100 text-blue-700"
+            : "bg-green-100 text-green-700"
       }`}
                                 >
                                   {item.status?.replace("_", " ") || "update"}
@@ -439,7 +458,7 @@ ${
                                 <span className="text-xs text-gray-500">
                                   {formatDistanceToNow(
                                     new Date(item.created_at),
-                                    { addSuffix: true }
+                                    { addSuffix: true },
                                   )}
                                 </span>
                               </div>
@@ -453,7 +472,7 @@ ${
                                 </p>
                               )}
                             </div>
-                          )
+                          ),
                         )
                       ) : (
                         <p className="text-center text-gray-500 text-sm py-6">

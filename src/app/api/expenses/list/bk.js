@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { getAuth } from "@clerk/nextjs/server";
+import { createClient } from "@supabase/supabase-js";
 
 export async function GET(req) {
-  const { userId } = getAuth(req); // ✅ FIX
+  const { userId } = getAuth(req);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -11,9 +11,10 @@ export async function GET(req) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
+  // 🔹 Perfil real
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, role")
@@ -24,70 +25,82 @@ export async function GET(req) {
     return NextResponse.json({ error: "Profile not found" }, { status: 403 });
   }
 
+  // 🔹 Query base (SIN FILTROS)
   let query = supabase
     .from("expenses")
     .select(
       `
-    id,
-    description,
-    amount,
-    expense_date,
-    invoice_url,
-    property_id,
-    contractor_id,
-    contractor_name,
-    created_at,
-    unit:units (
       id,
-      unit
-    )
-  `
+      description,
+      amount,
+      tax,
+      final_cost,
+      expense_date,
+      invoice_url,
+      property_id,
+      contractor_id,
+      contractor_name,
+      created_at,
+      unit:units (
+        id,
+        unit
+      )
+    `,
     )
     .order("created_at", { ascending: false });
 
-  // 🧭 ROLE-BASED VISIBILITY
+  /* =========================
+     ROLE LOGIC
+  ========================== */
 
-  // STAFF → solo sus expenses
-  if (profile.role === "staff") {
-    query = query.eq("contractor_id", profile.id);
+  // 🧑‍💼 ADMIN → ve todo (ya listo)
+  if (profile.role === "admin") {
+    const { data } = await query;
+    return NextResponse.json(data ?? []);
   }
 
-  // CLIENT → expenses de sus properties
-  if (profile.role === "client") {
-    // 1️⃣ obtener properties del client
-    const { data: clientProperties, error: propError } = await supabase
-      .from("properties")
-      .select("id")
-      .eq("client_id", profile.id);
+  // 👷 STAFF → verificar permiso y VER TODO
+  if (profile.role === "staff") {
+    const { data: permission } = await supabase
+      .from("staff_permissions")
+      .select("can_view")
+      .eq("staff_profile_id", profile.id)
+      .eq("resource", "expenses")
+      .single();
 
-    if (propError) {
-      console.error("CLIENT PROPERTIES ERROR:", propError);
-      return NextResponse.json(
-        { error: "Failed to load client properties" },
-        { status: 500 }
-      );
+    if (!permission?.can_view) {
+      return NextResponse.json([]);
     }
 
-    const propertyIds = clientProperties.map((p) => p.id);
+    const { data } = await query;
+    return NextResponse.json(data ?? []);
+  }
 
-    // si no tiene properties, no hay expenses
+  // 🏢 COMPANY MEMBER (owner / manager / client)
+  const { data: companyMemberships } = await supabase
+    .from("company_members")
+    .select("company_id, role")
+    .eq("profile_id", profile.id);
+
+  if (companyMemberships?.length) {
+    // companies donde el usuario es miembro
+    const companyIds = companyMemberships.map((m) => m.company_id);
+
+    // properties de esas compañías
+    const { data: properties } = await supabase
+      .from("properties")
+      .select("id")
+      .in("company_id", companyIds);
+
+    const propertyIds = properties?.map((p) => p.id) ?? [];
+
     if (propertyIds.length === 0) {
       return NextResponse.json([]);
     }
 
-    // 2️⃣ filtrar expenses por esas properties
-    query = query.in("property_id", propertyIds);
+    const { data } = await query.in("property_id", propertyIds);
+    return NextResponse.json(data ?? []);
   }
 
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("EXPENSE LIST ERROR:", error);
-    return NextResponse.json(
-      { error: "Failed to load expenses" },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json(data ?? []);
+  return NextResponse.json([]);
 }

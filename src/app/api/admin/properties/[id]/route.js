@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /* =========================
@@ -13,7 +13,7 @@ const supabase = createClient(
 export async function GET(req, { params }) {
   try {
     const { userId } = await auth();
-    const { id: propertyId } = await params;
+    const { id: propertyId } = params;
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -33,21 +33,26 @@ export async function GET(req, { params }) {
       .from("properties")
       .select(
         `
-  id,
-  name,
-  address,
-  postal_code,
-  latitude,
-  longitude,
-  year_built,
-  company_id,
-  company:company_id (
-    id,
-    name
-  )
-`
+        id,
+        name,
+        address,
+        postal_code,
+        latitude,
+        longitude,
+        year_built,
+        owner_id,
+        owner:owner_id (
+          id,
+          full_name,
+          email
+        ),
+        company_id,
+        company:company_id (
+          id,
+          name
+        )
+        `,
       )
-
       .eq("id", propertyId);
 
     if (profile.role !== "admin") {
@@ -59,7 +64,7 @@ export async function GET(req, { params }) {
     if (propertyError || !property) {
       return NextResponse.json(
         { error: "Property not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -84,7 +89,7 @@ export async function GET(req, { params }) {
     console.error("❌ GET PROPERTY ERROR:", err);
     return NextResponse.json(
       { error: "Failed to load property" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -112,30 +117,31 @@ export async function PATCH(req, { params }) {
     }
 
     const body = await req.json();
-
     const updates = {};
 
-    if (typeof body.latitude === "number") {
-      updates.latitude = body.latitude;
-    }
-
-    if (typeof body.longitude === "number") {
-      updates.longitude = body.longitude;
-    }
+    // 📍 Location
+    if (typeof body.latitude === "number") updates.latitude = body.latitude;
+    if (typeof body.longitude === "number") updates.longitude = body.longitude;
 
     if (typeof body.postal_code === "string") {
       updates.postal_code =
         body.postal_code.trim() === "" ? null : body.postal_code;
     }
+
     // 🏗 Built year
     if (body.year_built === null || typeof body.year_built === "number") {
       updates.year_built = body.year_built;
     }
 
+    // 👤 OWNER (ESTO ES LO QUE FALTABA)
+    if (body.owner_id === null || typeof body.owner_id === "string") {
+      updates.owner_id = body.owner_id;
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(
         { error: "No valid fields to update" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -151,7 +157,7 @@ export async function PATCH(req, { params }) {
     console.error("❌ PATCH PROPERTY ERROR:", err);
     return NextResponse.json(
       { error: "Failed to update property" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -192,7 +198,7 @@ export async function DELETE(req, { params }) {
     console.error("❌ DELETE PROPERTY ERROR:", err);
     return NextResponse.json(
       { error: "Failed to delete property" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

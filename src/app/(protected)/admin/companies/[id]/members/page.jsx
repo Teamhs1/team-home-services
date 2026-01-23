@@ -56,12 +56,12 @@ export default function CompanyMembersPage() {
      LOAD USERS
   ===================== */
   async function loadUsers() {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, full_name, email")
-      .order("full_name");
+    const res = await fetch("/api/admin/profiles", {
+      cache: "no-store",
+    });
 
-    setUsers(data || []);
+    const json = await res.json();
+    +setUsers(json.users || []);
   }
 
   useEffect(() => {

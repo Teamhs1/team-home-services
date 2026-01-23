@@ -43,9 +43,14 @@ export default function DashboardNavbar() {
     if (pathname.startsWith("/admin/properties")) return "admin_properties";
     if (pathname.startsWith("/admin/keys")) return "admin_keys";
     if (pathname.startsWith("/admin")) return "admin";
+
+    // 👇 CLIENT COMPANY (IMPORTANTE)
+    if (pathname.startsWith("/dashboard/company")) return "dashboard_company";
+
     if (pathname.startsWith("/settings")) return "settings";
     if (pathname.startsWith("/jobs")) return "jobs";
     if (pathname.startsWith("/dashboard")) return "dashboard";
+
     return null;
   };
 
@@ -60,6 +65,10 @@ export default function DashboardNavbar() {
   ========================= */
   const subNav = {
     dashboard: [],
+    dashboard_company: [
+      { label: "Overview", href: "/dashboard/company" },
+      { label: "Members", href: "/dashboard/company/members" },
+    ],
 
     jobs: [
       { label: "All Jobs", href: "/jobs", status: null },
@@ -130,8 +139,8 @@ export default function DashboardNavbar() {
   const width = isMobile
     ? "100%"
     : isSidebarOpen
-    ? "calc(100% - 16rem)"
-    : "calc(100% - 5rem)";
+      ? "calc(100% - 16rem)"
+      : "calc(100% - 5rem)";
 
   /* =========================
      RENDER
@@ -179,8 +188,8 @@ fixed top-[4.5rem] right-0 z-[30]
                   ? "text-blue-400"
                   : "text-blue-600"
                 : sidebarTheme === "dark"
-                ? "text-slate-400 hover:text-white"
-                : "text-gray-600 hover:text-blue-500"
+                  ? "text-slate-400 hover:text-white"
+                  : "text-gray-600 hover:text-blue-500"
             }`}
           >
             {tab.label}

@@ -21,7 +21,7 @@ import { format } from "date-fns";
 const isUUID = (v) =>
   typeof v === "string" &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    v
+    v,
   );
 
 export default function JobForm({
@@ -63,7 +63,7 @@ export default function JobForm({
             (m) =>
               m.profile?.id &&
               isUUID(m.profile.id) &&
-              ["admin", "owner", "client"].includes(m.role)
+              ["admin", "owner", "client"].includes(m.role),
           ) || [];
 
         setCompanyClients(validClients);
@@ -102,7 +102,8 @@ export default function JobForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          service_type: serviceType, // ✅ CLAVE
+          property_address: title.trim(), // ✅ ESTA ES LA CLAVE
+          service_type: serviceType,
           assigned_to: assignedTo || null,
           assigned_client: clientId,
           company_id: companyId,

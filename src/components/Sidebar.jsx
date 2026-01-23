@@ -56,7 +56,7 @@ async function getSupabase(getToken) {
           Authorization: `Bearer ${token}`,
         },
       },
-    }
+    },
   );
 
   return supabaseClient;
@@ -77,7 +77,7 @@ const getSupabaseWithAuth = async (getToken) => {
           Authorization: `Bearer ${token}`,
         },
       },
-    }
+    },
   );
 };
 /* =========================
@@ -91,6 +91,7 @@ const ICONS = {
   properties: Building2,
   keys: KeyRound,
   tenants: UsersRound,
+  owners: UsersRound,
 
   // Admin
   users: Users,
@@ -99,6 +100,7 @@ const ICONS = {
   syncLogs: Activity,
   companies: Factory, // 👈 distinto a properties
   permissions: Shield,
+  features: Settings,
 
   // System
   profile: CircleUser,
@@ -110,7 +112,15 @@ const ICONS = {
    CONSTANTES
 ========================= */
 
-const ALL_RESOURCES = ["jobs", "properties", "keys", "tenants", "expenses"];
+const ALL_RESOURCES = [
+  "jobs",
+  "properties",
+  "keys",
+  "tenants",
+  "expenses",
+  "company",
+  "owners",
+];
 
 const SIDEBAR_THEMES = {
   light: {
@@ -217,7 +227,7 @@ export default function Sidebar() {
         // 🌐 3. Pedir permisos al API (ya validado server-side)
         const res = await fetch(
           `/api/admin/staff-permissions?staff_profile_id=${profile.id}`,
-          { cache: "no-store" }
+          { cache: "no-store" },
         );
 
         if (!res.ok) {
@@ -230,13 +240,30 @@ export default function Sidebar() {
 
         // 🔐 4. Permisos por defecto si no hay nada
         if (!data || data.length === 0) {
-          setAllowedResources(["jobs"]);
+          if (role === "client") {
+            setAllowedResources([
+              "jobs",
+              "properties",
+              "keys",
+              "tenants",
+              "expenses",
+              "company", // ✅ ESTO ES LO QUE FALTABA
+            ]);
+          } else {
+            setAllowedResources(["jobs"]);
+          }
           setPermissionsReady(true);
           return;
         }
 
         // 📦 5. Normalizar permisos
-        const newResources = data.map((p) => p.resource);
+        let newResources = data.map((p) => p.resource);
+
+        // ✅ CLIENT SIEMPRE VE COMPANY
+        if (role === "client" && !newResources.includes("company")) {
+          newResources.push("company");
+        }
+
         const prevResources = prevResourcesRef.current || [];
 
         // 🔔 6. Feedback visual
@@ -295,7 +322,7 @@ export default function Sidebar() {
           },
           () => {
             fetchPermissionsRef.current?.();
-          }
+          },
         )
         .subscribe();
     }
@@ -322,13 +349,13 @@ export default function Sidebar() {
 
     window.addEventListener(
       "staff-permissions-updated",
-      handlePermissionsUpdated
+      handlePermissionsUpdated,
     );
 
     return () => {
       window.removeEventListener(
         "staff-permissions-updated",
-        handlePermissionsUpdated
+        handlePermissionsUpdated,
       );
     };
   }, [user?.id, role]);
@@ -401,6 +428,15 @@ export default function Sidebar() {
       hideForAdmin: true,
     },
     {
+      id: "owners",
+      name: "Owners",
+      href: "/admin/owners",
+      icon: ICONS.owners,
+      resource: "owners",
+      hideForAdmin: false, // admin SÍ lo ve
+    },
+
+    {
       id: "keys-dashboard",
       name: "Keys",
       href: "/dashboard/keys",
@@ -414,6 +450,14 @@ export default function Sidebar() {
       href: "/dashboard/tenants",
       icon: ICONS.tenants,
       resource: "tenants",
+    },
+    {
+      id: "company",
+      name: "Company",
+      href: "/dashboard/company",
+      icon: ICONS.companies,
+      resource: "company",
+      hideForAdmin: true, // 👈🔥
     },
   ];
 
@@ -470,6 +514,12 @@ export default function Sidebar() {
             href: "/admin/permissions",
             icon: ICONS.permissions,
           },
+          {
+            id: "admin-features",
+            name: "Features",
+            href: "/admin/features",
+            icon: ICONS.features,
+          },
         ]
       : [];
 
@@ -491,6 +541,7 @@ export default function Sidebar() {
       name: "Theme Preview",
       href: "/theme-preview",
       icon: Palette,
+      matchPaths: ["/theme-preview", "/admin/theme-preview"],
     },
   ];
 
@@ -498,25 +549,25 @@ export default function Sidebar() {
     ...baseItems.filter(
       (item) =>
         (!item.resource || hasPermission(item.resource)) &&
-        !(role === "admin" && item.hideForAdmin)
+        !(role === "admin" && item.hideForAdmin),
     ),
     ...adminItems,
     ...staticItems,
   ];
 
   const footerItems = menuItems.filter(
-    (item) => item.href === "/profile" || item.href === "/settings"
+    (item) => item.href === "/profile" || item.href === "/settings",
   );
 
   const navItems = menuItems.filter(
-    (item) => item.href !== "/profile" && item.href !== "/settings"
+    (item) => item.href !== "/profile" && item.href !== "/settings",
   );
   const mainNavItems = navItems.filter(
-    (item) => !item.id?.startsWith("admin-")
+    (item) => !item.id?.startsWith("admin-"),
   );
 
   const adminNavItems = navItems.filter((item) =>
-    item.id?.startsWith("admin-")
+    item.id?.startsWith("admin-"),
   );
 
   const publicRoutes = ["/", "/sign-in", "/sign-up"];
@@ -584,7 +635,11 @@ export default function Sidebar() {
           {mainNavItems.map((item) => {
             const Icon = item.icon;
             const active =
-              pathname === item.href || pathname.startsWith(item.href + "/");
+              pathname === item.href ||
+              pathname.startsWith(item.href + "/") ||
+              item.matchPaths?.some(
+                (p) => pathname === p || pathname.startsWith(p + "/"),
+              );
 
             return (
               <Link
@@ -676,8 +731,8 @@ export default function Sidebar() {
               role === "admin"
                 ? "bg-blue-600/20 text-blue-400"
                 : role === "staff"
-                ? "bg-green-600/20 text-green-400"
-                : "bg-gray-600/20 text-gray-300"
+                  ? "bg-green-600/20 text-green-400"
+                  : "bg-gray-600/20 text-gray-300"
             }`}
           >
             {role.toUpperCase()}

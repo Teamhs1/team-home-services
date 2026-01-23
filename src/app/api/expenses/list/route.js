@@ -11,7 +11,7 @@ export async function GET(req) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
   // 🔹 Perfil real
@@ -45,7 +45,7 @@ export async function GET(req) {
         id,
         unit
       )
-    `
+    `,
     )
     .order("created_at", { ascending: false });
 
@@ -76,14 +76,23 @@ export async function GET(req) {
     return NextResponse.json(data ?? []);
   }
 
-  // 🧑 CLIENT → solo sus properties
-  if (profile.role === "client") {
-    const { data: clientProperties } = await supabase
+  // 🏢 COMPANY MEMBER (owner / manager / client)
+  const { data: companyMemberships } = await supabase
+    .from("company_members")
+    .select("company_id, role")
+    .eq("profile_id", profile.id);
+
+  if (companyMemberships?.length) {
+    // companies donde el usuario es miembro
+    const companyIds = companyMemberships.map((m) => m.company_id);
+
+    // properties de esas compañías
+    const { data: properties } = await supabase
       .from("properties")
       .select("id")
-      .eq("client_id", profile.id);
+      .in("company_id", companyIds);
 
-    const propertyIds = clientProperties?.map((p) => p.id) ?? [];
+    const propertyIds = properties?.map((p) => p.id) ?? [];
 
     if (propertyIds.length === 0) {
       return NextResponse.json([]);

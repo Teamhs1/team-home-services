@@ -100,12 +100,7 @@ export default function PropertiesListPage() {
 
     async function loadProperties() {
       try {
-        const endpoint =
-          role === "admin"
-            ? "/api/admin/properties"
-            : "/api/dashboard/properties";
-
-        const res = await fetch(endpoint, {
+        const res = await fetch("/api/dashboard/properties", {
           cache: "no-store",
           credentials: "include",
         });
@@ -346,10 +341,8 @@ export default function PropertiesListPage() {
                       </DropdownMenuTrigger>
 
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/properties/${p.id}`}>
-                            View Property
-                          </Link>
+                        <DropdownMenuItem onClick={() => goToProperty(p.id)}>
+                          View Property
                         </DropdownMenuItem>
 
                         {role === "admin" && (
@@ -410,16 +403,8 @@ export default function PropertiesListPage() {
                       </DropdownMenuTrigger>
 
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link
-                            href={
-                              role === "admin"
-                                ? `/admin/properties/${p.id}`
-                                : `dashboard/properties/${p.id}`
-                            }
-                          >
-                            View Property
-                          </Link>
+                        <DropdownMenuItem onClick={() => goToProperty(p.id)}>
+                          View Property
                         </DropdownMenuItem>
 
                         {role === "admin" && (
