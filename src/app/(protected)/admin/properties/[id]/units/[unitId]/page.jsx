@@ -1,10 +1,11 @@
 "use client";
 import PropertyMap from "@/components/PropertyMap";
+import UnitImageUploader from "@/components/UnitImageUploader";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import Slider from "@/components/Slider";
+import UnitSlider from "@/components/UnitSlider";
 import {
   ArrowLeft,
   Calendar,
@@ -36,6 +37,7 @@ export default function UnitDetailPage() {
   const isAdmin = user?.publicMetadata?.role === "admin";
   const [editingPostal, setEditingPostal] = useState(false);
   const [postalDraft, setPostalDraft] = useState("");
+  const [unitImages, setUnitImages] = useState([]);
 
   /* =======================
      LOAD UNIT
@@ -50,7 +52,7 @@ export default function UnitDetailPage() {
           {
             cache: "no-store",
             credentials: "include",
-          }
+          },
         );
 
         const text = await res.text();
@@ -60,8 +62,9 @@ export default function UnitDetailPage() {
         if (!res.ok) throw new Error(json.error || "Failed to load unit");
 
         setUnit(json.unit);
+        setUnitImages(json.unit.images || []); // 👈 ESTA LÍNEA FALTABA
         setPostalDraft(
-          json.unit.postal_code ?? json.unit.property?.postal_code ?? ""
+          json.unit.postal_code ?? json.unit.property?.postal_code ?? "",
         );
       } catch (err) {
         toast.error(err.message);
@@ -79,7 +82,7 @@ export default function UnitDetailPage() {
   ======================= */
   async function handleDeleteUnit() {
     const confirmed = confirm(
-      "⚠️ Delete this unit?\n\nThis action cannot be undone."
+      "⚠️ Delete this unit?\n\nThis action cannot be undone.",
     );
 
     if (!confirmed) return;
@@ -92,7 +95,7 @@ export default function UnitDetailPage() {
         {
           method: "DELETE",
           credentials: "include",
-        }
+        },
       );
 
       const json = await res.json().catch(() => ({}));
@@ -128,6 +131,11 @@ export default function UnitDetailPage() {
   }
 
   if (!unit) return null;
+
+  const sliderImages = (
+    unitImages.length ? unitImages : unit?.property?.images || []
+  ).map((img) => (typeof img === "string" ? { url: img } : img));
+
   const effectiveLat =
     typeof unit.latitude === "number" ? unit.latitude : unit.property?.latitude;
 
@@ -156,7 +164,18 @@ export default function UnitDetailPage() {
 
       {/* HERO / SLIDER */}
       <div className="overflow-hidden rounded-2xl border shadow-sm">
-        <Slider images={unit.property?.images || []} />
+        <UnitSlider
+          key={`${unitId}-${sliderImages.length}`}
+          images={sliderImages}
+        />
+
+        {isAdmin && (
+          <UnitImageUploader
+            unitId={unitId}
+            currentImages={unitImages}
+            onUploaded={setUnitImages}
+          />
+        )}
       </div>
       {/* INFO BAR */}
       <div className="flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -192,7 +211,7 @@ export default function UnitDetailPage() {
                         headers: { "Content-Type": "application/json" },
                         credentials: "include",
                         body: JSON.stringify({ postal_code: postalDraft }),
-                      }
+                      },
                     );
 
                     if (!res.ok) throw new Error();
@@ -356,15 +375,15 @@ export default function UnitDetailPage() {
                       credentials: "include",
                       body: JSON.stringify({
                         parking: value,
-                        parking_spots: value ? unit.parking_spots ?? 1 : null,
+                        parking_spots: value ? (unit.parking_spots ?? 1) : null,
                       }),
-                    }
+                    },
                   );
 
                   setUnit((p) => ({
                     ...p,
                     parking: value,
-                    parking_spots: value ? p.parking_spots ?? 1 : null,
+                    parking_spots: value ? (p.parking_spots ?? 1) : null,
                   }));
 
                   toast.success("Parking updated");
@@ -390,7 +409,7 @@ export default function UnitDetailPage() {
                       headers: { "Content-Type": "application/json" },
                       credentials: "include",
                       body: JSON.stringify({ parking_spots: value }),
-                    }
+                    },
                   );
 
                   setUnit((p) => ({ ...p, parking_spots: value }));
@@ -464,7 +483,7 @@ export default function UnitDetailPage() {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ is_for_rent: value }),
-                }
+                },
               );
 
               setUnit((prev) => ({ ...prev, is_for_rent: value }));
@@ -494,7 +513,7 @@ export default function UnitDetailPage() {
                       body: JSON.stringify({
                         rent_price: value ? Number(value) : null,
                       }),
-                    }
+                    },
                   );
 
                   toast.success("Rent price updated");
@@ -521,7 +540,7 @@ export default function UnitDetailPage() {
                       body: JSON.stringify({
                         rent_price: value ? Number(value) : null,
                       }),
-                    }
+                    },
                   );
 
                   toast.success("Rent price updated");
@@ -592,7 +611,7 @@ function EditableKeyFeature({
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ [field]: parsed }),
-        }
+        },
       );
 
       if (!res.ok) throw new Error();

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, MapPin, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import UnitSlider from "@/components/UnitSlider";
 
 export default function RentalDetailPage() {
   const { id } = useParams();
@@ -48,18 +49,33 @@ export default function RentalDetailPage() {
         unit.property.postal_code ? `, ${unit.property.postal_code}` : ""
       }`
     : null;
+  const sliderImages = (() => {
+    if (!unit?.images) return [];
+
+    // ✅ Caso 1: array real
+    if (Array.isArray(unit.images)) {
+      return unit.images.filter(Boolean);
+    }
+
+    // ✅ Caso 2: string tipo "{url1,url2}"
+    if (typeof unit.images === "string") {
+      return unit.images
+        .replace(/[{}"]/g, "")
+        .split(",")
+        .map((img) => img.trim())
+        .filter(Boolean);
+    }
+
+    return [];
+  })();
 
   return (
     <div className="w-full bg-white">
-      {/* ================= HERO IMAGE ================= */}
-      <div className="relative h-[420px] w-full bg-gray-200">
-        <img
-          src={unit.cover_image || "/placeholder.jpg"}
-          alt="Rental"
-          className="w-full h-full object-cover"
-        />
+      {/* ================= HERO / SLIDER ================= */}
+      <div className="relative mt-[72px]">
+        <UnitSlider images={sliderImages} height={420} />
 
-        <div className="absolute top-6 left-6">
+        <div className="absolute top-6 left-6 z-10">
           <Button
             variant="secondary"
             size="sm"

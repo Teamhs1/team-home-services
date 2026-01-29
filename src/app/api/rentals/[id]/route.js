@@ -6,11 +6,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
-export async function GET(req, context) {
-  // ✅ Correcto en App Router
-  const { id } = await context.params;
-
-  console.log("API RENTAL ID >>>", id, typeof id);
+export async function GET(req, { params }) {
+  const { id } = params;
 
   const { data, error } = await supabase
     .from("units")
@@ -28,6 +25,7 @@ export async function GET(req, context) {
       description,
       availability_status,
       is_for_rent,
+      images,
       property:properties (
         id,
         address,
