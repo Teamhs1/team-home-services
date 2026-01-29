@@ -1,4 +1,5 @@
 "use client";
+import { useRouter } from "next/navigation";
 
 import { useState, useEffect, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
@@ -15,7 +16,49 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const router = useRouter();
 
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !user?.id) return;
+
+    let cancelled = false;
+
+    async function loadProfile() {
+      try {
+        const res = await fetch("/api/me", {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const data = await res.json();
+
+        // 🆕 PERFIL NUEVO → REDIRIGIR
+        if (data.needsSetup) {
+          router.replace("/complete-profile");
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to load profile");
+        }
+
+        if (cancelled) return;
+
+        setName(data.full_name || "");
+        setEmail(user?.primaryEmailAddress?.emailAddress || "");
+        setPhone(data.phone || "");
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load profile");
+      }
+    }
+
+    loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, isSignedIn, user?.id]);
   /* ======================
      LOAD USER (CLERK)
   ====================== */
@@ -26,21 +69,28 @@ export default function ProfilePage() {
 
     async function loadProfile() {
       try {
-        const res = await fetch("/api/profile", {
-          method: "GET",
-          credentials: "include", // 🔥 CLAVE
+        const res = await fetch("/api/me", {
+          credentials: "include",
           cache: "no-store",
         });
 
-        if (!res.ok) throw new Error("Failed to load profile");
-
         const data = await res.json();
 
-        if (!cancelled) {
-          setName(data.full_name || "");
-          setEmail(data.email || "");
-          setPhone(data.phone || "");
+        // 👇 PERFIL NUEVO → REDIRIGIR
+        if (data.needsSetup) {
+          router.replace("/complete-profile");
+          return;
         }
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to load profile");
+        }
+
+        if (cancelled) return;
+
+        setName(data.full_name || "");
+        setEmail(user?.primaryEmailAddress?.emailAddress || "");
+        setPhone(data.phone || "");
       } catch (err) {
         console.error(err);
         toast.error("Failed to load profile");
@@ -157,7 +207,7 @@ export default function ProfilePage() {
                 src={
                   user.imageUrl ||
                   `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    name || "User"
+                    name || "User",
                   )}&background=2563eb&color=fff`
                 }
                 alt={name}

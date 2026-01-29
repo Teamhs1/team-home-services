@@ -12,38 +12,19 @@ export async function GET(req, context) {
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  const keySelect = `
-    id,
-    tag_code,
-    unit,
-    type,
-    status,
-    floor,
-    property_id,
-    properties (
-      id,
-      name,
-      address,
-      postal_code
-    )
-  `;
-
   /* =====================
-     LOAD KEY (TAG_CODE first)
+     LOAD KEY (TAG_CODE or UUID)
   ===================== */
   let { data: key, error } = await supabase
     .from("keys")
-    .select(keySelect)
+    .select("*")
     .ilike("tag_code", id)
     .maybeSingle();
 
-  /* =====================
-     FALLBACK: UUID
-  ===================== */
   if (!key) {
     const uuidQuery = await supabase
       .from("keys")
-      .select(keySelect)
+      .select("*")
       .eq("id", id)
       .maybeSingle();
 

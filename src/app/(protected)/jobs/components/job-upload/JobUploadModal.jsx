@@ -35,6 +35,7 @@ export function JobUploadModal({
   onClose,
   updateStatus,
   fetchJobs,
+  updateLocalJob,
 }) {
   const { getToken } = useAuth();
   const router = useRouter();
@@ -84,13 +85,36 @@ export function JobUploadModal({
     const s = String(sec % 60).padStart(2, "0");
     return `${h}:${m}:${s}`;
   };
+  useEffect(() => {
+    if (type !== "after" || !jobId) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error);
+
+        // 🔥 CARGAR LO DEL BEFORE
+        setUnitType(data.unit_type || null);
+        setFeatures(Array.isArray(data.features) ? data.features : []);
+      } catch (err) {
+        console.error("Failed to load job data", err);
+        toast.error("Failed to load job info");
+      }
+    })();
+  }, [type, jobId]);
+
+  const getUnitTypeLabel = (key) => {
+    return UNIT_TYPES.find((u) => u.key === key)?.label || key;
+  };
 
   // --------------------------------------------------------
   // TOGGLE FEATURES
   // --------------------------------------------------------
   const toggleFeature = (key) => {
     setFeatures((prev) =>
-      prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]
+      prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key],
     );
   };
 
@@ -119,7 +143,7 @@ export function JobUploadModal({
     if (!files.length || !selectedCategory) return;
 
     const isCompare = dynamicCompareCategories.some(
-      (c) => c.key === selectedCategory
+      (c) => c.key === selectedCategory,
     );
 
     const fileToUse = isCompare ? files[0] : files;
@@ -161,7 +185,7 @@ export function JobUploadModal({
         const optimized = await processImage(file);
 
         const isCompareCategory = dynamicCompareCategories.some(
-          (c) => c.key === category
+          (c) => c.key === category,
         );
 
         let folderType = type;
@@ -235,14 +259,44 @@ export function JobUploadModal({
       // AFTER → COMPLETE JOB
       // =========================
       if (type === "after") {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+          {
+            global: {
+              headers: {
+                Authorization: `Bearer ${await getToken({ template: "supabase" })}`,
+              },
+            },
+          },
+        );
+
+        // ✅ 1. Guardar cambios finales
+        await supabase
+          .from("cleaning_jobs")
+          .update({
+            unit_type: unitType,
+            features: Array.isArray(features) ? features : [],
+          })
+          .eq("id", jobId);
+
+        // ✅ 2. Actualizar UI inmediatamente
+        updateLocalJob?.(jobId, {
+          unit_type: unitType,
+          features,
+        });
+
+        // ✅ 3. Stop timer
         await fetch("/api/job-activity/stop", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ job_id: jobId }),
         });
 
+        // ✅ 4. Completar job
         await updateStatus(jobId, "completed");
 
+        // ✅ 5. Normalizar fotos
         await fetch("/api/job-photos/normalize-general", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -250,10 +304,8 @@ export function JobUploadModal({
         });
 
         toast.success("Job completed!");
-        // fetchJobs?.();
-
         onClose();
-        return; // ⛔ ESTO ELIMINA EL 401
+        return;
       }
 
       const normalizedUnitType = unitType
@@ -271,7 +323,7 @@ export function JobUploadModal({
               })}`,
             },
           },
-        }
+        },
       );
 
       await supabase
@@ -329,7 +381,7 @@ export function JobUploadModal({
   ];
 
   const orderedSelectedFeatures = FEATURE_ORDER.filter((key) =>
-    features.includes(key)
+    features.includes(key),
   );
 
   // --------------------------------------------------------
@@ -378,7 +430,7 @@ export function JobUploadModal({
                 })()}
 
                 <p className="text-lg font-semibold text-blue-600">
-                  {unitType}
+                  {getUnitTypeLabel(unitType)}
                 </p>
               </div>
             )}
@@ -549,8 +601,8 @@ export function JobUploadModal({
               {uploading
                 ? "Uploading..."
                 : type === "before"
-                ? "Confirm & Start Job"
-                : "Confirm & Complete Job"}
+                  ? "Confirm & Start Job"
+                  : "Confirm & Complete Job"}
             </Button>
           </div>
 

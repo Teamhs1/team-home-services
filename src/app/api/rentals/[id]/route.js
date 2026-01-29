@@ -3,11 +3,14 @@ import { NextResponse } from "next/server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // 👈 IMPORTANTE
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
-export async function GET(req, { params }) {
-  const { id } = params;
+export async function GET(req, context) {
+  // ✅ Correcto en App Router
+  const { id } = await context.params;
+
+  console.log("API RENTAL ID >>>", id, typeof id);
 
   const { data, error } = await supabase
     .from("units")
@@ -15,19 +18,34 @@ export async function GET(req, { params }) {
       `
       id,
       unit,
+      bedrooms,
+      bathrooms,
+      square_feet,
+      type,
+      parking,
       rent_price,
+      available_from,
+      description,
       availability_status,
+      is_for_rent,
       property:properties (
         id,
-        address
+        address,
+        postal_code,
+        year_built
       )
-    `
+    `,
     )
     .eq("id", id)
     .eq("is_for_rent", true)
-    .single(); // 👈 CLAVE
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
+    console.error("Rental API error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data) {
     return NextResponse.json({ error: "Rental not found" }, { status: 404 });
   }
 

@@ -1,3 +1,4 @@
+// src/app/api/companies/[id]/members/route.js
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -5,18 +6,6 @@ const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
-
-/* =========================
-   CONSTANTES
-========================= */
-const BASE_STAFF_PERMISSIONS = [
-  "jobs",
-  "properties",
-  "keys",
-  "tenants",
-  "expenses",
-  "company",
-];
 
 /* =========================
    GET · LIST MEMBERS
@@ -62,6 +51,8 @@ export async function GET(req, context) {
 
 /* =========================
    POST · ADD MEMBER ✅
+   - Inserta membresía
+   - Activa contexto (active_company_id)
 ========================= */
 export async function POST(req, context) {
   try {
@@ -101,8 +92,8 @@ export async function POST(req, context) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    // 2️⃣ activar contexto
-    await supabaseAdmin
+    // 2️⃣ 🔥 activar contexto de compañía
+    const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .update({
         active_company_id: companyId,
@@ -110,21 +101,9 @@ export async function POST(req, context) {
       })
       .eq("id", profile_id);
 
-    // 3️⃣ 🔥 CREAR PERMISOS BASE (solo si no es owner)
-    if (role !== "owner") {
-      const permissionsPayload = BASE_STAFF_PERMISSIONS.map((resource) => ({
-        staff_profile_id: profile_id,
-        resource,
-      }));
-
-      const { error: permError } = await supabaseAdmin
-        .from("staff_permissions")
-        .insert(permissionsPayload);
-
-      if (permError) {
-        console.error("STAFF PERMISSIONS ERROR:", permError);
-        // ⚠️ NO rompe el flujo
-      }
+    if (profileError) {
+      console.error("PROFILE CONTEXT ERROR:", profileError);
+      // ⚠️ no rompe el flujo, pero lo dejamos logueado
     }
 
     return NextResponse.json({ success: true });
@@ -136,6 +115,7 @@ export async function POST(req, context) {
 
 /* =========================
    PATCH · UPDATE MEMBER ROLE
+   (NO toca contexto)
 ========================= */
 export async function PATCH(req, context) {
   try {
@@ -166,6 +146,8 @@ export async function PATCH(req, context) {
 
 /* =========================
    DELETE · REMOVE MEMBER ✅
+   - Elimina membresía
+   - Limpia active_company_id
 ========================= */
 export async function DELETE(req, context) {
   try {
@@ -176,13 +158,7 @@ export async function DELETE(req, context) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    // 1️⃣ eliminar permisos
-    await supabaseAdmin
-      .from("staff_permissions")
-      .delete()
-      .eq("staff_profile_id", profile_id);
-
-    // 2️⃣ eliminar membresía
+    // 1️⃣ eliminar membresía
     const { error: deleteError } = await supabaseAdmin
       .from("company_members")
       .delete()
@@ -194,14 +170,19 @@ export async function DELETE(req, context) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
-    // 3️⃣ limpiar contexto
-    await supabaseAdmin
+    // 2️⃣ 🔥 limpiar contexto activo
+    const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .update({
         active_company_id: null,
         status: "inactive",
       })
       .eq("id", profile_id);
+
+    if (profileError) {
+      console.error("PROFILE CLEANUP ERROR:", profileError);
+      // no rompe, pero queda log
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

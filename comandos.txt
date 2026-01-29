@@ -114,3 +114,9 @@ WHERE NOT EXISTS (
   WHERE pr.company_id = '490d5aa3-2ace-477c-ace6-cd8deedd6eaa'
     AND LOWER(pr.address) = LOWER(p.address)
 );
+----------------------------------
+Activar Staff
+update profiles
+set active_company_id = '490d5aa3-2ace-477c-ace6-cd8deedd6eaa'
+where clerk_id = 'user_38rkCTry8Kp7paEnEqfNXhmTOhM';
+------------------------------------

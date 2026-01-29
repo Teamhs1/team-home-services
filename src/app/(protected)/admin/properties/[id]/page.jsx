@@ -291,6 +291,58 @@ export default function PropertyDetailPage() {
           </p>
         )}
       </div>
+      {/* ACTION BUTTONS */}
+      {isAdmin && (
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() =>
+              router.push(`/admin/properties/${property.id}/units/create`)
+            }
+            className="flex items-center gap-2 border px-4 py-2 rounded-lg hover:bg-gray-50"
+          >
+            <Plus size={16} /> Add Unit
+          </button>
+
+          <button
+            onClick={() =>
+              router.push(`/admin/keys/create?property_id=${property.id}`)
+            }
+            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90"
+          >
+            <Plus size={16} /> Add Key
+          </button>
+          <button
+            onClick={async () => {
+              const confirmed = confirm(
+                "⚠️ This will permanently delete this property.\n\nAll units, keys and related data will be removed.\n\nThis action CANNOT be undone.\n\nDo you want to continue?",
+              );
+
+              if (!confirmed) return;
+
+              try {
+                const res = await fetch(
+                  `/api/admin/properties/${property.id}`,
+                  {
+                    method: "DELETE",
+                    credentials: "include",
+                  },
+                );
+
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error);
+
+                alert("✅ Property deleted successfully");
+                router.push("/admin/properties");
+              } catch (err) {
+                alert(err.message || "Failed to delete property");
+              }
+            }}
+            className="flex items-center gap-2 border border-red-300 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50"
+          >
+            🗑️ Delete Property
+          </button>
+        </div>
+      )}
 
       {/* SUMMARY */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

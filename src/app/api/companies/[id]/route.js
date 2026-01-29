@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 export async function DELETE(req, { params }) {
@@ -36,7 +36,7 @@ export async function DELETE(req, { params }) {
     if ((propsCount ?? 0) > 0 || (usersCount ?? 0) > 1) {
       return NextResponse.json(
         { error: "Company has users or properties assigned" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -53,7 +53,7 @@ export async function DELETE(req, { params }) {
     console.error("DELETE COMPANY ERROR:", err);
     return NextResponse.json(
       { error: "Failed to delete company" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

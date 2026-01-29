@@ -23,20 +23,13 @@ export async function GET(req) {
       role,
       active_company_id,
       full_name
-      `,
+    `,
     )
     .eq("clerk_id", userId)
-    .maybeSingle(); // 👈 CLAVE
+    .single();
 
-  // 👇 PERFIL AÚN NO INICIALIZADO
-  if (!data) {
-    return NextResponse.json(
-      {
-        error: "Profile not initialized",
-        needsSetup: true,
-      },
-      { status: 200 },
-    );
+  if (error || !data) {
+    return NextResponse.json({ error: "Profile not found" }, { status: 404 });
   }
 
   return NextResponse.json(data);

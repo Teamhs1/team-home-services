@@ -31,7 +31,19 @@ export default function KeyDetailPage() {
         if (!res.ok) {
           setKeyData(null);
         } else {
-          setKeyData(json.key);
+          const k = json.key;
+
+          setKeyData({
+            ...k,
+            property_address: k.properties
+              ? `${k.properties.address}${
+                  k.properties.postal_code
+                    ? ", " + k.properties.postal_code
+                    : ""
+                }`
+              : "N/A",
+            building: k.properties?.name || "N/A",
+          });
         }
       } catch {
         setKeyData(null);

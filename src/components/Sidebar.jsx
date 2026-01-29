@@ -154,6 +154,8 @@ export default function Sidebar() {
   const [permissionsReady, setPermissionsReady] = useState(false);
   const fetchPermissionsRef = useRef(null);
   const { getToken } = useAuth();
+  const effectiveRole =
+    role === "admin" ? "admin" : staffType ? staffType : role;
 
   /* =========================
      THEME
@@ -202,7 +204,8 @@ export default function Sidebar() {
     // ✅ ADMIN: permisos inmediatos
     if (role === "admin") {
       setAllowedResources(ALL_RESOURCES);
-      setPermissionsReady(true); // 🔥 IMPORTANTE
+      setStaffType(null);
+      setPermissionsReady(true);
       return;
     }
 
@@ -214,14 +217,31 @@ export default function Sidebar() {
         // 🔎 2. Obtener el profile real desde Supabase
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
-          .select("id")
+          .select("id, active_company_id")
           .eq("clerk_id", user.id)
-          .single();
+          .maybeSingle();
 
         if (profileError || !profile?.id) {
           setAllowedResources(ALL_RESOURCES);
+          setStaffType(null);
           setPermissionsReady(true);
           return;
+        }
+
+        /* =========================
+         🧩 ROL DE COMPAÑÍA (NUEVO)
+      ========================= */
+        if (profile.active_company_id) {
+          const { data: member } = await supabase
+            .from("company_members")
+            .select("role")
+            .eq("profile_id", profile.id)
+            .eq("company_id", profile.active_company_id)
+            .single();
+
+          setStaffType(member?.role || null); // 👈 leasing_agent, manager, etc.
+        } else {
+          setStaffType(null);
         }
 
         // 🌐 3. Pedir permisos al API (ya validado server-side)
@@ -240,6 +260,7 @@ export default function Sidebar() {
 
         // 🔐 4. Permisos por defecto si no hay nada
         if (!data || data.length === 0) {
+          // 👤 CLIENT → acceso completo de compañía
           if (role === "client") {
             setAllowedResources([
               "jobs",
@@ -247,11 +268,35 @@ export default function Sidebar() {
               "keys",
               "tenants",
               "expenses",
-              "company", // ✅ ESTO ES LO QUE FALTABA
+              "company",
             ]);
-          } else {
+          }
+
+          // 🧑‍🔧 STAFF con compañía → permisos base
+          else if (effectiveRole === "staff") {
+            if (staffType === "leasing_manager") {
+              setAllowedResources([
+                "jobs",
+                "properties",
+                "keys",
+                "tenants",
+                "expenses",
+                "company",
+                "owners",
+              ]);
+            } else if (staffType === "leasing_agent") {
+              setAllowedResources(["jobs", "properties", "tenants", "company"]);
+            } else {
+              // staff genérico
+              setAllowedResources(["jobs"]);
+            }
+          }
+
+          // 👻 STAFF sin compañía
+          else {
             setAllowedResources(["jobs"]);
           }
+
           setPermissionsReady(true);
           return;
         }
@@ -276,10 +321,11 @@ export default function Sidebar() {
         // 💾 7. Guardar estado
         prevResourcesRef.current = newResources;
         setAllowedResources(newResources);
-        setPermissionsReady(true); // 🔥 AQUÍ
+        setPermissionsReady(true);
       } catch (err) {
         console.error("❌ fetchPermissions error:", err);
         setAllowedResources(ALL_RESOURCES);
+        setStaffType(null);
         setPermissionsReady(true);
       }
     }
@@ -290,6 +336,7 @@ export default function Sidebar() {
     // 🔑 Ejecutar normal
     fetchPermissions();
   }, [user?.id, role]);
+
   /* =========================
    REALTIME STAFF PERMISSIONS
 ========================= */
@@ -332,6 +379,51 @@ export default function Sidebar() {
     return () => {
       if (channel && supabaseRef.current) {
         supabaseRef.current.removeChannel(channel);
+      }
+    };
+  }, [user?.id, role]);
+  /* =========================
+   REALTIME COMPANY ROLE 🔥
+========================= */
+  useEffect(() => {
+    if (!user?.id || effectiveRole !== "staff") return;
+
+    let channel;
+
+    async function subscribeCompanyRole() {
+      const supabase = await getSupabase(getToken);
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, active_company_id")
+        .eq("clerk_id", user.id)
+        .single();
+
+      if (!profile?.id || !profile.active_company_id) return;
+
+      channel = supabase
+        .channel(`company-member-${profile.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "company_members",
+            filter: `profile_id=eq.${profile.id}`,
+          },
+          () => {
+            // 🔥 fuerza re-fetch completo
+            fetchPermissionsRef.current?.();
+          },
+        )
+        .subscribe();
+    }
+
+    subscribeCompanyRole();
+
+    return () => {
+      if (channel) {
+        channel.unsubscribe();
       }
     };
   }, [user?.id, role]);
@@ -391,7 +483,7 @@ export default function Sidebar() {
      HELPERS
   ========================= */
   function hasPermission(resource) {
-    if (role === "admin") return true;
+    if (effectiveRole === "admin") return true;
     return allowedResources.includes(resource);
   }
 
@@ -462,7 +554,7 @@ export default function Sidebar() {
   ];
 
   const adminItems =
-    role === "admin"
+    effectiveRole === "admin"
       ? [
           {
             id: "admin-content",
@@ -735,13 +827,13 @@ export default function Sidebar() {
                   : "bg-gray-600/20 text-gray-300"
             }`}
           >
-            {role.toUpperCase()}
+            {effectiveRole.toUpperCase()}
           </span>
 
           {/* STAFF SUBROLE BADGE */}
-          {role === "staff" && staffType && (
+          {effectiveRole === "staff" && staffType && (
             <span className="text-[9px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300">
-              {staffType}
+              {staffType.replace(/_/g, " ")}
             </span>
           )}
         </div>

@@ -17,24 +17,37 @@ export default function RentalDetailPage() {
 
     async function fetchUnit() {
       try {
-        const res = await fetch(`/api/rentals/${id}`);
+        const res = await fetch(`/api/rentals/${id}`, { cache: "no-store" });
         const json = await res.json();
 
         if (!res.ok) throw new Error();
-
         setUnit(json.unit);
-      } catch {
-        router.push("/rentals");
+      } catch (err) {
+        console.error("Failed to load rental:", err);
+        setUnit(null);
       } finally {
         setLoading(false);
       }
     }
 
     fetchUnit();
-  }, [id, router]);
+  }, [id]);
 
   if (loading) return <div className="p-10">Loading rental…</div>;
-  if (!unit) return null;
+
+  if (!unit) {
+    return (
+      <div className="p-10 text-center text-gray-500">
+        Rental not found or unavailable.
+      </div>
+    );
+  }
+
+  const fullAddress = unit.property?.address
+    ? `${unit.property.address}${
+        unit.property.postal_code ? `, ${unit.property.postal_code}` : ""
+      }`
+    : null;
 
   return (
     <div className="w-full bg-white">
@@ -65,16 +78,19 @@ export default function RentalDetailPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border rounded-xl p-5 bg-white shadow-sm">
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <MapPin className="h-4 w-4 text-primary" />
-            {unit.property.address}
+            {fullAddress || "Address not available"}
           </div>
 
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Calendar className="h-4 w-4 text-primary" />
-              Availability: {unit.available_from || "N/A"}
+              Availability:{" "}
+              {unit.available_from
+                ? new Date(unit.available_from).toLocaleDateString()
+                : "Available now"}
             </div>
 
-            <div className="text-2xl font-bold text-primary">
+            <div className="text-3xl font-extrabold text-primary">
               ${unit.rent_price}
               <span className="text-sm font-normal text-gray-500">
                 {" "}
@@ -91,12 +107,31 @@ export default function RentalDetailPage() {
           </h2>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Feature label={`${unit.bedrooms || "—"} Beds`} />
-            <Feature label={`${unit.bathrooms || "—"} Bath`} />
-            <Feature label="Parking" />
-            <Feature label="Laundry" />
-            <Feature label={unit.property?.type || "Residential"} />
-            <Feature label={`${unit.square_feet || "—"} sqft`} />
+            <Feature label={`${unit.bedrooms ?? "—"} Beds`} />
+            <Feature label={`${unit.bathrooms ?? "—"} Bath`} />
+            <Feature label={`${unit.square_feet ?? "—"} sqft`} />
+
+            <Feature
+              label={
+                typeof unit.parking === "number" && unit.parking > 0
+                  ? `${unit.parking} Parking`
+                  : "No Parking"
+              }
+            />
+
+            {typeof unit.laundry === "boolean" && (
+              <Feature label={unit.laundry ? "Laundry" : "No Laundry"} />
+            )}
+
+            <Feature label={unit.type || "Apartment"} />
+
+            <Feature
+              label={
+                unit.property?.year_built
+                  ? `Built ${unit.property.year_built}`
+                  : "Year N/A"
+              }
+            />
           </div>
         </section>
 
@@ -111,15 +146,26 @@ export default function RentalDetailPage() {
           </div>
         </section>
 
-        {/* MAP (placeholder por ahora) */}
+        {/* MAP */}
         <section>
           <h2 className="text-lg font-semibold mb-3 text-primary">
             Find on Map
           </h2>
 
-          <div className="h-[320px] rounded-xl bg-gray-200 flex items-center justify-center text-gray-500">
-            Map goes here
-          </div>
+          {fullAddress ? (
+            <iframe
+              className="w-full h-[320px] rounded-xl border"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              src={`https://www.google.com/maps?q=${encodeURIComponent(
+                fullAddress,
+              )}&output=embed`}
+            />
+          ) : (
+            <div className="h-[320px] rounded-xl bg-gray-200 flex items-center justify-center text-gray-500">
+              Address not available
+            </div>
+          )}
         </section>
       </div>
     </div>

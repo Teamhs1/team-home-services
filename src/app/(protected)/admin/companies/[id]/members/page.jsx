@@ -18,6 +18,16 @@ export default function CompanyMembersPage() {
   const [loading, setLoading] = useState(true);
   const [updatingRoleId, setUpdatingRoleId] = useState(null);
 
+  const COMPANY_ROLES = [
+    { value: "owner", label: "Owner" },
+    { value: "property_manager", label: "Property Manager" },
+    { value: "leasing_manager", label: "Leasing Manager" },
+    { value: "leasing_agent", label: "Leasing Agent" },
+    { value: "maintenance_manager", label: "Maintenance Manager" },
+    { value: "maintenance_staff", label: "Maintenance Staff" },
+    { value: "viewer", label: "Viewer" },
+  ];
+
   /* =====================
      LOAD COMPANY
   ===================== */
@@ -66,7 +76,7 @@ export default function CompanyMembersPage() {
 
   useEffect(() => {
     Promise.all([loadCompany(), loadMembers(), loadUsers()]).finally(() =>
-      setLoading(false)
+      setLoading(false),
     );
   }, [companyId]);
 
@@ -128,8 +138,8 @@ export default function CompanyMembersPage() {
         // rollback visual
         setMembers((prev) =>
           prev.map((m) =>
-            m.profiles?.id === profileId ? { ...m, role: prevRole } : m
-          )
+            m.profiles?.id === profileId ? { ...m, role: prevRole } : m,
+          ),
         );
         return;
       }
@@ -222,10 +232,11 @@ export default function CompanyMembersPage() {
             onChange={(e) => setRole(e.target.value)}
             className="border rounded-md px-3 py-2 text-sm capitalize"
           >
-            <option value="owner">Owner</option>
-            <option value="manager">Manager</option>
-            <option value="staff">Staff</option>
-            <option value="viewer">Viewer</option>
+            {COMPANY_ROLES.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
           </select>
 
           <Button onClick={addMember}>Add Member</Button>
@@ -268,10 +279,11 @@ export default function CompanyMembersPage() {
                         }
                         className="border rounded-md px-2 py-1 text-xs capitalize bg-white pr-7"
                       >
-                        <option value="owner">Owner</option>
-                        <option value="manager">Manager</option>
-                        <option value="staff">Staff</option>
-                        <option value="viewer">Viewer</option>
+                        {COMPANY_ROLES.map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
                       </select>
 
                       {updatingRoleId === profileId && (

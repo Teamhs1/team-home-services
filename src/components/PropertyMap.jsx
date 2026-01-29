@@ -12,7 +12,7 @@ export default function PropertyMap({
   const hasInitialPosition = typeof lat === "number" && typeof lng === "number";
 
   const [position, setPosition] = useState(
-    hasInitialPosition ? { lat, lng } : null
+    hasInitialPosition ? { lat, lng } : null,
   );
 
   /* =====================

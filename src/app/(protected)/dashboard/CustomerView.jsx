@@ -52,7 +52,7 @@ export default function CustomerDashboard() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         global: { headers: { Authorization: `Bearer ${token}` } },
-      }
+      },
     );
   }, [getToken, isLoaded]);
 
@@ -71,9 +71,20 @@ export default function CustomerDashboard() {
           .from("profiles")
           .select("id")
           .eq("clerk_id", clerkId)
-          .single();
+          .maybeSingle(); // ✅
 
-        if (error) throw error;
+        if (error) {
+          console.error("Profile query error:", error.message);
+          return;
+        }
+
+        // ⛔ NO redirect aquí
+        // ⛔ NO toast error
+        // ⛔ NO romper el flujo
+        if (!data) {
+          console.warn("Profile not ready yet, waiting...");
+          return;
+        }
 
         setProfileId(data.id);
       } catch (err) {
@@ -259,10 +270,10 @@ export default function CustomerDashboard() {
       job.status === "pending"
         ? "bg-yellow-100 text-yellow-700"
         : job.status === "in_progress"
-        ? "bg-blue-100 text-blue-700"
-        : job.status === "completed"
-        ? "bg-green-100 text-green-700"
-        : "bg-gray-100 text-gray-600"
+          ? "bg-blue-100 text-blue-700"
+          : job.status === "completed"
+            ? "bg-green-100 text-green-700"
+            : "bg-gray-100 text-gray-600"
     }
   `}
                   >

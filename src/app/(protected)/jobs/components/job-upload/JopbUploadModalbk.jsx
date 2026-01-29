@@ -1,4 +1,5 @@
 "use client";
+import { createClient } from "@supabase/supabase-js";
 
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -52,7 +53,6 @@ export function JobUploadModal({
 
   const [elapsed, setElapsed] = useState(null);
   const [startTime, setStartTime] = useState(null);
-
   useEffect(() => {
     if (!jobId) return;
 
@@ -60,8 +60,12 @@ export function JobUploadModal({
       try {
         const res = await fetch(`/api/job-activity/last-start?job_id=${jobId}`);
         const data = await res.json();
-        if (data.startTime) setStartTime(new Date(data.startTime));
-      } catch {}
+        if (data?.startTime) {
+          setStartTime(new Date(data.startTime));
+        }
+      } catch (err) {
+        console.error("Failed to load start time", err);
+      }
     })();
   }, [jobId]);
 
@@ -82,30 +86,11 @@ export function JobUploadModal({
   };
 
   // --------------------------------------------------------
-  // CARGAR UNIT TYPE Y FEATURES EN AFTER
-  // --------------------------------------------------------
-  useEffect(() => {
-    if (type !== "after" || !jobId) return;
-
-    (async () => {
-      try {
-        const res = await fetch(`/api/job-unit-type?job_id=${jobId}`);
-        const json = await res.json();
-
-        if (json?.data?.unit_type) setUnitType(json.data.unit_type);
-        if (json?.data?.features) setFeatures(json.data.features);
-      } catch (err) {
-        console.error("Failed to load saved unit_type:", err);
-      }
-    })();
-  }, [jobId, type]);
-
-  // --------------------------------------------------------
   // TOGGLE FEATURES
   // --------------------------------------------------------
   const toggleFeature = (key) => {
     setFeatures((prev) =>
-      prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]
+      prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key],
     );
   };
 
@@ -134,7 +119,7 @@ export function JobUploadModal({
     if (!files.length || !selectedCategory) return;
 
     const isCompare = dynamicCompareCategories.some(
-      (c) => c.key === selectedCategory
+      (c) => c.key === selectedCategory,
     );
 
     const fileToUse = isCompare ? files[0] : files;
@@ -176,7 +161,7 @@ export function JobUploadModal({
         const optimized = await processImage(file);
 
         const isCompareCategory = dynamicCompareCategories.some(
-          (c) => c.key === category
+          (c) => c.key === category,
         );
 
         let folderType = type;
@@ -246,6 +231,9 @@ export function JobUploadModal({
     try {
       await uploadAllPhotos();
 
+      // =========================
+      // AFTER → COMPLETE JOB
+      // =========================
       if (type === "after") {
         await fetch("/api/job-activity/stop", {
           method: "POST",
@@ -253,10 +241,8 @@ export function JobUploadModal({
           body: JSON.stringify({ job_id: jobId }),
         });
 
-        // 1️⃣ marcar como completed
         await updateStatus(jobId, "completed");
 
-        // 2️⃣ 🔥 normalizar fotos
         await fetch("/api/job-photos/normalize-general", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -264,58 +250,57 @@ export function JobUploadModal({
         });
 
         toast.success("Job completed!");
-        fetchJobs?.();
+        // fetchJobs?.();
+
         onClose();
-      } else {
-        // 1️⃣ REGISTRAR ACTIVIDAD (⏱️ PRIMERO)
-        await fetch("/api/job-activity", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            job_id: jobId,
-            action: "start",
-            notes: "Job started",
-          }),
-        });
-
-        // 2️⃣ ⏱️ LEER INMEDIATAMENTE EL START_TIME NUEVO
-        const startRes = await fetch(
-          `/api/job-activity/last-start?job_id=${jobId}`
-        );
-        const startData = await startRes.json();
-
-        if (startData?.startTime) {
-          setStartTime(new Date(startData.startTime));
-        }
-
-        // 3️⃣ CAMBIAR STATUS
-        await updateStatus(jobId, "in_progress");
-
-        // 3️⃣ GUARDAR UNIT TYPE + FEATURES
-        if (unitType) {
-          await fetch("/api/job-unit-type", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              job_id: jobId,
-              unit_type: unitType,
-              features,
-            }),
-          });
-        }
-
-        toast.success("Job started!");
-
-        // 4️⃣ CERRAR MODAL
-        onClose();
-
-        // 5️⃣ IR AL JOB
-        router.push(`/jobs/${jobId}`);
+        return; // ⛔ ESTO ELIMINA EL 401
       }
 
-      toast.success(type === "after" ? "Job completed!" : "Job started!");
-      fetchJobs?.();
+      const normalizedUnitType = unitType
+        ? unitType.toLowerCase().replace(/\s+/g, "_")
+        : null;
+
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${await getToken({
+                template: "supabase",
+              })}`,
+            },
+          },
+        },
+      );
+
+      await supabase
+        .from("cleaning_jobs")
+        .update({
+          unit_type: normalizedUnitType,
+          features: Array.isArray(features) ? features : [],
+          status: "in_progress",
+        })
+        .eq("id", jobId);
+
+      await fetchJobs?.(); //
+      toast.success("Job started!");
       onClose();
+      router.push(`/jobs/${jobId}`);
+
+      await fetch("/api/job-activity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_id: jobId,
+          action: "start",
+          notes: "Job started",
+        }),
+      });
+
+      toast.success("Job started!");
+      onClose();
+      router.push(`/jobs/${jobId}`);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -344,7 +329,7 @@ export function JobUploadModal({
   ];
 
   const orderedSelectedFeatures = FEATURE_ORDER.filter((key) =>
-    features.includes(key)
+    features.includes(key),
   );
 
   // --------------------------------------------------------
@@ -382,7 +367,11 @@ export function JobUploadModal({
             {type === "after" && unitType && (
               <div className="text-center mt-2 flex items-center justify-center gap-2">
                 {(() => {
-                  const Icon = UNIT_TYPE_ICONS[unitType] || null;
+                  const Icon =
+                    UNIT_TYPE_ICONS[
+                      unitType?.toLowerCase().replace(/\s+/g, "_")
+                    ] || null;
+
                   return Icon ? (
                     <Icon size={18} className="text-blue-600" />
                   ) : null;
@@ -560,8 +549,8 @@ export function JobUploadModal({
               {uploading
                 ? "Uploading..."
                 : type === "before"
-                ? "Confirm & Start Job"
-                : "Confirm & Complete Job"}
+                  ? "Confirm & Start Job"
+                  : "Confirm & Complete Job"}
             </Button>
           </div>
 

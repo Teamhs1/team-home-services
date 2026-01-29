@@ -55,9 +55,18 @@ export default function GlobalNavbar() {
           .from("profiles")
           .select("id")
           .eq("clerk_id", user.id)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+          console.error("❌ Error loading profileId:", error.message);
+          return;
+        }
+
+        if (!data) {
+          console.warn("ℹ️ Profile not created yet");
+          return;
+        }
+
         setProfileId(data.id);
       } catch (err) {
         console.error("❌ Navbar profileId error:", err.message);

@@ -45,6 +45,18 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 
+const UNIT_TYPE_LABELS = {
+  bachelor: "Bachelor",
+  "1_bed": "1 Bed",
+  "2_beds": "2 Beds",
+  "3_beds": "3 Beds",
+  "4_beds": "4 Beds",
+  studio: "Studio",
+  house: "House",
+};
+
+const getUnitTypeLabel = (key) => UNIT_TYPE_LABELS[key] || key;
+
 export default function StaffJobsView({
   jobs: initialJobs,
 
@@ -78,8 +90,8 @@ export default function StaffJobsView({
     statusFilter === "all"
       ? jobs
       : statusFilter === "upcoming"
-      ? jobs.filter((j) => new Date(j.scheduled_date) > new Date())
-      : jobs.filter((j) => j.status === statusFilter);
+        ? jobs.filter((j) => new Date(j.scheduled_date) > new Date())
+        : jobs.filter((j) => j.status === statusFilter);
 
   // ===================================================
   // 🔥 REAL PHOTO COUNTS (from API)
@@ -140,12 +152,10 @@ export default function StaffJobsView({
         );
       });
   };
-
   const renderUnitTypeBadge = (unitType) => {
     if (!unitType) return null;
 
-    const key = unitType.toLowerCase();
-    const Icon = UNIT_TYPE_ICONS[key];
+    const Icon = UNIT_TYPE_ICONS[unitType];
 
     return (
       <span
@@ -159,7 +169,7 @@ export default function StaffJobsView({
       "
       >
         {Icon && <Icon className="w-3 h-3" />}
-        {unitType}
+        {getUnitTypeLabel(unitType)}
       </span>
     );
   };
@@ -182,7 +192,7 @@ export default function StaffJobsView({
 
   const updateLocalJob = (jobId, updates) => {
     setJobs((prev) =>
-      prev.map((j) => (j.id === jobId ? { ...j, ...updates } : j))
+      prev.map((j) => (j.id === jobId ? { ...j, ...updates } : j)),
     );
   };
   const updateStatus = async (jobId, status) => {
@@ -237,7 +247,7 @@ export default function StaffJobsView({
   useEffect(() => {
     const supabaseRealtime = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     );
 
     const channel = supabaseRealtime
@@ -248,7 +258,7 @@ export default function StaffJobsView({
         async () => {
           await fetchJobs?.();
           toast.info("🔄 Job list updated in real-time");
-        }
+        },
       )
       .subscribe();
 
@@ -531,13 +541,12 @@ rounded-xl bg-white overflow-visible sm:overflow-hidden
       <AnimatePresence>
         {modalOpen && currentJob && (
           <JobUploadModal
-            key={currentJob}
             jobId={currentJob}
             type={modalType}
             onClose={handleCloseModal}
             updateStatus={updateStatus}
             fetchJobs={fetchJobs}
-            updateLocalJob={updateLocalJob}
+            updateLocalJob={updateLocalJob} // 👈 CLAVE
           />
         )}
       </AnimatePresence>
