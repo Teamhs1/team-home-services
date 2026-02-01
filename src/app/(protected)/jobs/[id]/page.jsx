@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@supabase/supabase-js";
+
 import { Loader2 } from "lucide-react";
 import { useUser, useAuth } from "@clerk/nextjs";
 
@@ -59,21 +59,6 @@ export default function JobPhotosPage() {
   };
 
   // ===============================
-  // 🔐 SUPABASE
-  // ===============================
-  const getSupabase = async () => {
-    const token = await getToken({ template: "supabase" });
-
-    return createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-      }
-    );
-  };
-
-  // ===============================
   // 📸 PHOTOS
   // ===============================
   const refreshPhotos = async () => {
@@ -88,17 +73,17 @@ export default function JobPhotosPage() {
   // 🔄 JOB
   // ===============================
   const refreshJobData = async () => {
-    const supabase = await getSupabase();
+    const res = await fetch(`/api/jobs/${id}`, {
+      cache: "no-store",
+    });
 
-    const { data } = await supabase
-      .from("cleaning_jobs")
-      .select(
-        "id, title, service_type, scheduled_date, status, unit_type, features"
-      )
-      .eq("id", id)
-      .maybeSingle();
+    if (!res.ok) {
+      setJob(null);
+      return;
+    }
 
-    setJob(data || null);
+    const data = await res.json();
+    setJob(data);
   };
 
   const closeModal = async () => {
@@ -139,7 +124,7 @@ export default function JobPhotosPage() {
   const areaKeys = useMemo(() => {
     if (!job) return [];
     return generalAreas(job.features || [], "after", job.unit_type).map(
-      (a) => a.key
+      (a) => a.key,
     );
   }, [job]);
 
@@ -152,14 +137,14 @@ export default function JobPhotosPage() {
     (p) =>
       p.type === "before" &&
       compareKeys.includes(p.category) &&
-      isImage(p.image_url)
+      isImage(p.image_url),
   );
 
   const afterPhotos = photos.filter(
     (p) =>
       p.type === "after" &&
       compareKeys.includes(p.category) &&
-      isImage(p.image_url)
+      isImage(p.image_url),
   );
 
   const generalPhotos = photos.filter(
@@ -167,7 +152,7 @@ export default function JobPhotosPage() {
       p.type === "after" && // ✅ ES AFTER
       areaKeys.includes(p.category) && // ✅ SOLO ÁREAS
       !compareKeys.includes(p.category) && // ✅ NO COMPARE
-      isImage(p.image_url)
+      isImage(p.image_url),
   );
 
   if (loading)
@@ -180,7 +165,14 @@ export default function JobPhotosPage() {
   return (
     <>
       <div className="mt-32 px-6 py-10 max-w-6xl mx-auto space-y-10">
-        <JobHeader job={job} router={router} openModal={openModal} />
+        <JobHeader
+          job={job}
+          router={router}
+          openModal={openModal}
+          onTitleUpdated={(newTitle) =>
+            setJob((prev) => ({ ...prev, title: newTitle }))
+          }
+        />
 
         <JobCompare
           beforePhotos={beforePhotos}

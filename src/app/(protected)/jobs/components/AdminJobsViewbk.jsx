@@ -138,14 +138,13 @@ export default function AdminJobsView({
               {/* CLIENT */}
               <select
                 className="border rounded-md p-1 w-full"
-                value={job.assigned_client_clerk_id || ""}
+                value={isUUID(job.assigned_client) ? job.assigned_client : ""}
                 onClick={(e) => e.stopPropagation()}
                 onChange={(e) => assignToClient(job.id, e.target.value || null)}
               >
                 <option value="">No client</option>
-
                 {loadedClients.map((c) => (
-                  <option key={c.clerk_id} value={c.clerk_id}>
+                  <option key={c.id} value={c.id}>
                     {c.full_name || c.email}
                   </option>
                 ))}
@@ -259,7 +258,7 @@ export default function AdminJobsView({
     .filter((job) => {
       if (clientFilter === "all") return true;
       if (!isUUID(clientFilter)) return true;
-      return job.assigned_client_clerk_id === clientFilter;
+      return job.assigned_client === clientFilter;
     })
 
     .filter((job) => {
@@ -349,24 +348,29 @@ export default function AdminJobsView({
   };
 
   // ASSIGN CLIENT (USA API + SERVICE ROLE)
-  const assignToClient = async (jobId, clientClerkId) => {
+  const assignToClient = async (jobId, client_id) => {
+    if (!isUUID(client_id)) {
+      toast.error("Invalid client selected");
+      return;
+    }
+
     try {
       const res = await fetch("/api/jobs/assign-client", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId,
-          clientClerkId, // ✅ coincide con el API
+          clientId: client_id,
         }),
       });
 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
 
-      toast.success("✅ Client updated");
-      await fetchJobs();
+      toast.success("✅ Cliente asignado correctamente");
+      await fetchJobs(); // 🔥 CLAVE para que el filtro funcione
     } catch (err) {
-      toast.error(err.message || "Error assigning client");
+      toast.error(err.message);
     }
   };
 
@@ -550,7 +554,7 @@ export default function AdminJobsView({
             >
               <option value="all">All Clients</option>
               {loadedClients.map((c) => (
-                <option key={c.clerk_id} value={c.clerk_id}>
+                <option key={c.id} value={c.id}>
                   {c.full_name || c.email}
                 </option>
               ))}
@@ -781,19 +785,32 @@ export default function AdminJobsView({
                     <td className="px-4 py-2">
                       <select
                         className="border rounded-md p-1 text-sm bg-white"
-                        value={job.assigned_client_clerk_id || ""}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) =>
-                          assignToClient(job.id, e.target.value || null)
+                        value={
+                          isUUID(job.assigned_client) ? job.assigned_client : ""
                         }
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (!val) {
+                            assignToClient(job.id, null);
+                            return;
+                          }
+                          if (!isUUID(val)) {
+                            toast.error("Invalid client selected");
+                            return;
+                          }
+                          assignToClient(job.id, val);
+                        }}
                       >
                         <option value="">No client</option>
 
-                        {loadedClients.map((c) => (
-                          <option key={c.clerk_id} value={c.clerk_id}>
-                            {c.full_name || c.email}
-                          </option>
-                        ))}
+                        {loadedClients
+                          .filter((c) => isUUID(c.id))
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.full_name || c.email}
+                            </option>
+                          ))}
                       </select>
                     </td>
 
@@ -955,16 +972,30 @@ export default function AdminJobsView({
                   <User className="w-4 h-4 text-gray-500" />
                   <select
                     className="border rounded-md p-1 text-xs w-full min-w-0"
-                    value={job.assigned_client_clerk_id || ""}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) =>
-                      assignToClient(job.id, e.target.value || null)
+                    value={
+                      isUUID(job.assigned_client) ? job.assigned_client : ""
                     }
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      const val = e.target.value;
+
+                      if (!val) {
+                        assignToClient(job.id, null);
+                        return;
+                      }
+
+                      if (!isUUID(val)) {
+                        toast.error("Invalid client selected");
+                        return;
+                      }
+
+                      assignToClient(job.id, val);
+                    }}
                   >
                     <option value="">No client</option>
 
                     {loadedClients.map((c) => (
-                      <option key={c.clerk_id} value={c.clerk_id}>
+                      <option key={c.id} value={c.id}>
                         {c.full_name || c.email}
                       </option>
                     ))}

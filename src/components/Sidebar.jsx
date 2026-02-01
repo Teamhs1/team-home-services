@@ -88,6 +88,7 @@ const ICONS = {
   dashboard: LayoutDashboard,
   jobs: Briefcase,
   expenses: DollarSign,
+  invoices: Mail,
   properties: Building2,
   keys: KeyRound,
   tenants: UsersRound,
@@ -118,6 +119,7 @@ const ALL_RESOURCES = [
   "keys",
   "tenants",
   "expenses",
+  "invoices",
   "company",
   "owners",
 ];
@@ -268,6 +270,7 @@ export default function Sidebar() {
               "keys",
               "tenants",
               "expenses",
+              "invoices",
               "company",
             ]);
           }
@@ -281,6 +284,7 @@ export default function Sidebar() {
                 "keys",
                 "tenants",
                 "expenses",
+                "invoices",
                 "company",
                 "owners",
               ]);
@@ -302,11 +306,13 @@ export default function Sidebar() {
         }
 
         // 📦 5. Normalizar permisos
+
         let newResources = data.map((p) => p.resource);
 
-        // ✅ CLIENT SIEMPRE VE COMPANY
-        if (role === "client" && !newResources.includes("company")) {
-          newResources.push("company");
+        // 🔐 CLIENT siempre ve company + invoices
+        if (role === "client") {
+          if (!newResources.includes("company")) newResources.push("company");
+          if (!newResources.includes("invoices")) newResources.push("invoices");
         }
 
         const prevResources = prevResourcesRef.current || [];
@@ -511,6 +517,14 @@ export default function Sidebar() {
       icon: ICONS.expenses,
       resource: "expenses",
     },
+    {
+      id: "invoices",
+      name: "Invoices",
+      href: "/dashboard/invoices",
+      icon: ICONS.invoices,
+      resource: "invoices",
+    },
+
     {
       id: "properties-dashboard",
       name: "Properties",

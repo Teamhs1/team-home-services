@@ -33,10 +33,25 @@ export default function CustomerDashboard() {
   const router = useRouter();
 
   const clerkId = user?.id;
+  const role = user?.publicMetadata?.role;
 
   const [profileId, setProfileId] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [companyId, setCompanyId] = useState(null);
+  const [viewMode, setViewMode] = useState("owner");
+  // "owner" | "managed"
+
+  /* ======================================================
+     ROLE PROTECTION
+  ====================================================== */
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    if (role !== "client" && role !== "customer") {
+      router.replace("/dashboard");
+    }
+  }, [isLoaded, role, router]);
 
   /* ======================================================
      SUPABASE AUTH CLIENT
@@ -51,7 +66,9 @@ export default function CustomerDashboard() {
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
-        global: { headers: { Authorization: `Bearer ${token}` } },
+        global: {
+          headers: { Authorization: `Bearer ${token}` },
+        },
       },
     );
   }, [getToken, isLoaded]);
@@ -69,22 +86,14 @@ export default function CustomerDashboard() {
 
         const { data, error } = await supabase
           .from("profiles")
-          .select("id")
+          .select("id, active_company_id")
           .eq("clerk_id", clerkId)
-          .maybeSingle(); // ✅
+          .single();
 
-        if (error) {
-          console.error("Profile query error:", error.message);
-          return;
-        }
+        setProfileId(data.id);
+        setCompanyId(data.active_company_id);
 
-        // ⛔ NO redirect aquí
-        // ⛔ NO toast error
-        // ⛔ NO romper el flujo
-        if (!data) {
-          console.warn("Profile not ready yet, waiting...");
-          return;
-        }
+        if (error) throw error;
 
         setProfileId(data.id);
       } catch (err) {
@@ -101,25 +110,30 @@ export default function CustomerDashboard() {
      LOAD JOBS (UUID SAFE)
   ====================================================== */
   useEffect(() => {
-    if (!profileId) return;
+    if (!isLoaded) return;
 
     const loadJobs = async () => {
       try {
         setLoading(true);
-        const supabase = await createSupabaseClient();
-        if (!supabase) return;
 
-        const { data, error } = await supabase
-          .from("cleaning_jobs")
-          .select("*")
-          .eq("assigned_client", profileId) // ✅ CLAVE
-          .order("created_at", { ascending: false });
+        const endpoint =
+          viewMode === "owner"
+            ? "/api/jobs/client?mode=owner"
+            : "/api/jobs/client?mode=managed";
 
-        if (error) throw error;
+        const res = await fetch(endpoint, {
+          cache: "no-store",
+        });
 
-        setJobs(data || []);
+        const json = await res.json();
+
+        if (!res.ok) {
+          throw new Error(json.error || "Failed to load jobs");
+        }
+
+        setJobs(json.jobs || []);
       } catch (err) {
-        console.error("❌ Error fetching jobs:", err.message);
+        console.error("❌ Error loading jobs:", err.message);
         toast.error("Error loading jobs");
       } finally {
         setLoading(false);
@@ -127,7 +141,7 @@ export default function CustomerDashboard() {
     };
 
     loadJobs();
-  }, [profileId, createSupabaseClient]);
+  }, [isLoaded]);
 
   /* ======================================================
      STATS
@@ -142,7 +156,7 @@ export default function CustomerDashboard() {
   }, [jobs]);
 
   /* ======================================================
-     WEEKLY DATA
+     WEEKLY DATA (SORTED)
   ====================================================== */
   const weeklyData = useMemo(() => {
     const map = {};
@@ -162,7 +176,9 @@ export default function CustomerDashboard() {
       if (job.status === "pending") map[key].pending++;
     });
 
-    return Object.values(map);
+    return Object.values(map).sort(
+      (a, b) => new Date(a.date) - new Date(b.date),
+    );
   }, [jobs]);
 
   /* ======================================================
@@ -185,6 +201,29 @@ export default function CustomerDashboard() {
         <ClipboardList className="w-6 h-6 text-primary" />
         My Cleaning Dashboard
       </h2>
+      <div className="flex gap-2">
+        <button
+          onClick={() => setViewMode("owner")}
+          className={`px-3 py-1 rounded ${
+            viewMode === "owner"
+              ? "bg-primary text-white"
+              : "bg-gray-100 text-gray-600"
+          }`}
+        >
+          My Properties
+        </button>
+
+        <button
+          onClick={() => setViewMode("managed")}
+          className={`px-3 py-1 rounded ${
+            viewMode === "managed"
+              ? "bg-primary text-white"
+              : "bg-gray-100 text-gray-600"
+          }`}
+        >
+          Jobs I Manage
+        </button>
+      </div>
 
       {/* METRICS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -249,7 +288,7 @@ export default function CustomerDashboard() {
                 <li
                   key={job.id}
                   onClick={() => router.push(`/jobs/${job.id}`)}
-                  className="py-4 flex items-center gap-4 hover:bg-gray-50 rounded-lg px-3 cursor-pointer"
+                  className="py-4 flex items-center gap-4 hover:bg-gray-50 rounded-lg px-2 cursor-pointer"
                 >
                   <div className="relative w-40 h-40 rounded-xl overflow-hidden bg-gray-100">
                     <Slider jobId={job.id} mini disableFullscreen />
@@ -264,18 +303,15 @@ export default function CustomerDashboard() {
                       {new Date(job.created_at).toLocaleDateString()}
                     </p>
                   </div>
+
                   <span
-                    className={`text-xs font-semibold px-3 py-1 rounded-full capitalize
-    ${
-      job.status === "pending"
-        ? "bg-yellow-100 text-yellow-700"
-        : job.status === "in_progress"
-          ? "bg-blue-100 text-blue-700"
-          : job.status === "completed"
-            ? "bg-green-100 text-green-700"
-            : "bg-gray-100 text-gray-600"
-    }
-  `}
+                    className={`shrink-0 text-xs font-semibold px-2 py-1 rounded-full ${
+                      job.status === "completed"
+                        ? "bg-green-100 text-green-700"
+                        : job.status === "in_progress"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-yellow-100 text-yellow-700"
+                    }`}
                   >
                     {job.status?.replace("_", " ") || "pending"}
                   </span>

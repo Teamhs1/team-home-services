@@ -5,7 +5,7 @@ export default clerkMiddleware({
     "/", // Home
     "/about",
     "/services",
-    "/services/(.*)", // services dinámicos
+    "/services/(.*)",
     "/contact",
 
     "/sign-in",
@@ -18,5 +18,11 @@ export default clerkMiddleware({
 });
 
 export const config = {
-  matcher: ["/((?!_next|.*\\..*).*)"],
+  matcher: [
+    // páginas
+    "/((?!_next|.*\\..*).*)",
+
+    // 🔥 APIs PRIVADAS (ESTO FALTABA)
+    "/api/(.*)",
+  ],
 };

@@ -37,7 +37,7 @@ export async function GET(req) {
       created_at
     `,
     )
-    .eq("assigned_client_clerk_id", userId)
+    .eq("assigned_client", userId) // ⚠️ solo si aquí guardas clerk_id
     .order("created_at", { ascending: false });
 
   if (error) {

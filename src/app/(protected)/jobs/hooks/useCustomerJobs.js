@@ -23,7 +23,7 @@ export function useCustomerJobs() {
       }
       return queryFn(supabase);
     },
-    [getClientWithToken]
+    [getClientWithToken],
   );
 
   /* =========================
@@ -76,10 +76,10 @@ export function useCustomerJobs() {
               full_name,
               email
             )
-          `
+          `,
           )
           .or(`created_by.eq.${sub},assigned_client.eq.${sub}`)
-          .order("created_at", { ascending: false })
+          .order("created_at", { ascending: false }),
       );
 
       if (error) throw error;
@@ -132,7 +132,7 @@ export function useCustomerJobs() {
         };
 
         const { data, error } = await runAuthQuery((supabase) =>
-          supabase.from("cleaning_jobs").insert([payload]).select().single()
+          supabase.from("cleaning_jobs").insert([payload]).select().single(),
         );
 
         if (error) throw error;
@@ -147,7 +147,7 @@ export function useCustomerJobs() {
         setLoading(false);
       }
     },
-    [runAuthQuery, getAuthSub]
+    [runAuthQuery, getAuthSub],
   );
 
   return {

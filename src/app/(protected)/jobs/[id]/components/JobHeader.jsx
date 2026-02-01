@@ -12,18 +12,60 @@ import { Button } from "@/components/ui/button";
 import JobTimer from "../../components/JobTimer";
 import JobDuration from "../../components/JobDuration";
 import { useUser } from "@clerk/nextjs";
+import { useState, useEffect } from "react";
 
 import { FEATURE_ICONS } from "@/app/(protected)/jobs/components/job-upload/featureIcons";
 import { FEATURES } from "@/app/(protected)/jobs/components/job-upload/features";
 import { UNIT_TYPE_ICONS } from "@/app/(protected)/jobs/components/job-upload/unitTypeIcons";
 
-export default function JobHeader({ job, router, openModal }) {
+export default function JobHeader({ job, router, openModal, onTitleUpdated }) {
   const { user } = useUser();
 
   const role = user?.publicMetadata?.role || "client";
   const isAdmin = role === "admin";
   const isStaff = role === "staff";
   const canManageJob = isAdmin || isStaff;
+
+  /* =========================
+     REAL-TIME TITLE STATE
+  ========================= */
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [title, setTitle] = useState(job?.title || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setTitle(job?.title || "");
+  }, [job?.title]);
+
+  async function saveTitle() {
+    if (!title.trim() || title === job.title) {
+      setEditingTitle(false);
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const res = await fetch(`/api/jobs/${job.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update title");
+
+      // 🔥 AQUÍ MISMO (después del PATCH exitoso)
+      onTitleUpdated?.(title);
+    } catch (err) {
+      console.error(err);
+      setTitle(job.title); // rollback
+    } finally {
+      setSaving(false);
+      setEditingTitle(false);
+    }
+  }
+
+  /* ========================= */
 
   const dateLabel = job?.scheduled_date
     ? new Date(job.scheduled_date).toLocaleDateString()
@@ -36,10 +78,10 @@ export default function JobHeader({ job, router, openModal }) {
     job?.status === "pending"
       ? "bg-yellow-100 text-yellow-700"
       : job?.status === "in_progress"
-      ? "bg-blue-100 text-blue-700"
-      : job?.status === "completed"
-      ? "bg-green-100 text-green-700"
-      : "bg-gray-200 text-gray-600";
+        ? "bg-blue-100 text-blue-700"
+        : job?.status === "completed"
+          ? "bg-green-100 text-green-700"
+          : "bg-gray-200 text-gray-600";
 
   const UnitIcon = (job?.unit_type && UNIT_TYPE_ICONS[job.unit_type]) || Home;
 
@@ -115,7 +157,30 @@ export default function JobHeader({ job, router, openModal }) {
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold flex items-center gap-3 flex-wrap">
           <ClipboardList className="w-5 h-5 text-primary" />
-          {job?.title || "Job"}
+
+          {editingTitle && canManageJob ? (
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={saveTitle}
+              onKeyDown={(e) => e.key === "Enter" && saveTitle()}
+              className="border-b border-primary bg-transparent focus:outline-none font-bold text-2xl"
+            />
+          ) : (
+            <span
+              onClick={() => canManageJob && setEditingTitle(true)}
+              className={`cursor-pointer ${
+                canManageJob ? "hover:text-primary" : ""
+              }`}
+              title={canManageJob ? "Click para editar" : ""}
+            >
+              {editingTitle ? title : job?.title || "Job"}
+              {saving && (
+                <span className="ml-2 text-xs text-gray-400">guardando...</span>
+              )}
+            </span>
+          )}
 
           {/* UNIT TYPE */}
           {unitTypeLabel && (

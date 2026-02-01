@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { createClient } from "@supabase/supabase-js";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 // ⭐ IMPORTANTE → Slider igual que Admin
@@ -40,6 +42,9 @@ export default function ClientJobsView({
   form,
   setForm,
   createCustomerJob,
+  handleRealtimeUpdate,
+  profileId,
+  getToken,
   viewMode,
   setViewMode,
 }) {
@@ -60,6 +65,55 @@ export default function ClientJobsView({
     if (type === "move-out") return "Move-out Cleaning";
     return type;
   };
+
+  // ⭐ Realtime Updates
+  useEffect(() => {
+    if (!profileId) return;
+
+    const initRealtime = async () => {
+      try {
+        const token = await getToken({ template: "supabase" });
+        if (!token) return;
+
+        const supabaseRealtime = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        );
+
+        await supabaseRealtime.auth.setSession({ access_token: token });
+
+        const channel = supabaseRealtime
+          .channel(`client_jobs_${profileId}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "cleaning_jobs",
+              filter: `assigned_client=eq.${profileId}`,
+            },
+            (payload) => {
+              const { eventType, new: newJob, old: oldJob } = payload;
+
+              if (eventType === "INSERT" || eventType === "UPDATE") {
+                handleRealtimeUpdate?.(newJob);
+              }
+
+              if (eventType === "DELETE") {
+                handleRealtimeUpdate?.({ ...oldJob, deleted: true });
+              }
+            },
+          )
+          .subscribe();
+
+        return () => supabaseRealtime.removeChannel(channel);
+      } catch (err) {
+        console.error("❌ Error initializing Client Realtime:", err);
+      }
+    };
+
+    initRealtime();
+  }, [profileId, getToken, handleRealtimeUpdate]);
 
   // ⭐ Remove duplicates
   const uniqueJobs = Array.from(

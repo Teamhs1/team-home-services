@@ -1,9 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
 import Slider from "@/components/Slider";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { useState, useEffect, useMemo, useCallback } from "react";
-
+import { createClient } from "@supabase/supabase-js";
 import {
   Loader2,
   BarChart3,
@@ -36,46 +36,227 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function AdminDashboard() {
   const { isLoaded, user } = useUser();
-
+  const { getToken } = useAuth();
   const [jobs, setJobs] = useState([]);
-
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [role, setRole] = useState(null);
+  const activeCompanyId = user?.publicMetadata?.active_company_id || null;
 
   // ✅ Cliente Supabase autenticado con Clerk
+  const getSupabase = useCallback(async () => {
+    const token = await getToken({ template: "supabase" });
+    if (!token) throw new Error("No token from Clerk");
+    return createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      { global: { headers: { Authorization: `Bearer ${token}` } } },
+    );
+  }, [getToken]);
+  const fetchRole = useCallback(async () => {
+    try {
+      const supabase = await getSupabase();
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("clerk_id", user.id)
+        .single();
+
+      if (error) throw error;
+
+      setRole(data.role);
+    } catch (err) {
+      console.error("❌ Error loading role:", err);
+      setRole("user");
+    }
+  }, [getSupabase, user?.id]);
 
   // 🧾 Cargar trabajos con fotos
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     try {
       setLoading(true);
+      const supabase = await getSupabase();
 
-      const res = await fetch("/api/admin/jobs", {
-        cache: "no-store",
-      });
+      let query = supabase
+        .from("cleaning_jobs")
+        .select(
+          `
+    id,
+    title,
+    status,
+    scheduled_date,
+    company_id,
+    job_photos ( id, image_url )
+  `,
+        )
+        .order("scheduled_date", { ascending: false })
+        .limit(50);
 
-      if (!res.ok) {
-        throw new Error("Failed to fetch jobs");
+      // 👉 SOLO filtrar por company si NO es admin
+      if (role !== "admin" && activeCompanyId) {
+        query = query.eq("company_id", activeCompanyId);
       }
 
-      const data = await res.json();
-      setJobs(data || []);
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      const normalizeUrl = (path) => {
+        if (!path) return null;
+        if (path.startsWith("http")) return path;
+        const clean = path
+          .replace(/^\/?job-photos\//, "")
+          .replace(/^storage\/v1\/object\/public\/job-photos\//, "")
+          .trim();
+        return `${
+          process.env.NEXT_PUBLIC_SUPABASE_URL
+        }/storage/v1/object/public/job-photos/${encodeURIComponent(clean)}`;
+      };
+
+      const jobsWithUrls = (data || []).map((job) => ({
+        ...job,
+        job_photos: (job.job_photos || []).map((photo) => ({
+          ...photo,
+          image_url: normalizeUrl(photo.image_url),
+        })),
+      }));
+
+      setJobs(jobsWithUrls);
     } catch (err) {
       console.error("❌ Error fetching jobs:", err);
-      toast.error("Error loading jobs");
+      toast.error("Error loading jobs: " + err.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    fetchJobs();
-  }, [isLoaded]);
+  }, [getSupabase, activeCompanyId]);
 
   // 💬 Cargar mensajes autenticado con Clerk
+  const fetchMessages = useCallback(async () => {
+    try {
+      setLoadingMessages(true);
+
+      const supabase = await getSupabase();
+
+      let query = supabase
+        .from("contact_messages")
+        .select("id, name, email, message, read, created_at")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      // 👉 SOLO filtrar por company si NO es admin
+      if (role !== "admin" && activeCompanyId) {
+        query = query.eq("company_id", activeCompanyId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      setMessages(data || []);
+    } catch (err) {
+      console.error("❌ Error fetching messages:", err);
+      toast.error("Failed to load messages");
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, [getSupabase, role, activeCompanyId]);
 
   // 🔁 Cargar datos iniciales
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+
+    const init = async () => {
+      await fetchRole();
+    };
+
+    init();
+  }, [isLoaded, user, fetchRole]);
+  useEffect(() => {
+    if (!role) return;
+
+    // 👑 Admin global → carga TODO
+    if (role === "admin") {
+      fetchJobs();
+      fetchMessages();
+      return;
+    }
+
+    // 👥 Otros roles → requieren company
+    if (!activeCompanyId) {
+      setLoading(false);
+      return;
+    }
+
+    fetchJobs();
+    fetchMessages();
+  }, [role, activeCompanyId, fetchJobs, fetchMessages]);
 
   // 🔄 Realtime para cambios en trabajos
+  useEffect(() => {
+    if (role !== "admin") return;
+    const initRealtime = async () => {
+      try {
+        const token = await window?.Clerk?.session?.getToken({
+          template: "supabase",
+        });
+        if (!token) return;
+
+        const supabaseRealtime = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        );
+        await supabaseRealtime.auth.setSession({ access_token: token });
+
+        const channel = supabaseRealtime
+          .channel("admin_dashboard_jobs")
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "cleaning_jobs",
+              filter: `company_id=eq.${activeCompanyId}`,
+            },
+
+            async (payload) => {
+              await fetchJobs();
+              const job = payload.new;
+              switch (payload.eventType) {
+                case "INSERT":
+                  toast.info("🧾 New job created!", {
+                    description: job?.title || "New job added.",
+                  });
+                  break;
+                case "UPDATE":
+                  if (job.status === "in_progress")
+                    toast.info("🚀 Job started", { description: job?.title });
+                  else if (job.status === "completed")
+                    toast.success("✨ Job completed!", {
+                      description: job?.title,
+                    });
+                  else
+                    toast.message("🔁 Job updated", {
+                      description: job?.title,
+                    });
+                  break;
+                case "DELETE":
+                  toast.warning("🗑️ Job deleted");
+                  break;
+              }
+            },
+          )
+          .subscribe();
+
+        return () => {
+          supabaseRealtime.removeChannel(channel);
+        };
+      } catch (err) {
+        console.error("❌ Realtime error:", err);
+      }
+    };
+    initRealtime();
+  }, [role, fetchJobs]);
 
   // 📊 Métricas
   const stats = useMemo(() => {
@@ -105,7 +286,7 @@ export default function AdminDashboard() {
     );
   }, [jobs]);
 
-  if (!isLoaded || loading)
+  if (!isLoaded || role === null || loading)
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="animate-spin w-8 h-8 text-primary" />
@@ -172,9 +353,53 @@ export default function AdminDashboard() {
           <CardDescription>Completed vs Pending Jobs</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8">
-            <p className="text-gray-500">Messages coming soon.</p>
-          </div>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+              <Loader2 className="animate-spin w-6 h-6 mb-2 text-primary" />
+              Loading messages...
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="text-center py-8 space-y-2">
+              <p className="text-gray-500">No contact messages yet.</p>
+            </div>
+          ) : (
+            <>
+              <ul className="divide-y">
+                {messages.slice(0, 5).map((msg) => (
+                  <li
+                    key={msg.id}
+                    className="py-4 px-2 hover:bg-gray-50 rounded transition"
+                  >
+                    <p className="font-semibold text-gray-900 flex items-center justify-between">
+                      {msg.name}
+                      {!msg.read && (
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full ml-2">
+                          New
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-sm text-gray-600">{msg.email}</p>
+                    <p className="mt-1 text-gray-700">{msg.message}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(msg.created_at).toLocaleString()}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+
+              {/* 🔹 Botón siempre visible */}
+              <div className="flex justify-center pt-6">
+                <Link href="/admin/messages">
+                  <Button
+                    variant="outline"
+                    className="flex items-center gap-2 hover:bg-primary/10"
+                  >
+                    View All Messages <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
