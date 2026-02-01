@@ -4,6 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -11,75 +13,49 @@ const supabase = createClient(
 
 export async function POST(req, { params }) {
   try {
-    // 🔐 Auth
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 🔑 Init Resend SAFELY (runtime only)
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.error("❌ RESEND_API_KEY is missing");
-      return NextResponse.json(
-        { error: "Email service not configured" },
-        { status: 500 },
-      );
-    }
-
-    const resend = new Resend(apiKey);
-
     const { id } = params;
 
     // 1️⃣ Obtener invoice
-    const { data: invoice, error: invoiceError } = await supabase
+    const { data: invoice } = await supabase
       .from("invoices")
       .select(
         `
         id,
         amount_cents,
         properties ( address )
-        `,
+      `,
       )
       .eq("id", id)
       .single();
 
-    if (invoiceError || !invoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-    }
-
     // 2️⃣ Enviar email
     await resend.emails.send({
       from: "Team Home Services <invoices@teamhomeservices.ca>",
-      to: ["tuemail@gmail.com"], // luego será dinámico
+      to: ["tuemail@gmail.com"], // luego será el cliente
       subject: "Your invoice from Team Home Services",
       html: `
         <h2>Invoice</h2>
-        <p><strong>Property:</strong> ${invoice.properties?.address ?? "—"}</p>
-        <p><strong>Amount:</strong> $${(invoice.amount_cents / 100).toFixed(
-          2,
-        )} CAD</p>
+        <p>Property: ${invoice.properties.address}</p>
+        <p>Amount: $${(invoice.amount_cents / 100).toFixed(2)} CAD</p>
       `,
     });
 
     // 3️⃣ Marcar como sent
-    const { data: updated, error: updateError } = await supabase
+    const { data: updated } = await supabase
       .from("invoices")
-      .update({
-        status: "sent",
-        sent_at: new Date().toISOString(),
-      })
+      .update({ status: "sent", sent_at: new Date().toISOString() })
       .eq("id", id)
       .select()
       .single();
 
-    if (updateError) {
-      throw updateError;
-    }
-
     return NextResponse.json({ invoice: updated });
   } catch (err) {
-    console.error("❌ Send invoice error:", err);
+    console.error(err);
     return NextResponse.json(
       { error: "Failed to send invoice" },
       { status: 500 },

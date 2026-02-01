@@ -151,10 +151,13 @@ export default function JobsPage() {
       if (res.status === 401) {
         console.warn("⏳ Clerk not ready yet (admin jobs)");
         return;
+        setJobs([]);
+        return [];
       }
 
       const json = await res.json();
       setJobs(Array.isArray(json) ? json : []);
+      return Array.isArray(json) ? json : [];
     } catch {
       toast.error("Error loading admin jobs");
     } finally {
