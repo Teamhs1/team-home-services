@@ -168,6 +168,10 @@ export async function PATCH(req, { params }) {
     }
 
     const updates = {};
+    // 📝 DESCRIPTION
+    if (typeof body.description === "string") {
+      updates.description = body.description.trim() || null;
+    }
 
     if (typeof body.latitude === "number") updates.latitude = body.latitude;
     if (typeof body.longitude === "number") updates.longitude = body.longitude;

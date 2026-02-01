@@ -2,8 +2,7 @@
 import PropertyMap from "@/components/PropertyMap";
 import UnitImageUploader from "@/components/UnitImageUploader";
 
-import { useEffect, useState, useRef } from "react";
-
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import UnitSlider from "@/components/UnitSlider";
@@ -39,7 +38,15 @@ export default function UnitDetailPage() {
   const [editingPostal, setEditingPostal] = useState(false);
   const [postalDraft, setPostalDraft] = useState("");
   const [unitImages, setUnitImages] = useState([]);
-  const descriptionRef = useRef(null);
+  const UNIT_TYPES = [
+    "Bachelor",
+    "Studio",
+    "1 Bedroom",
+    "2 Bedroom",
+    "3 Bedroom",
+    "Townhouse",
+    "Home",
+  ];
 
   /* =======================
      LOAD UNIT
@@ -78,18 +85,6 @@ export default function UnitDetailPage() {
 
     loadUnit();
   }, [propertyId, unitId, router]);
-  /* =======================
-   AUTO RESIZE DESCRIPTION
-======================= */
-  useEffect(() => {
-    if (!unit) return;
-
-    if (descriptionRef.current) {
-      descriptionRef.current.style.height = "auto";
-      descriptionRef.current.style.height =
-        descriptionRef.current.scrollHeight + "px";
-    }
-  }, [unit?.description]);
 
   /* =======================
      DELETE UNIT
@@ -333,10 +328,19 @@ export default function UnitDetailPage() {
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {/* UNIT TYPE */}
-          <EditableKeyFeature
-            icon={Home}
-            value={unit.type}
+          <EditableSelectFeature
+            icon={BedDouble}
             field="type"
+            value={unit.type}
+            options={[
+              "Bachelor",
+              "Studio",
+              "1 Bedroom",
+              "2 Bedroom",
+              "3 Bedroom",
+              "Townhouse",
+              "Home",
+            ]}
             isAdmin={isAdmin}
             unitId={unitId}
             propertyId={propertyId}
@@ -344,8 +348,12 @@ export default function UnitDetailPage() {
           />
 
           {/* BEDROOMS */}
-          <EditableBedrooms
+          <EditableKeyFeature
+            icon={BedDouble}
             value={unit.bedrooms}
+            field="bedrooms"
+            type="number"
+            suffix="Bed"
             isAdmin={isAdmin}
             unitId={unitId}
             propertyId={propertyId}
@@ -453,73 +461,63 @@ export default function UnitDetailPage() {
       </div>
 
       {/* DESCRIPTION */}
-      <div className="space-y-2">
+      <div className="space-y-4">
         <h3 className="text-lg font-semibold text-primary">What’s Special</h3>
 
-        {isAdmin ? (
-          <textarea
-            ref={descriptionRef}
-            value={unit.description || ""}
-            onChange={(e) =>
-              setUnit((prev) => ({ ...prev, description: e.target.value }))
-            }
-            onInput={(e) => {
-              e.target.style.height = "auto";
-              e.target.style.height = `${e.target.scrollHeight}px`;
-            }}
-            onBlur={async () => {
-              await fetch(
-                `/api/admin/properties/${propertyId}/units/${unitId}`,
-                {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  credentials: "include",
-                  body: JSON.stringify({ description: unit.description }),
-                },
-              );
-              toast.success("Unit description updated");
-            }}
-            placeholder="Describe what makes this unit special"
-            className="
-        w-full
-        overflow-hidden
-        resize-none
-        rounded-xl
-        border
-        px-4
-        py-3
-        text-sm
-        leading-relaxed
-        focus:outline-none
-        focus:ring-2
-        focus:ring-primary
-      "
-          />
-        ) : (
-          <div className="bg-gray-50 rounded-xl p-6 text-sm text-gray-700">
-            <div className="columns-1 md:columns-2 gap-10">
-              {(unit.description || "")
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* LEFT: DESCRIPTION */}
+          <div className="rounded-2xl border bg-muted/30 p-6 text-sm leading-relaxed">
+            {isAdmin ? (
+              <textarea
+                value={unit.description || ""}
+                onChange={(e) =>
+                  setUnit((prev) => ({ ...prev, description: e.target.value }))
+                }
+                onBlur={async () => {
+                  await fetch(
+                    `/api/admin/properties/${propertyId}/units/${unitId}`,
+                    {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      credentials: "include",
+                      body: JSON.stringify({
+                        description: unit.description,
+                      }),
+                    },
+                  );
+                  toast.success("Unit description updated");
+                }}
+                placeholder="Describe what makes this unit special (shown in rentals)"
+                rows={10}
+                className="w-full resize-none rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            ) : (
+              (unit.description || "No description provided.")
                 .split("\n")
                 .filter(Boolean)
-                .map((line, i) => {
-                  const lower = line.toLowerCase();
-                  const isRestricted =
-                    lower.includes("no ") ||
-                    lower.includes("not allowed") ||
-                    lower.includes("required");
-
-                  return (
-                    <div key={i} className="flex items-start gap-3">
-                      <span className="mt-0.5 text-lg">
-                        {isRestricted ? "❌" : "✅"}
-                      </span>
-                      <span className="leading-relaxed">{line}</span>
-                    </div>
-                  );
-                })}
-            </div>
+                .map((line, i) => (
+                  <p key={i} className="mb-3 last:mb-0">
+                    {line}
+                  </p>
+                ))
+            )}
           </div>
-        )}
+
+          {/* RIGHT: OPTIONAL HIGHLIGHTS (future-proof) */}
+          <div className="rounded-2xl border bg-card p-6 text-sm space-y-3">
+            <h4 className="font-semibold text-primary">Highlights</h4>
+
+            <ul className="space-y-2">
+              {unit.rent_price && <li>💰 ${unit.rent_price} / month</li>}
+              {unit.bedrooms !== null && <li>🛏 {unit.bedrooms} Bedroom(s)</li>}
+              {unit.bathrooms !== null && (
+                <li>🛁 {unit.bathrooms} Bathroom(s)</li>
+              )}
+              {unit.parking && <li>🚗 Parking included</li>}
+              {unit.square_feet && <li>📐 {unit.square_feet} sqft</li>}
+            </ul>
+          </div>
+        </div>
       </div>
 
       {/* MAP */}
@@ -722,73 +720,6 @@ function EditableKeyFeature({
           className={isAdmin ? "cursor-pointer hover:text-primary" : ""}
         >
           {value ?? "—"} {suffix}
-        </span>
-      )}
-    </div>
-  );
-}
-function EditableBedrooms({ value, isAdmin, unitId, propertyId, onUpdate }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(
-    value === null || value === undefined ? "" : String(value),
-  );
-
-  async function save(val) {
-    try {
-      const parsed = val === "" ? null : Number(val);
-
-      const res = await fetch(
-        `/api/admin/properties/${propertyId}/units/${unitId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ bedrooms: parsed }),
-        },
-      );
-
-      if (!res.ok) throw new Error();
-
-      onUpdate(parsed);
-      toast.success("Bedrooms updated");
-    } catch {
-      toast.error("Failed to update bedrooms");
-      setDraft(value ?? "");
-    } finally {
-      setEditing(false);
-    }
-  }
-
-  const label = value === 0 ? "Studio" : value ? `${value} Bed` : "—";
-
-  return (
-    <div className="flex items-center gap-3 rounded-xl bg-muted/40 px-4 py-3 text-sm font-medium">
-      <BedDouble className="h-5 w-5 text-primary" />
-
-      {editing ? (
-        <select
-          autoFocus
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            save(e.target.value);
-          }}
-          onBlur={() => setEditing(false)}
-          className="rounded-md border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="">—</option>
-          <option value="0">Studio</option>
-          <option value="1">1 Bed</option>
-          <option value="2">2 Bed</option>
-          <option value="3">3 Bed</option>
-          <option value="4">4+ Bed</option>
-        </select>
-      ) : (
-        <span
-          onClick={() => isAdmin && setEditing(true)}
-          className={isAdmin ? "cursor-pointer hover:text-primary" : ""}
-        >
-          {label}
         </span>
       )}
     </div>

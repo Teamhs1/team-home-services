@@ -43,6 +43,11 @@ export default function RentalDetailPage() {
       </div>
     );
   }
+  console.log("🟡 RENTAL DEBUG", {
+    parking: unit.parking,
+    parkingType: typeof unit.parking,
+    parking_spots: unit.parking_spots,
+  });
 
   const fullAddress = unit.property?.address
     ? `${unit.property.address}${
@@ -123,14 +128,23 @@ export default function RentalDetailPage() {
           </h2>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Feature label={`${unit.bedrooms ?? "—"} Beds`} />
+            <Feature
+              label={(() => {
+                const beds = Number(unit.bedrooms);
+
+                if (Number.isNaN(beds)) return "—";
+                if (beds === 0) return "Bachelor";
+                return `${beds} Beds`;
+              })()}
+            />
+
             <Feature label={`${unit.bathrooms ?? "—"} Bath`} />
             <Feature label={`${unit.square_feet ?? "—"} sqft`} />
 
             <Feature
               label={
-                typeof unit.parking === "number" && unit.parking > 0
-                  ? `${unit.parking} Parking`
+                typeof unit.parking_spots === "number" && unit.parking_spots > 0
+                  ? `${unit.parking_spots} Parking`
                   : "No Parking"
               }
             />
@@ -157,8 +171,22 @@ export default function RentalDetailPage() {
             What’s Special
           </h2>
 
-          <div className="bg-gray-50 rounded-xl p-5 text-sm text-gray-700">
-            {unit.description || "No description provided."}
+          <div
+            className="bg-gray-50 rounded-xl p-5 text-sm text-gray-700
+                columns-1 md:columns-2 gap-8"
+          >
+            {(unit.description || "")
+              .split("\n")
+              .filter(Boolean)
+              .map((line, i) => (
+                <p key={i} className="leading-relaxed text-sm text-gray-700">
+                  {line}
+                </p>
+              ))}
+
+            {!unit.description && (
+              <div className="text-gray-500">No description provided.</div>
+            )}
           </div>
         </section>
 

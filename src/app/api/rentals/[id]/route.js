@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -8,6 +10,10 @@ const supabase = createClient(
 
 export async function GET(req, { params }) {
   const { id } = params;
+
+  if (!id) {
+    return NextResponse.json({ error: "Missing rental id" }, { status: 400 });
+  }
 
   const { data, error } = await supabase
     .from("units")
@@ -20,6 +26,7 @@ export async function GET(req, { params }) {
       square_feet,
       type,
       parking,
+      parking_spots,
       rent_price,
       available_from,
       description,
@@ -35,17 +42,26 @@ export async function GET(req, { params }) {
     `,
     )
     .eq("id", id)
-    .eq("is_for_rent", true)
     .maybeSingle();
 
   if (error) {
-    console.error("Rental API error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("❌ Rental API error:", error);
+    return NextResponse.json(
+      { error: "Failed to load rental" },
+      { status: 500 },
+    );
   }
 
   if (!data) {
     return NextResponse.json({ error: "Rental not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ unit: data });
+  // 🔥 NORMALIZAR PARKING
+  const unit = {
+    ...data,
+    parking: Boolean(data.parking),
+    parking_spots: data.parking_spots ?? null,
+  };
+
+  return NextResponse.json({ unit });
 }

@@ -33,25 +33,26 @@ export async function GET(req, { params }) {
       .from("properties")
       .select(
         `
-        id,
-        name,
-        address,
-        postal_code,
-        latitude,
-        longitude,
-        year_built,
-        owner_id,
-        owner:owner_id (
-          id,
-          full_name,
-          email
-        ),
-        company_id,
-        company:company_id (
-          id,
-          name
-        )
-        `,
+    id,
+    name,
+    address,
+    postal_code,
+    description,
+    latitude,
+    longitude,
+    year_built,
+    owner_id,
+    owner:owner_id (
+      id,
+      full_name,
+      email
+    ),
+    company_id,
+    company:company_id (
+      id,
+      name
+    )
+  `,
       )
       .eq("id", propertyId);
 
@@ -118,6 +119,20 @@ export async function PATCH(req, { params }) {
 
     const body = await req.json();
     const updates = {};
+    // 📝 DESCRIPTION
+    if (typeof body.description === "string") {
+      updates.description = body.description.trim();
+    }
+
+    // 🏷️ NAME
+    if (typeof body.name === "string") {
+      updates.name = body.name.trim();
+    }
+
+    // 🏠 ADDRESS (opcional, solo si lo quieres editable)
+    if (typeof body.address === "string") {
+      updates.address = body.address.trim();
+    }
 
     // 📍 Location
     if (typeof body.latitude === "number") updates.latitude = body.latitude;
@@ -145,14 +160,23 @@ export async function PATCH(req, { params }) {
       );
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("properties")
       .update(updates)
-      .eq("id", propertyId);
+      .eq("id", propertyId)
+      .select()
+      .single();
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true });
+    if (!data) {
+      return NextResponse.json(
+        { error: "Property not updated" },
+        { status: 400 },
+      );
+    }
+
+    return NextResponse.json({ property: data });
   } catch (err) {
     console.error("❌ PATCH PROPERTY ERROR:", err);
     return NextResponse.json(

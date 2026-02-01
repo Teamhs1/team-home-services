@@ -24,13 +24,14 @@ import {
 } from "@/components/ui/card";
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
 } from "recharts";
+
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -165,16 +166,97 @@ export default function AdminDashboard() {
         />
       </motion.div>
 
-      {/* Gráfico */}
-      <Card className="border border-border/50 shadow-md">
+      {/* Weekly Performance */}
+      <Card className="border border-border/50 shadow-sm">
         <CardHeader>
-          <CardTitle>Weekly Performance</CardTitle>
-          <CardDescription>Completed vs Pending Jobs</CardDescription>
+          <CardTitle>Weekly Activity</CardTitle>
+          <CardDescription>Job flow over time</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <p className="text-gray-500">Messages coming soon.</p>
-          </div>
+
+        <CardContent className="h-[260px]">
+          {weeklyData.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+              No activity yet
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={weeklyData}
+                margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient
+                    id="completedGradient"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.5} />
+                    <stop
+                      offset="100%"
+                      stopColor="#22c55e"
+                      stopOpacity={0.05}
+                    />
+                  </linearGradient>
+
+                  <linearGradient
+                    id="pendingGradient"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="0%" stopColor="#facc15" stopOpacity={0.5} />
+                    <stop
+                      offset="100%"
+                      stopColor="#facc15"
+                      stopOpacity={0.05}
+                    />
+                  </linearGradient>
+                </defs>
+
+                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+
+                <Tooltip
+                  contentStyle={{
+                    fontSize: "12px",
+                    borderRadius: "8px",
+                  }}
+                />
+
+                <Area
+                  type="monotone"
+                  dataKey="completed"
+                  stroke="#22c55e"
+                  fill="url(#completedGradient)"
+                  strokeWidth={2}
+                />
+
+                <Area
+                  type="monotone"
+                  dataKey="pending"
+                  stroke="#facc15"
+                  fill="url(#pendingGradient)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
@@ -251,69 +333,80 @@ function MiniCarousel({ photos }) {
 
 function RecentJobs({ jobs }) {
   return (
-    <Card className="border border-border/50 shadow-md">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <ClipboardList className="w-5 h-5 text-primary" /> Recent Jobs
-        </CardTitle>
-        <CardDescription>Last 10 created jobs</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {jobs.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">
-            No jobs found in the system.
-          </p>
-        ) : (
-          <ul className="divide-y">
-            {jobs.slice(0, 10).map((job) => {
-              const photos = job.job_photos || [];
-              return (
-                <li
-                  key={job.id}
-                  onClick={(e) => {
-                    const tag = e.target.tagName.toLowerCase();
-                    if (["button", "svg", "path"].includes(tag)) return;
-                    window.location.href = `/jobs/${job.id}`;
-                  }}
-                  className="py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm gap-3 hover:bg-gray-50 cursor-pointer transition"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="relative w-28 h-20 rounded-md overflow-hidden bg-gray-100 flex items-center justify-center">
-                      <Slider jobId={job.id} mini />
-                    </div>
+    <Card className="border border-border/40 shadow-sm">
+      {/* Header */}
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base font-semibold">
+              Recent Jobs
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Latest activity across properties
+            </CardDescription>
+          </div>
 
-                    <div>
-                      <p className="font-medium">{job.title || "Untitled"}</p>
-                      <p className="text-gray-500 text-xs">
-                        {job.scheduled_date
-                          ? new Date(job.scheduled_date).toLocaleDateString()
-                          : "No date set"}
-                      </p>
-                    </div>
-                  </div>
+          <Link
+            href="/jobs"
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            View all
+          </Link>
+        </div>
+      </CardHeader>
+
+      {/* List */}
+      <CardContent className="p-0">
+        {jobs.length === 0 ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">
+            No jobs yet.
+          </div>
+        ) : (
+          <div className="divide-y">
+            {jobs.slice(0, 8).map((job) => (
+              <div
+                key={job.id}
+                onClick={() => (window.location.href = `/jobs/${job.id}`)}
+                className="group grid grid-cols-[1fr_auto_auto] gap-4
+                           px-4 py-3 text-sm cursor-pointer
+                           hover:bg-muted/40 transition"
+              >
+                {/* Title + address */}
+                <div className="min-w-0">
+                  <p className="font-medium truncate">
+                    {job.title || "Untitled job"}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {job.property_address || "No address"}
+                  </p>
+                </div>
+
+                {/* Date */}
+                <div className="hidden sm:flex items-center text-xs text-muted-foreground whitespace-nowrap">
+                  {job.scheduled_date
+                    ? new Date(job.scheduled_date).toLocaleDateString()
+                    : "—"}
+                </div>
+
+                {/* Status */}
+                <div className="flex items-center">
                   <span
-                    className={`self-end sm:self-auto px-2 py-1 rounded-full text-xs font-semibold ${
-                      job.status === "pending"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : job.status === "in_progress"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-green-100 text-green-700"
-                    }`}
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-medium
+                      ${
+                        job.status === "pending"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : job.status === "in_progress"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-green-100 text-green-700"
+                      }`}
                   >
                     {job.status?.replace("_", " ") || "unknown"}
                   </span>
-                </li>
-              );
-            })}
-          </ul>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
-        <div className="flex justify-center pt-6">
-          <Link href="/jobs">
-            <Button className="bg-primary text-white hover:bg-primary/90 flex items-center gap-2">
-              View All Jobs <ArrowRight className="w-4 h-4" />
-            </Button>
-          </Link>
-        </div>
       </CardContent>
     </Card>
   );
@@ -322,69 +415,60 @@ function RecentJobs({ jobs }) {
 function ContactMessages({ messages, loading }) {
   const unreadCount = messages.filter((m) => !m.read).length;
   return (
-    <Card className="border border-border/50 shadow-md">
-      <CardHeader>
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Mail className="w-5 h-5 text-primary" /> Contact Messages
-            </CardTitle>
-            <CardDescription>
-              Latest messages from your site form
-            </CardDescription>
-          </div>
-          {unreadCount > 0 && (
-            <span className="bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full">
-              {unreadCount} unread
-            </span>
-          )}
-        </div>
+    <Card className="border border-border/50 shadow-sm">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-base font-semibold">
+          Weekly Performance
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Completed vs Pending jobs
+        </CardDescription>
       </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-            <Loader2 className="animate-spin w-6 h-6 mb-2 text-primary" />
-            Loading messages...
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="text-center py-8 space-y-2">
-            <p className="text-gray-500">No contact messages yet.</p>
+
+      <CardContent className="h-[260px]">
+        {weeklyData.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+            No activity yet
           </div>
         ) : (
-          <ul className="divide-y">
-            {messages.slice(0, 5).map((msg) => (
-              <li
-                key={msg.id}
-                className="py-4 px-2 hover:bg-gray-50 rounded transition"
-              >
-                <p className="font-semibold text-gray-900 flex items-center justify-between">
-                  {msg.name}
-                  {!msg.read && (
-                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full ml-2">
-                      New
-                    </span>
-                  )}
-                </p>
-                <p className="text-sm text-gray-600">{msg.email}</p>
-                <p className="mt-1 text-gray-700">{msg.message}</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {new Date(msg.created_at).toLocaleString()}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-        {messages.length > 5 && (
-          <div className="flex justify-center pt-6">
-            <Link href="/admin/messages">
-              <Button
-                variant="outline"
-                className="flex items-center gap-2 hover:bg-primary/10"
-              >
-                View All Messages <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
-          </div>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={weeklyData}
+              barGap={6}
+              margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                contentStyle={{
+                  fontSize: "12px",
+                  borderRadius: "8px",
+                }}
+              />
+              <Bar
+                dataKey="completed"
+                radius={[4, 4, 0, 0]}
+                className="fill-green-500"
+              />
+              <Bar
+                dataKey="pending"
+                radius={[4, 4, 0, 0]}
+                className="fill-yellow-400"
+              />
+            </BarChart>
+          </ResponsiveContainer>
         )}
       </CardContent>
     </Card>

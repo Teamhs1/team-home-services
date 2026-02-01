@@ -47,6 +47,12 @@ export default function PropertyDetailPage() {
   const [savingName, setSavingName] = useState(false);
   const { user } = useUser();
   const isAdmin = user?.publicMetadata?.role === "admin";
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [addressDraft, setAddressDraft] = useState("");
+  const [postalDraft, setPostalDraft] = useState("");
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState("");
+  const [savingDescription, setSavingDescription] = useState(false);
 
   /* =====================
      LOAD PROPERTY DATA
@@ -67,14 +73,13 @@ export default function PropertyDetailPage() {
         }
 
         const data = await res.json();
+        setProperty(data.property);
+        setDescriptionDraft(data.property?.description || "");
 
-        setProperty(data.property || null);
+        setProperty(data.property);
         setNameDraft(data.property?.name || "");
-        setUnits(data.units || []);
-        setKeys(data.keys || []);
-
-        setProperty(data.property || null);
-        setNameDraft(data.property?.name || "");
+        setAddressDraft(data.property?.address || "");
+        setPostalDraft(data.property?.postal_code || "");
         setUnits(data.units || []);
         setKeys(data.keys || []);
       } catch (err) {
@@ -85,7 +90,7 @@ export default function PropertyDetailPage() {
     }
 
     loadProperty();
-  }, [id, getToken]);
+  }, [id]);
 
   if (loading) {
     return (
@@ -119,8 +124,6 @@ export default function PropertyDetailPage() {
         credentials: "include",
         body: JSON.stringify({
           name: nameDraft,
-          address: property.address,
-          unit: property.unit,
         }),
       });
 
@@ -140,6 +143,83 @@ export default function PropertyDetailPage() {
       alert(err.message || "Failed to update property name");
     } finally {
       setSavingName(false);
+    }
+  }
+  async function saveAddress() {
+    if (
+      addressDraft === property.address &&
+      postalDraft === property.postal_code
+    ) {
+      setIsEditingAddress(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/properties/${property.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          address: addressDraft,
+          postal_code: postalDraft || null,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      // 🔥 Actualiza UI sin recargar
+      setProperty((prev) => ({
+        ...prev,
+        address: addressDraft,
+        postal_code: postalDraft,
+      }));
+
+      setIsEditingAddress(false);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Failed to update address");
+
+      // rollback
+      setAddressDraft(property.address);
+      setPostalDraft(property.postal_code || "");
+    }
+  }
+  async function saveDescription() {
+    if (descriptionDraft === property.description) {
+      setIsEditingDescription(false);
+      return;
+    }
+
+    try {
+      setSavingDescription(true);
+
+      const res = await fetch(`/api/admin/properties/${property.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          description: descriptionDraft,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      setProperty((prev) => ({
+        ...prev,
+        description: descriptionDraft,
+      }));
+
+      setIsEditingDescription(false);
+    } catch (err) {
+      console.error(err);
+      setDescriptionDraft(property.description || "");
+      alert("Failed to update description");
+    } finally {
+      setSavingDescription(false);
     }
   }
 
@@ -196,17 +276,119 @@ export default function PropertyDetailPage() {
           </div>
 
           {/* ADDRESS */}
-          <p className="mt-2 flex items-center gap-2 text-gray-700">
-            <MapPin size={16} className="text-primary" />
-            <span className="text-base font-medium">
-              {property.address}
-              {property.postal_code && (
-                <span className="ml-2 font-semibold text-gray-900">
-                  {property.postal_code}
+          <div className="mt-2 flex items-start gap-2 group text-gray-700">
+            <MapPin size={16} className="text-primary mt-1" />
+
+            {isEditingAddress ? (
+              <div className="flex flex-col gap-1">
+                <input
+                  autoFocus
+                  value={addressDraft}
+                  onChange={(e) => setAddressDraft(e.target.value)}
+                  placeholder="Address"
+                  className="border-b border-gray-300 bg-transparent focus:outline-none focus:border-primary"
+                />
+
+                <input
+                  value={postalDraft}
+                  onChange={(e) => setPostalDraft(e.target.value)}
+                  placeholder="Postal code"
+                  className="border-b border-gray-300 bg-transparent focus:outline-none focus:border-primary text-sm"
+                />
+
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={saveAddress}
+                    className="px-4 py-1.5 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90 shadow-sm"
+                  >
+                    Save changes
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setAddressDraft(property.address);
+                      setPostalDraft(property.postal_code || "");
+                      setIsEditingAddress(false);
+                    }}
+                    className="px-4 py-1.5 rounded-md border text-sm text-gray-600 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <span className="text-base font-medium">
+                  {property.address}
+                  {property.postal_code && (
+                    <span className="ml-2 font-semibold text-gray-900">
+                      {property.postal_code}
+                    </span>
+                  )}
                 </span>
+
+                {isAdmin && (
+                  <button
+                    onClick={() => setIsEditingAddress(true)}
+                    className="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-primary"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+          {/* DESCRIPTION */}
+          <div className="mt-4 group">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-500">Description</p>
+
+              {isAdmin && !isEditingDescription && (
+                <button
+                  onClick={() => setIsEditingDescription(true)}
+                  className="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-primary"
+                >
+                  <Pencil size={14} />
+                </button>
               )}
-            </span>
-          </p>
+            </div>
+
+            {isEditingDescription ? (
+              <div className="mt-2 space-y-2">
+                <textarea
+                  value={descriptionDraft}
+                  onChange={(e) => setDescriptionDraft(e.target.value)}
+                  rows={4}
+                  placeholder="Describe this property (shown in rentals)"
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveDescription}
+                    disabled={savingDescription}
+                    className="px-4 py-1.5 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90"
+                  >
+                    Save
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setDescriptionDraft(property.description || "");
+                      setIsEditingDescription(false);
+                    }}
+                    className="px-4 py-1.5 rounded-md border text-sm text-gray-600 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-1 text-gray-700 text-sm whitespace-pre-line">
+                {property.description || "No description provided."}
+              </p>
+            )}
+          </div>
 
           {/* OWNER */}
           {property.owner ? (
