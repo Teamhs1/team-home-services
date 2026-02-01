@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 
 import { useStaff } from "./hooks/useStaff";
 import { useClients } from "./hooks/useClients";
@@ -15,7 +16,8 @@ import ClientJobsView from "./components/ClientJobsView";
 
 export default function JobsPage() {
   const { isLoaded: userLoaded, user } = useUser();
-  const ready = userLoaded;
+  const { isLoaded: authLoaded } = useAuth();
+  const ready = userLoaded && authLoaded;
 
   const clerkId = user?.id;
   const role = user?.publicMetadata?.role || "client";
@@ -141,7 +143,16 @@ export default function JobsPage() {
   const fetchAdminJobs = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/jobs", { cache: "no-store" });
+      const res = await fetch("/api/admin/jobs", {
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      if (res.status === 401) {
+        console.warn("⏳ Clerk not ready yet (admin jobs)");
+        return;
+      }
+
       const json = await res.json();
       setJobs(Array.isArray(json) ? json : []);
     } catch {
