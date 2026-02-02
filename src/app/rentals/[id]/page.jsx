@@ -112,12 +112,11 @@ export default function RentalDetailPage() {
                 : "Available now"}
             </div>
 
-            <div className="text-3xl font-extrabold text-primary">
-              ${unit.rent_price}
-              <span className="text-sm font-normal text-gray-500">
-                {" "}
-                / month
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-semibold text-primary">
+                ${Number(unit.rent_price).toLocaleString()}
               </span>
+              <span className="text-sm text-gray-500">/ month</span>
             </div>
           </div>
         </div>

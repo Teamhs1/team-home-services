@@ -291,13 +291,34 @@ export default function UnitDetailPage() {
               : "Availability N/A"}
           </div>
 
-          <div className="text-2xl font-bold text-primary">
-            {unit.rent_price ? `$${unit.rent_price}` : "—"}
-            <span className="text-sm font-normal text-muted-foreground">
-              {" "}
-              / month
-            </span>
-          </div>
+          {isAdmin ? (
+            <EditableKeyFeature
+              icon={null}
+              value={unit.rent_price}
+              field="rent_price"
+              type="number"
+              prefix="$"
+              suffix="/mo"
+              isAdmin
+              unitId={unitId}
+              propertyId={propertyId}
+              onUpdate={(val) => setUnit((p) => ({ ...p, rent_price: val }))}
+            />
+          ) : (
+            <div className="rounded-xl bg-primary/10 px-5 py-3 text-right">
+              <span className="block text-xs uppercase tracking-wide text-primary/70">
+                Monthly Rent
+              </span>
+
+              <div className="flex items-end justify-end gap-2">
+                <span className="text-2xl font-semibold text-primary">
+                  ${Number(unit.rent_price).toLocaleString()}
+                </span>
+
+                <span className="mb-1 text-sm text-primary/70">/ mo</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -567,33 +588,6 @@ export default function UnitDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">
-                Monthly Rent
-              </label>
-              <input
-                type="number"
-                defaultValue={unit.rent_price ?? ""}
-                onBlur={async (e) => {
-                  const value = e.target.value;
-
-                  await fetch(
-                    `/api/admin/properties/${propertyId}/units/${unitId}`,
-                    {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        rent_price: value ? Number(value) : null,
-                      }),
-                    },
-                  );
-
-                  toast.success("Rent price updated");
-                }}
-                className="w-full border rounded-lg px-3 py-2"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">
                 Available From
               </label>
               <input
@@ -608,12 +602,12 @@ export default function UnitDetailPage() {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        rent_price: value ? Number(value) : null,
+                        available_from: value || null,
                       }),
                     },
                   );
 
-                  toast.success("Rent price updated");
+                  toast.success("Availability date updated");
                 }}
                 className="w-full border rounded-lg px-3 py-2"
               />
@@ -651,12 +645,14 @@ function KeyFeature({ icon: Icon, label }) {
     </div>
   );
 }
+
 function EditableKeyFeature({
   icon: Icon,
   value,
   field,
   type = "text",
   suffix = "",
+  prefix = "",
   isAdmin,
   unitId,
   propertyId,
@@ -698,7 +694,7 @@ function EditableKeyFeature({
 
   return (
     <div className="flex items-center gap-3 rounded-xl bg-muted/40 px-4 py-3 text-sm font-medium">
-      <Icon className="h-5 w-5 text-primary" />
+      {Icon && <Icon className="h-5 w-5 text-primary" />}
 
       {editing ? (
         <input
@@ -714,19 +710,22 @@ function EditableKeyFeature({
               setEditing(false);
             }
           }}
-          className="w-20 rounded-md border px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-24 rounded-md border px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
         />
       ) : (
         <span
           onClick={() => isAdmin && setEditing(true)}
           className={isAdmin ? "cursor-pointer hover:text-primary" : ""}
         >
-          {value ?? "—"} {suffix}
+          {value !== null && value !== undefined
+            ? `${prefix}${value} ${suffix}`
+            : "Click to set price"}
         </span>
       )}
     </div>
   );
 }
+
 function EditableBedrooms({ value, isAdmin, unitId, propertyId, onUpdate }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(

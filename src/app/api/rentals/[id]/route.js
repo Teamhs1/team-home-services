@@ -19,28 +19,26 @@ export async function GET(req, { params }) {
     .from("units")
     .select(
       `
-      id,
-      unit,
-      bedrooms,
-      bathrooms,
-      square_feet,
-      type,
-      parking,
-      parking_spots,
-      rent_price,
-      available_from,
-      description,
-      availability_status,
-      is_for_rent,
-      images,
-      property:properties (
-        id,
-        address,
-        postal_code,
-        year_built
-      )
-    `,
+  id,
+  unit,
+  bedrooms,
+  bathrooms,
+  square_feet,
+  rent_price,
+  parking,
+  parking_spots,
+  available_from,
+  description,
+  images,
+  property:properties (
+    address,
+    postal_code,
+    latitude,
+    longitude
+  )
+`,
     )
+
     .eq("id", id)
     .maybeSingle();
 
