@@ -152,8 +152,11 @@ export default function UnitSlider({ images = [], height = 480 }) {
     <>
       <div
         {...handlers}
-        className="relative overflow-hidden bg-black/5"
-        style={{ height }}
+        className="
+    relative w-full overflow-hidden bg-black/5
+    aspect-[16/9]
+    max-h-[420px] md:max-h-[480px]
+  "
       >
         <AnimatePresence mode="wait">
           <motion.div

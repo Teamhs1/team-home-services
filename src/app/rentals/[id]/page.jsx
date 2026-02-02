@@ -79,22 +79,23 @@ export default function RentalDetailPage() {
       {/* ================= HERO / SLIDER ================= */}
       <div className="relative mt-[72px]">
         <UnitSlider images={sliderImages} height={420} />
+      </div>
 
-        <div className="absolute top-6 left-6 z-10">
+      {/* ================= CONTENT ================= */}
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-10">
+        {/* BACK BUTTON */}
+        <div className="max-w-6xl mx-auto px-6 pt-4">
           <Button
-            variant="secondary"
+            variant="ghost"
             size="sm"
             onClick={() => router.back()}
-            className="gap-2"
+            className="gap-2 text-gray-600 hover:text-primary"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to listings
           </Button>
         </div>
-      </div>
 
-      {/* ================= CONTENT ================= */}
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-10">
         {/* INFO BAR */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border rounded-xl p-5 bg-white shadow-sm">
           <div className="flex items-center gap-2 text-sm text-gray-600">

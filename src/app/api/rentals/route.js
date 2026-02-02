@@ -17,9 +17,14 @@ export async function GET() {
       rent_price,
       available_from,
       availability_status,
+      images,
+      bedrooms,
+      bathrooms,
       property:properties (
         id,
-        address
+        address,
+        lat,
+        lng
       )
     `,
     )
