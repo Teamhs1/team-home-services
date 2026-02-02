@@ -11,21 +11,15 @@ export async function GET(req) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 📌 leer mode desde query
-  const { searchParams } = new URL(req.url);
-  const mode = searchParams.get("mode") || "owner";
-  // owner | managed
-
-  // 🔐 SERVICE ROLE (API-first, sin RLS)
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  // 🔎 Validar perfil real
+  // 🔑 1. obtener profile UUID real
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role")
+    .select("id, role")
     .eq("clerk_id", userId)
     .single();
 
@@ -37,8 +31,8 @@ export async function GET(req) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 🧠 base query
-  let query = supabase
+  // 📦 2. leer jobs asignados al client_profile_id
+  const { data, error } = await supabase
     .from("cleaning_jobs")
     .select(
       `
@@ -48,25 +42,12 @@ export async function GET(req) {
       property_address,
       scheduled_date,
       status,
-      company_id,
       created_at,
-      assigned_client_clerk_id,
-      requested_by_clerk_id
+      client_profile_id
     `,
     )
+    .eq("client_profile_id", profile.id)
     .order("created_at", { ascending: false });
-
-  // 👤 OWNER VIEW (jobs de mis propiedades)
-  if (mode === "owner") {
-    query = query.eq("assigned_client_clerk_id", userId);
-  }
-
-  // 🧑‍💼 MANAGED VIEW (jobs que gestiono)
-  if (mode === "managed") {
-    query = query.eq("requested_by_clerk_id", userId);
-  }
-
-  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -75,8 +56,7 @@ export async function GET(req) {
   return NextResponse.json({
     jobs: data || [],
     meta: {
-      userId,
-      mode,
+      profileId: profile.id,
       count: data?.length || 0,
     },
   });

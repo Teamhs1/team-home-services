@@ -126,6 +126,31 @@ export default function StaffJobsView({
     loadCounts();
   }, [filteredJobs]); // 👈 CORRECTO
 
+  useEffect(() => {
+    fetchStaffJobs();
+  }, []);
+
+  async function fetchStaffJobs() {
+    try {
+      const res = await fetch("/api/staff/jobs", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load staff jobs");
+      }
+
+      setJobs(data.jobs || []);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load assigned jobs");
+    }
+  }
+
   // ===================================================
   // Feature Icons renderer
   // ===================================================

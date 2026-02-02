@@ -102,10 +102,10 @@ export default function JobForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          property_address: title.trim(), // ✅ ESTA ES LA CLAVE
+          property_address: title.trim(),
           service_type: serviceType,
           assigned_to: assignedTo || null,
-          assigned_client: clientId,
+          client_profile_id: clientId, // 🔥 ESTA ES LA LÍNEA CLAVE
           company_id: companyId,
           scheduled_date: format(new Date(scheduledDate), "yyyy-MM-dd"),
         }),

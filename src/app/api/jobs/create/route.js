@@ -19,26 +19,19 @@ export async function POST(req) {
 
   const {
     title,
-    property_address, // ✅ AÑADIDO
+    property_address,
     service_type,
     assigned_to,
-    assigned_client,
+    client_profile_id,
     company_id,
     scheduled_date,
     unit_type,
     features,
   } = body;
 
-  if (!title || !scheduled_date || !company_id || !assigned_client) {
+  if (!title || !scheduled_date || !company_id || !client_profile_id) {
     return NextResponse.json(
       { error: "Missing required fields" },
-      { status: 400 },
-    );
-  }
-
-  if (assigned_client.startsWith("user_")) {
-    return NextResponse.json(
-      { error: "assigned_client must be a profile UUID" },
       { status: 400 },
     );
   }
@@ -61,10 +54,10 @@ export async function POST(req) {
     .from("cleaning_jobs")
     .insert({
       title: title.trim(),
-      property_address: property_address?.trim() || null, // ✅ AQUÍ
+      property_address: property_address?.trim() || null,
       service_type: service_type || "standard",
       assigned_to: assigned_to || null,
-      assigned_client,
+      client_profile_id, // 🔥 CLAVE
       company_id,
       scheduled_date,
       unit_type: unit_type || null,
@@ -72,6 +65,7 @@ export async function POST(req) {
       status: "pending",
       created_by: creatorProfile.id,
     })
+
     .select()
     .single();
 

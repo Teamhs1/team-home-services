@@ -97,13 +97,14 @@ function StaffDashboard({ user, role }) {
       });
 
       const data = await res.json();
-
+      // 👇 extraemos el array real
+      const jobsArray = Array.isArray(data) ? data : data.jobs || [];
       if (!res.ok) {
         throw new Error(data.error || "Failed to load jobs");
       }
 
-      setJobs(data || []);
-      setRecentJobs((data || []).slice(0, 5));
+      setJobs(jobsArray);
+      setRecentJobs(jobsArray.slice(0, 5));
     } catch (err) {
       console.error("❌ Error loading staff jobs:", err.message);
       toast.error("Error loading assigned jobs");
@@ -141,7 +142,7 @@ function StaffDashboard({ user, role }) {
       if (job.status === "pending") map[week].pending++;
     });
     return Object.values(map).sort(
-      (a, b) => new Date(a.date) - new Date(b.date)
+      (a, b) => new Date(a.date) - new Date(b.date),
     );
   }, [jobs]);
 
@@ -290,8 +291,8 @@ function StaffDashboard({ user, role }) {
                     job.status === "pending"
                       ? "bg-yellow-100 text-yellow-700"
                       : job.status === "in_progress"
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-green-100 text-green-700"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-green-100 text-green-700"
                   }`}
                     >
                       {job.status?.replace("_", " ") || "unknown"}

@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
-  const { jobId, clientId } = await req.json();
+  const { jobId, clientClerkId } = await req.json();
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -11,7 +11,9 @@ export async function POST(req) {
 
   const { error } = await supabase
     .from("cleaning_jobs")
-    .update({ assigned_client: clientId })
+    .update({
+      assigned_client_clerk_id: clientClerkId || null,
+    })
     .eq("id", jobId);
 
   if (error) {

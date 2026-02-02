@@ -30,18 +30,13 @@ export async function GET() {
     .from("cleaning_jobs")
     .select(
       `
-      *,
-      client:profiles!cleaning_jobs_assigned_client_fkey (
-        id,
-        full_name,
-        email
-      ),
-      staff:profiles!cleaning_jobs_assigned_to_fkey (
-        clerk_id,
-        full_name,
-        email
-      )
-    `,
+    *,
+    staff:profiles!cleaning_jobs_assigned_to_fkey (
+      clerk_id,
+      full_name,
+      email
+    )
+  `,
     )
     .order("created_at", { ascending: false });
 

@@ -1,3 +1,4 @@
+// /api/staff/jobs/route.js
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAuth } from "@clerk/nextjs/server";
@@ -6,27 +7,16 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req) {
   try {
-    const { userId, getToken } = getAuth(req);
+    const { userId } = getAuth(req);
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const token = await getToken({ template: "supabase" });
-    if (!token) {
-      return NextResponse.json({ error: "No token" }, { status: 401 });
-    }
-
+    // ✅ SERVICE ROLE → sin RLS
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      }
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
     const { data, error } = await supabase
@@ -43,7 +33,7 @@ export async function GET(req) {
         duration_minutes,
         completed_at,
         assigned_to
-      `
+      `,
       )
       .eq("assigned_to", userId)
       .order("scheduled_date", { ascending: true });
@@ -53,12 +43,12 @@ export async function GET(req) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data || []);
+    return NextResponse.json({ jobs: data || [] });
   } catch (err) {
     console.error("❌ API error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

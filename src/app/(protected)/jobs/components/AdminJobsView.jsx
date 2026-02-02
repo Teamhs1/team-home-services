@@ -75,6 +75,56 @@ export default function AdminJobsView({
       toast.error("Error deleting jobs");
     }
   };
+
+  const assignClientBulk = async (clientId) => {
+    if (!clientId || selectedJobs.size === 0) return;
+
+    try {
+      const res = await fetch("/api/jobs/assign-client-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobIds: Array.from(selectedJobs),
+          clientProfileId: clientId,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      toast.success(`✅ Client assigned to ${json.count} jobs`);
+      clearSelection();
+      setBulkClientId("");
+      await fetchJobs();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+  const assignStaffBulk = async (staffClerkId) => {
+    if (!staffClerkId || selectedJobs.size === 0) return;
+
+    try {
+      const res = await fetch("/api/jobs/assign-staff-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobIds: Array.from(selectedJobs),
+          staffClerkId,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      toast.success(`✅ Staff assigned to ${json.count} jobs`);
+      clearSelection();
+      setBulkStaffId("");
+      await fetchJobs();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
   const [companyList, setCompanyList] = useState([]);
   const safeArray = (arr) => (Array.isArray(arr) ? arr : []);
 
@@ -82,6 +132,8 @@ export default function AdminJobsView({
   const [localJobs, setLocalJobs] = useState(jobs);
   const [lastCheckedAt, setLastCheckedAt] = useState(new Date().toISOString());
   const [isMobile, setIsMobile] = useState(false);
+  const [bulkClientId, setBulkClientId] = useState("");
+  const [bulkStaffId, setBulkStaffId] = useState("");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -137,15 +189,14 @@ export default function AdminJobsView({
 
               {/* CLIENT */}
               <select
-                className="border rounded-md p-1 w-full"
-                value={job.assigned_client_clerk_id || ""}
+                value={job.client_profile_id || ""}
                 onClick={(e) => e.stopPropagation()}
                 onChange={(e) => assignToClient(job.id, e.target.value || null)}
               >
                 <option value="">No client</option>
 
                 {loadedClients.map((c) => (
-                  <option key={c.clerk_id} value={c.clerk_id}>
+                  <option key={c.id} value={c.id}>
                     {c.full_name || c.email}
                   </option>
                 ))}
@@ -259,7 +310,7 @@ export default function AdminJobsView({
     .filter((job) => {
       if (clientFilter === "all") return true;
       if (!isUUID(clientFilter)) return true;
-      return job.assigned_client_clerk_id === clientFilter;
+      return job.client_profile_id === clientFilter;
     })
 
     .filter((job) => {
@@ -349,25 +400,21 @@ export default function AdminJobsView({
   };
 
   // ASSIGN CLIENT (USA API + SERVICE ROLE)
-  const assignToClient = async (jobId, clientClerkId) => {
-    try {
-      const res = await fetch("/api/jobs/assign-client", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobId,
-          clientClerkId, // ✅ coincide con el API
-        }),
-      });
+  const assignToClient = async (jobId, clientProfileId) => {
+    const res = await fetch("/api/jobs/assign-client", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jobId,
+        clientProfileId, // 🔥 UUID
+      }),
+    });
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error);
 
-      toast.success("✅ Client updated");
-      await fetchJobs();
-    } catch (err) {
-      toast.error(err.message || "Error assigning client");
-    }
+    toast.success("✅ Client updated");
+    await fetchJobs();
   };
 
   /* =======================
@@ -550,7 +597,7 @@ export default function AdminJobsView({
             >
               <option value="all">All Clients</option>
               {loadedClients.map((c) => (
-                <option key={c.clerk_id} value={c.clerk_id}>
+                <option key={c.id} value={c.id}>
                   {c.full_name || c.email}
                 </option>
               ))}
@@ -617,6 +664,44 @@ export default function AdminJobsView({
           <span className="text-sm font-medium">
             {selectedJobs.size} job(s) selected
           </span>
+          <div className="flex items-center gap-2">
+            {/* BULK STAFF */}
+            <select
+              className="border rounded-md p-2 text-sm"
+              value={bulkStaffId}
+              onChange={(e) => {
+                const v = e.target.value;
+                setBulkStaffId(v);
+                assignStaffBulk(v); // ⚡ automático
+              }}
+            >
+              <option value="">Assign staff…</option>
+              <option value="unassigned">Unassigned</option>
+              {staffList.map((s) => (
+                <option key={s.clerk_id} value={s.clerk_id}>
+                  {s.full_name || s.email}
+                </option>
+              ))}
+            </select>
+
+            {/* BULK CLIENT */}
+            <select
+              className="border rounded-md p-2 text-sm"
+              value={bulkClientId}
+              onChange={(e) => {
+                const v = e.target.value;
+                setBulkClientId(v);
+                assignClientBulk(v); // ⚡ automático también
+              }}
+            >
+              <option value="">Assign client…</option>
+              {loadedClients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.full_name || c.email}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="flex gap-2">
             <Button
@@ -781,7 +866,7 @@ export default function AdminJobsView({
                     <td className="px-4 py-2">
                       <select
                         className="border rounded-md p-1 text-sm bg-white"
-                        value={job.assigned_client_clerk_id || ""}
+                        value={job.client_profile_id || ""}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) =>
                           assignToClient(job.id, e.target.value || null)
@@ -790,7 +875,7 @@ export default function AdminJobsView({
                         <option value="">No client</option>
 
                         {loadedClients.map((c) => (
-                          <option key={c.clerk_id} value={c.clerk_id}>
+                          <option key={c.id} value={c.id}>
                             {c.full_name || c.email}
                           </option>
                         ))}
@@ -964,7 +1049,7 @@ export default function AdminJobsView({
                     <option value="">No client</option>
 
                     {loadedClients.map((c) => (
-                      <option key={c.clerk_id} value={c.clerk_id}>
+                      <option key={c.id} value={c.id}>
                         {c.full_name || c.email}
                       </option>
                     ))}
