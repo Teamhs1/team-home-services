@@ -302,35 +302,31 @@ export function JobUploadModal({
         return;
       }
 
-      const normalizedUnitType = unitType
-        ? unitType.toLowerCase().replace(/\s+/g, "_")
-        : null;
-
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${await getToken({
-                template: "supabase",
-              })}`,
-            },
-          },
+      // =========================
+      // BEFORE → START JOB (SERVER)
+      // =========================
+      const res = await fetch("/api/job-activity/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({ jobId }),
+      });
 
-      await supabase
-        .from("cleaning_jobs")
-        .update({
-          unit_type: normalizedUnitType,
-          features: Array.isArray(features) ? features : [],
-          status: "in_progress",
-          started_at: new Date().toISOString(),
-        })
-        .eq("id", jobId);
+      const json = await res.json();
 
-      await fetchJobs?.(); //
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to start job");
+      }
+
+      // 🔥 actualizar UI local (optimistic)
+      updateLocalJob?.(jobId, {
+        status: "in_progress",
+        started_at: new Date().toISOString(),
+      });
+
+      await fetchJobs?.();
+
       toast.success("Job started!");
       onClose();
       router.push(`/jobs/${jobId}`);

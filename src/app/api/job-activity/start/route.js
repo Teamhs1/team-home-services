@@ -7,13 +7,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
-export async function POST(req, { params }) {
+export async function POST(req) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const jobId = params.id;
+  // 🔥 AQUÍ ESTABA EL PROBLEMA
+  const { jobId } = await req.json();
+
+  if (!jobId) {
+    return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
+  }
 
   // 🔒 proteger doble start
   const { data: job } = await supabase
@@ -33,7 +38,7 @@ export async function POST(req, { params }) {
     created_by: userId,
   });
 
-  // 2️⃣ estado REAL
+  // 2️⃣ estado REAL (🔥 ESTE ES EL IMPORTANTE)
   await supabase
     .from("cleaning_jobs")
     .update({
