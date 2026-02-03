@@ -52,7 +52,7 @@ export async function POST(req) {
     if (!file || !path || !jobId) {
       return NextResponse.json(
         { error: "Missing file, path or jobId" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -64,9 +64,10 @@ export async function POST(req) {
     });
 
     // 🔥 Reglas de clasificación
-    // El frontend SIEMPRE manda “before” o “after”.
-    // Nosotros **corregimos** automáticamente si es un General Area.
-    if (isGeneralArea(category)) {
+    // El frontend manda before | after | general
+    // NO lo pisamos aquí
+    if (!["before", "after", "general"].includes(type)) {
+      console.warn("⚠ Invalid type received. Forcing type=after.");
       type = "after";
     }
 
@@ -99,7 +100,7 @@ export async function POST(req) {
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
     // ------------------------------------------------------------
@@ -150,7 +151,7 @@ export async function POST(req) {
       {
         status: 200,
         headers: { "Access-Control-Allow-Origin": "*" },
-      }
+      },
     );
   } catch (err) {
     console.error("💥 SERVER ERROR:", err);

@@ -142,31 +142,19 @@ export function JobUploadModal({
     const files = Array.from(e.target.files);
     if (!files.length || !selectedCategory) return;
 
-    const isCompare = dynamicCompareCategories.some(
-      (c) => c.key === selectedCategory,
-    );
-
-    const fileToUse = isCompare ? files[0] : files;
-
-    const previews = isCompare
-      ? [{ name: fileToUse.name, url: URL.createObjectURL(fileToUse) }]
-      : files.map((file) => ({
-          name: file.name,
-          url: URL.createObjectURL(file),
-        }));
+    const previews = files.map((file) => ({
+      name: file.name,
+      url: URL.createObjectURL(file),
+    }));
 
     setPhotosByCategory((prev) => ({
       ...prev,
-      [selectedCategory]: isCompare
-        ? previews
-        : [...(prev[selectedCategory] || []), ...previews],
+      [selectedCategory]: [...(prev[selectedCategory] || []), ...previews],
     }));
 
     setLocalFiles((prev) => ({
       ...prev,
-      [selectedCategory]: isCompare
-        ? [fileToUse]
-        : [...(prev[selectedCategory] || []), ...files],
+      [selectedCategory]: [...(prev[selectedCategory] || []), ...files],
     }));
 
     e.target.value = "";
@@ -259,19 +247,17 @@ export function JobUploadModal({
       // AFTER → COMPLETE JOB
       // =========================
       if (type === "after") {
+        const token = await getToken({ template: "supabase" });
+
         const supabase = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
           {
-            global: {
-              headers: {
-                Authorization: `Bearer ${await getToken({ template: "supabase" })}`,
-              },
-            },
+            global: { headers: { Authorization: `Bearer ${token}` } },
           },
         );
 
-        // ✅ 1. Guardar cambios finales
+        // ✅ 1) Guardar cambios finales
         await supabase
           .from("cleaning_jobs")
           .update({
@@ -280,31 +266,39 @@ export function JobUploadModal({
           })
           .eq("id", jobId);
 
-        // ✅ 2. Actualizar UI inmediatamente
-        updateLocalJob?.(jobId, {
-          unit_type: unitType,
-          features,
-        });
+        updateLocalJob?.(jobId, { unit_type: unitType, features });
 
-        // ✅ 3. Stop timer
+        // ✅ 2) STOP timer (solo log, NO completa)
         await fetch("/api/job-activity/stop", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ job_id: jobId }),
         });
 
-        // ✅ 4. Completar job
-        await updateStatus(jobId, "completed");
-
-        // ✅ 5. Normalizar fotos
-        await fetch("/api/job-photos/normalize-general", {
+        // ✅ 3) Normalizar fotos (esperar a que termine)
+        const normRes = await fetch("/api/job-photos/normalize-general", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ jobId }),
         });
+        const normJson = await normRes.json().catch(() => ({}));
+        if (!normRes.ok)
+          throw new Error(normJson.error || "Failed to finalize photos");
+
+        // ✅ 4) Completar job (status + completed_at)
+        const statusRes = await updateStatus(jobId, "completed");
+        // (si updateStatus no retorna nada, no pasa nada)
+
+        // ✅ 5) Actualizar UI sí o sí (AQUÍ estaba tu problema)
+        updateLocalJob?.(jobId, {
+          status: "completed",
+          completed_at: new Date().toISOString(),
+        });
+        await fetchJobs?.();
 
         toast.success("Job completed!");
         onClose();
+        router.push(`/jobs/${jobId}`);
         return;
       }
 
@@ -332,24 +326,11 @@ export function JobUploadModal({
           unit_type: normalizedUnitType,
           features: Array.isArray(features) ? features : [],
           status: "in_progress",
+          started_at: new Date().toISOString(),
         })
         .eq("id", jobId);
 
       await fetchJobs?.(); //
-      toast.success("Job started!");
-      onClose();
-      router.push(`/jobs/${jobId}`);
-
-      await fetch("/api/job-activity", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          job_id: jobId,
-          action: "start",
-          notes: "Job started",
-        }),
-      });
-
       toast.success("Job started!");
       onClose();
       router.push(`/jobs/${jobId}`);

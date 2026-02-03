@@ -13,6 +13,7 @@ import JobTimer from "../../components/JobTimer";
 import JobDuration from "../../components/JobDuration";
 import { useUser } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
+import { useAuth } from "@clerk/nextjs";
 
 import { FEATURE_ICONS } from "@/app/(protected)/jobs/components/job-upload/featureIcons";
 import { FEATURES } from "@/app/(protected)/jobs/components/job-upload/features";
@@ -25,6 +26,7 @@ export default function JobHeader({ job, router, openModal, onTitleUpdated }) {
   const isAdmin = role === "admin";
   const isStaff = role === "staff";
   const canManageJob = isAdmin || isStaff;
+  const { getToken } = useAuth();
 
   /* =========================
      REAL-TIME TITLE STATE
@@ -145,6 +147,31 @@ export default function JobHeader({ job, router, openModal, onTitleUpdated }) {
                   >
                     <Plus className="w-4 h-4" />
                     Add Photos
+                  </Button>
+                )}
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={async () => {
+                      if (!confirm("Reopen this job?")) return;
+
+                      const res = await fetch(`/api/jobs/${job.id}/reopen`, {
+                        method: "POST",
+                        credentials: "include", // 🔥 ESTO ES LO QUE FALTABA
+                      });
+
+                      const json = await res.json();
+
+                      if (!res.ok) {
+                        alert(json.error || "Failed to reopen job");
+                        return;
+                      }
+
+                      router.refresh(); // 👈 mejor que reload
+                    }}
+                  >
+                    🔁 Reopen Job
                   </Button>
                 )}
               </>

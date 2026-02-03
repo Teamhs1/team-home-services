@@ -1,0 +1,46 @@
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+);
+
+export async function POST(req, { params }) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const jobId = params.id;
+
+  // 🔒 proteger doble start
+  const { data: job } = await supabase
+    .from("cleaning_jobs")
+    .select("status")
+    .eq("id", jobId)
+    .single();
+
+  if (job?.status !== "pending") {
+    return NextResponse.json({ error: "Job already started" }, { status: 400 });
+  }
+
+  // 1️⃣ log
+  await supabase.from("job_activity_log").insert({
+    job_id: jobId,
+    action: "start",
+    created_by: userId,
+  });
+
+  // 2️⃣ estado REAL
+  await supabase
+    .from("cleaning_jobs")
+    .update({
+      status: "in_progress",
+      started_at: new Date().toISOString(),
+    })
+    .eq("id", jobId);
+
+  return NextResponse.json({ success: true });
+}

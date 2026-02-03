@@ -120,3 +120,9 @@ update profiles
 set active_company_id = '490d5aa3-2ace-477c-ace6-cd8deedd6eaa'
 where clerk_id = 'user_38rkCTry8Kp7paEnEqfNXhmTOhM';
 ------------------------------------
+
+update cleaning_jobs
+set
+  features = '["air_conditioner"]'::jsonb,
+  unit_type = 'apartment'
+where id = 'f929747f-82b9-4b6c-8cc3-367936fffe6f';

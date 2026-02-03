@@ -9,13 +9,12 @@ export async function POST(req) {
       return NextResponse.json({ error: "Missing job_id" }, { status: 400 });
     }
 
-    // 🔑 Cliente con Service Role (bypassa RLS)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    // 1️⃣ Buscar el registro start
+    // 1️⃣ Buscar último START
     const { data: startData, error: startError } = await supabase
       .from("job_activity_log")
       .select("created_at")
@@ -30,7 +29,7 @@ export async function POST(req) {
     if (!startData) {
       return NextResponse.json(
         { error: "No start record found for this job" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -40,51 +39,25 @@ export async function POST(req) {
     const diffSeconds = Math.floor((endTime - startTime) / 1000);
     const durationMinutes = Math.max(Math.floor(diffSeconds / 60), 1);
 
-    console.log(
-      `⏱️ Job ${job_id} started at ${startTime.toISOString()} — ended at ${endTime.toISOString()} (${durationMinutes} min)`
-    );
-
-    // 3️⃣ Registrar STOP
-    const { error: insertError } = await supabase
-      .from("job_activity_log")
-      .insert([
-        {
-          job_id,
-          staff_id,
-          action: "stop",
-          notes: `Job completed in ${durationMinutes} min.`,
-          duration_seconds: diffSeconds,
-          created_at: endTime.toISOString(),
-        },
-      ]);
-    if (insertError) throw insertError;
-
-    // 4️⃣ Actualizar el job principal
-    const { data: updateData, error: updateError } = await supabase
-      .from("cleaning_jobs")
-      .update({
-        status: "completed",
-        duration_minutes: durationMinutes,
-        completed_at: endTime.toISOString(), // 👈 🔥 FECHA PERFECTAMENTE FORMATEADA
-      })
-      .eq("id", job_id)
-      .select("id, status, duration_minutes, completed_at")
-      .maybeSingle();
-
-    if (updateError) throw updateError;
-
-    console.log("✅ Job updated successfully:", updateData);
+    // 3️⃣ Registrar STOP (SOLO LOG)
+    await supabase.from("job_activity_log").insert({
+      job_id,
+      staff_id,
+      action: "stop",
+      notes: `Timer stopped after ${durationMinutes} min`,
+      duration_seconds: diffSeconds,
+      created_at: endTime.toISOString(),
+    });
 
     return NextResponse.json({
-      message: "Job stopped and duration saved",
+      message: "Timer stopped",
       durationMinutes,
-      job: updateData,
     });
   } catch (err) {
     console.error("💥 Job stop error:", err);
     return NextResponse.json(
       { error: err.message || "Unexpected error stopping job" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

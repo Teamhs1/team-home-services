@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 import { Loader2 } from "lucide-react";
 import { useUser, useAuth } from "@clerk/nextjs";
@@ -149,9 +150,8 @@ export default function JobPhotosPage() {
 
   const generalPhotos = photos.filter(
     (p) =>
-      p.type === "after" && // ✅ ES AFTER
-      areaKeys.includes(p.category) && // ✅ SOLO ÁREAS
-      !compareKeys.includes(p.category) && // ✅ NO COMPARE
+      p.type === "after" &&
+      !compareKeys.includes(p.category) && // ⬅️ NO es compare
       isImage(p.image_url),
   );
 
@@ -196,11 +196,39 @@ export default function JobPhotosPage() {
             type={modalType}
             onClose={closeModal}
             updateStatus={async (jobId, newStatus) => {
-              const supabase = await getSupabase();
-              await supabase
+              const token = await getToken({ template: "supabase" });
+
+              const supabase = createClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+                {
+                  global: {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                    },
+                  },
+                },
+              );
+
+              const payload =
+                newStatus === "completed"
+                  ? {
+                      status: "completed",
+                      completed_at: new Date().toISOString(),
+                    }
+                  : {
+                      status: newStatus,
+                    };
+
+              const { error } = await supabase
                 .from("cleaning_jobs")
-                .update({ status: newStatus })
+                .update(payload)
                 .eq("id", jobId);
+
+              if (error) {
+                console.error("❌ Failed to update job status", error);
+                throw error;
+              }
             }}
             fetchJobs={() => {}}
           />
