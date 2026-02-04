@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req) {
   try {
-    const { job_id } = await req.json();
+    const { job_id, staff_id } = await req.json();
 
     if (!job_id) {
       return NextResponse.json({ error: "Missing job_id" }, { status: 400 });
@@ -14,8 +14,8 @@ export async function POST(req) {
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    // 1️⃣ Obtener START real
-    const { data: start } = await supabase
+    // 1️⃣ Buscar último START
+    const { data: startData, error: startError } = await supabase
       .from("job_activity_log")
       .select("created_at")
       .eq("job_id", job_id)
@@ -24,45 +24,39 @@ export async function POST(req) {
       .limit(1)
       .maybeSingle();
 
-    if (!start) {
+    if (startError) throw startError;
+
+    if (!startData) {
       return NextResponse.json(
-        { error: "Job was never started" },
-        { status: 400 },
+        { error: "No start record found for this job" },
+        { status: 404 },
       );
     }
 
-    const startTime = new Date(start.created_at);
+    // 2️⃣ Calcular duración
+    const startTime = new Date(startData.created_at);
     const endTime = new Date();
-    const durationSeconds = Math.floor(
-      (endTime.getTime() - startTime.getTime()) / 1000,
-    );
+    const diffSeconds = Math.floor((endTime - startTime) / 1000);
+    const durationMinutes = Math.max(Math.floor(diffSeconds / 60), 1);
 
-    // 2️⃣ Guardar STOP (log)
+    // 3️⃣ Registrar STOP (SOLO LOG)
     await supabase.from("job_activity_log").insert({
       job_id,
+      staff_id,
       action: "stop",
-      duration_seconds: durationSeconds,
+      notes: `Timer stopped after ${durationMinutes} min`,
+      duration_seconds: diffSeconds,
       created_at: endTime.toISOString(),
     });
 
-    // 3️⃣ 🔥 LA CLAVE: sincronizar cleaning_jobs
-    await supabase
-      .from("cleaning_jobs")
-      .update({
-        status: "completed",
-        started_at: startTime.toISOString(),
-        completed_at: endTime.toISOString(),
-      })
-      .eq("id", job_id);
-
     return NextResponse.json({
-      success: true,
-      durationSeconds,
+      message: "Timer stopped",
+      durationMinutes,
     });
   } catch (err) {
-    console.error("STOP ERROR:", err);
+    console.error("💥 Job stop error:", err);
     return NextResponse.json(
-      { error: err.message || "Stop failed" },
+      { error: err.message || "Unexpected error stopping job" },
       { status: 500 },
     );
   }

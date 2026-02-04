@@ -30,7 +30,18 @@ export async function GET() {
     .from("cleaning_jobs")
     .select(
       `
-    *,
+    id,
+    title,
+    status,
+    service_type,
+    property_address,
+    scheduled_date,
+    started_at,
+    completed_at,
+    duration_minutes,
+    assigned_to,
+    client_profile_id,
+    created_at,
     staff:profiles!cleaning_jobs_assigned_to_fkey (
       clerk_id,
       full_name,

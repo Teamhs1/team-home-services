@@ -2,34 +2,43 @@
 import React from "react";
 
 export default function JobDuration({ jobId }) {
-  const [duration, setDuration] = React.useState(null);
+  const [durationSeconds, setDurationSeconds] = React.useState(null);
 
   React.useEffect(() => {
     if (!jobId) return;
 
+    let cancelled = false;
+
     (async () => {
-      try {
-        const res = await fetch(
-          `/api/job-activity/last-duration?job_id=${jobId}`
-        );
-        const data = await res.json();
-        if (data?.duration) setDuration(data.duration);
-      } catch (err) {
-        console.error("Error:", err);
+      const res = await fetch(
+        `/api/job-activity/last-duration?job_id=${jobId}`,
+        { cache: "no-store" },
+      );
+
+      const data = await res.json();
+
+      if (!cancelled && typeof data?.duration === "number") {
+        setDurationSeconds(data.duration);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [jobId]);
 
-  if (duration === null) return null;
+  if (durationSeconds == null) {
+    return <span className="text-xs text-gray-400 italic">Calculating…</span>;
+  }
 
-  const totalMinutes = Math.floor(duration / 60);
+  const totalMinutes = Math.floor(durationSeconds / 60);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
   return (
-    <div className="mt-1 text-lg font-normal text-green-700 flex items-center gap-2">
-      🕒 {hours > 0 ? `${hours}h ` : ""}
-      {minutes}min total
-    </div>
+    <span className="inline-flex items-center gap-1 text-green-700 font-semibold">
+      ⏱️ {hours > 0 && `${hours}h `}
+      {minutes}min
+    </span>
   );
 }

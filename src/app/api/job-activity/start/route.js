@@ -13,14 +13,11 @@ export async function POST(req) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 🔥 AQUÍ ESTABA EL PROBLEMA
   const { jobId } = await req.json();
-
   if (!jobId) {
     return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
   }
 
-  // 🔒 proteger doble start
   const { data: job } = await supabase
     .from("cleaning_jobs")
     .select("status")
@@ -31,14 +28,12 @@ export async function POST(req) {
     return NextResponse.json({ error: "Job already started" }, { status: 400 });
   }
 
-  // 1️⃣ log
   await supabase.from("job_activity_log").insert({
     job_id: jobId,
     action: "start",
     created_by: userId,
   });
 
-  // 2️⃣ estado REAL (🔥 ESTE ES EL IMPORTANTE)
   await supabase
     .from("cleaning_jobs")
     .update({

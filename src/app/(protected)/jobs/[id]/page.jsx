@@ -69,6 +69,41 @@ export default function JobPhotosPage() {
     const grouped = result.data || { before: [], after: [], general: [] };
     setPhotos([...grouped.before, ...grouped.after, ...grouped.general]);
   };
+  // ===============================
+
+  const handleReopen = () => {
+    setJob((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "pending",
+            completed_at: null,
+          }
+        : prev,
+    );
+  };
+  const handleComplete = () => {
+    setJob((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "completed",
+            completed_at: new Date().toISOString(),
+          }
+        : prev,
+    );
+  };
+  const handleStart = () => {
+    setJob((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "in_progress",
+            started_at: new Date().toISOString(),
+          }
+        : prev,
+    );
+  };
 
   // ===============================
   // 🔄 JOB
@@ -172,6 +207,9 @@ export default function JobPhotosPage() {
           onTitleUpdated={(newTitle) =>
             setJob((prev) => ({ ...prev, title: newTitle }))
           }
+          onReopen={handleReopen}
+          onStart={handleStart} // 👈 AQUÍ
+          onComplete={handleComplete}
         />
 
         <JobCompare

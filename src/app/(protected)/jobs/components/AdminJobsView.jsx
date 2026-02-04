@@ -134,6 +134,30 @@ export default function AdminJobsView({
   const [isMobile, setIsMobile] = useState(false);
   const [bulkClientId, setBulkClientId] = useState("");
   const [bulkStaffId, setBulkStaffId] = useState("");
+  const [jobDurations, setJobDurations] = useState({});
+  useEffect(() => {
+    if (!Array.isArray(jobs)) return;
+
+    jobs.forEach((job) => {
+      if (job.status !== "completed") return;
+      if (jobDurations[job.id] !== undefined) return;
+
+      fetch(`/api/job-activity/last-duration?job_id=${job.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setJobDurations((prev) => ({
+            ...prev,
+            [job.id]: data.duration ?? 0, // ⏱️ SEGUNDOS
+          }));
+        })
+        .catch(() => {
+          setJobDurations((prev) => ({
+            ...prev,
+            [job.id]: 0,
+          }));
+        });
+    });
+  }, [jobs]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -901,14 +925,39 @@ export default function AdminJobsView({
                         <JobTimer jobId={job.id} />
                       )}
 
-                      {job.status === "completed" &&
-                        (job.duration_minutes != null ? (
-                          <span className="flex items-center gap-1 text-green-700 font-semibold">
-                            ⏱️ {formatDuration(job.duration_minutes)} total
+                      {job.status === "completed" && (
+                        <div className="flex flex-col gap-1">
+                          {/* DURATION */}
+                          <td className="px-4 py-2">
+                            {job.status === "in_progress" && (
+                              <JobTimer jobId={job.id} />
+                            )}
+
+                            {job.status === "completed" && (
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-1 text-green-700 font-semibold">
+                                  ⏱️{" "}
+                                  {jobDurations[job.id] !== undefined
+                                    ? formatDuration(
+                                        Math.floor(jobDurations[job.id] / 60),
+                                      )
+                                    : "calculating…"}
+                                </span>
+                              </div>
+                            )}
+
+                            {job.status === "pending" && "—"}
+                          </td>
+
+                          {/* DATE */}
+                          <span className="text-gray-400 text-[11px]">
+                            Done on{" "}
+                            {job.completed_at
+                              ? new Date(job.completed_at).toLocaleDateString()
+                              : "—"}
                           </span>
-                        ) : (
-                          <JobDuration jobId={job.id} />
-                        ))}
+                        </div>
+                      )}
 
                       {job.status === "pending" && "—"}
                     </td>
@@ -929,14 +978,16 @@ export default function AdminJobsView({
 
                         <DropdownMenuContent align="end">
                           {/* ⏱️ EDIT DURATION */}
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingJob(job);
-                            }}
-                          >
-                            ⏱️ Edit duration
-                          </DropdownMenuItem>
+                          {job.status === "completed" && (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingJob(job);
+                              }}
+                            >
+                              ⏱️ Edit duration
+                            </DropdownMenuItem>
+                          )}
 
                           {/* 🔄 RESET */}
                           <DropdownMenuItem
@@ -1061,7 +1112,6 @@ export default function AdminJobsView({
                     {job.client.full_name || job.client.email}
                   </div>
                 )}
-
                 {/* STATUS */}
                 <div>
                   {job.status === "in_progress" && (
@@ -1073,11 +1123,9 @@ export default function AdminJobsView({
                   {job.status === "completed" && (
                     <div className="flex flex-col text-xs text-green-700">
                       {job.duration_minutes != null ? (
-                        <div className="bg-green-50 px-3 py-1 inline-block font-semibold rounded-full shadow-sm">
-                          ⏱️ {formatDuration(job.duration_minutes)}
-                        </div>
+                        <div className="bg-green-50 px-3 py-1 inline-block font-semibold rounded-full shadow-sm"></div>
                       ) : (
-                        <JobDuration jobId={job.id} />
+                        <span className="text-gray-400 italic">—</span>
                       )}
 
                       <span className="text-gray-500 text-[11px]">
@@ -1140,8 +1188,15 @@ export default function AdminJobsView({
 
             <AdminEditDuration
               job={editingJob}
-              onUpdated={() => {
-                fetchJobs();
+              onUpdated={(minutes) => {
+                setLocalJobs((prev) =>
+                  prev.map((j) =>
+                    j.id === editingJob.id
+                      ? { ...j, duration_minutes: minutes, status: "completed" }
+                      : j,
+                  ),
+                );
+
                 setEditingJob(null);
               }}
             />

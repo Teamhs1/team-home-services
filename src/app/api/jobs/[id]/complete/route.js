@@ -15,12 +15,16 @@ export async function POST(req, { params }) {
 
   const jobId = params.id;
 
-  // 🔒 Solo se puede completar si está en progreso
-  const { data: job } = await supabase
+  // 🔒 Validar estado y obtener start
+  const { data: job, error } = await supabase
     .from("cleaning_jobs")
     .select("status, started_at")
     .eq("id", jobId)
     .single();
+
+  if (error || !job) {
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
 
   if (job.status !== "in_progress") {
     return NextResponse.json(
@@ -29,13 +33,31 @@ export async function POST(req, { params }) {
     );
   }
 
+  if (!job.started_at) {
+    return NextResponse.json(
+      { error: "Job has no start time" },
+      { status: 400 },
+    );
+  }
+
+  // ⏱️ CALCULAR DURACIÓN
+  const endedAt = new Date();
+  const durationMinutes = Math.round(
+    (endedAt - new Date(job.started_at)) / 60000,
+  );
+
+  // ✅ COMPLETAR JOB + GUARDAR DURACIÓN
   await supabase
     .from("cleaning_jobs")
     .update({
       status: "completed",
-      completed_at: new Date().toISOString(),
+      completed_at: endedAt.toISOString(),
+      duration_minutes: durationMinutes,
     })
     .eq("id", jobId);
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    duration_minutes: durationMinutes,
+  });
 }
