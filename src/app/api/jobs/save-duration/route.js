@@ -9,14 +9,21 @@ const supabase = createClient(
 export async function POST(req) {
   const { jobId, minutes } = await req.json();
 
-  if (!jobId || typeof minutes !== "number") {
+  if (!jobId || !Number.isFinite(minutes)) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  await supabase
+  const { error } = await supabase
     .from("cleaning_jobs")
-    .update({ duration_minutes: minutes })
+    .update({
+      duration_minutes: minutes,
+      duration_edited_at: new Date().toISOString(),
+    })
     .eq("id", jobId);
 
-  return NextResponse.json({ success: true });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, minutes });
 }

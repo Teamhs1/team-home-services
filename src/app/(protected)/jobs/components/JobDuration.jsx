@@ -1,24 +1,42 @@
 "use client";
-import React from "react";
+
+import { useEffect, useState } from "react";
+
+function formatDuration(minutes) {
+  if (!minutes || minutes <= 0) return "0 min";
+
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+
+  if (h && m) return `${h}h ${m}min`;
+  if (h) return `${h}h`;
+  return `${m}min`;
+}
 
 export default function JobDuration({ jobId }) {
-  const [durationSeconds, setDurationSeconds] = React.useState(null);
+  const [minutes, setMinutes] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!jobId) return;
 
     let cancelled = false;
 
     (async () => {
-      const res = await fetch(
-        `/api/job-activity/last-duration?job_id=${jobId}`,
-        { cache: "no-store" },
-      );
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`, {
+          cache: "no-store",
+        });
 
-      const data = await res.json();
+        const data = await res.json();
 
-      if (!cancelled && typeof data?.duration === "number") {
-        setDurationSeconds(data.duration);
+        if (!cancelled) {
+          setMinutes(data.duration_minutes ?? null);
+        }
+      } catch (err) {
+        console.error("JobDuration error:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
 
@@ -27,18 +45,17 @@ export default function JobDuration({ jobId }) {
     };
   }, [jobId]);
 
-  if (durationSeconds == null) {
-    return <span className="text-xs text-gray-400 italic">Calculating…</span>;
+  if (loading) {
+    return <span className="italic text-gray-400">Calculating…</span>;
   }
 
-  const totalMinutes = Math.floor(durationSeconds / 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+  if (minutes == null) {
+    return <span className="italic text-gray-400">Calculating…</span>;
+  }
 
   return (
-    <span className="inline-flex items-center gap-1 text-green-700 font-semibold">
-      ⏱️ {hours > 0 && `${hours}h `}
-      {minutes}min
+    <span className="inline-flex items-center gap-1">
+      ⏱️ {formatDuration(minutes)}
     </span>
   );
 }

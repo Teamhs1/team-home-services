@@ -35,6 +35,21 @@ export default function JobHeader({
   const isStaff = role === "staff";
   const canManageJob = isAdmin || isStaff;
   const { getToken } = useAuth();
+  const [editingDuration, setEditingDuration] = useState(false);
+  const totalMinutes = Number(job?.duration_minutes);
+
+  const safeMinutes = Number.isFinite(totalMinutes) ? totalMinutes : 0;
+
+  const [hours, setHours] = useState(Math.floor(safeMinutes / 60));
+  const [mins, setMins] = useState(safeMinutes % 60);
+
+  useEffect(() => {
+    const m = Number(job?.duration_minutes);
+    if (Number.isFinite(m)) {
+      setHours(Math.floor(m / 60));
+      setMins(m % 60);
+    }
+  }, [job?.duration_minutes]);
 
   /* =========================
      REAL-TIME TITLE STATE
@@ -46,6 +61,34 @@ export default function JobHeader({
   useEffect(() => {
     setTitle(job?.title || "");
   }, [job?.title]);
+  async function saveDuration() {
+    const minutes = Math.max(0, hours * 60 + mins);
+
+    try {
+      const res = await fetch("/api/jobs/save-duration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId: job.id,
+          minutes,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err?.error || "Failed to update duration");
+      }
+
+      setEditingDuration(false);
+
+      // 🔥 fuerza actualización inmediata en UI
+      onComplete?.({
+        duration_minutes: minutes,
+      });
+    } catch (err) {
+      alert(err.message);
+    }
+  }
 
   async function saveTitle() {
     if (!title.trim() || title === job.title) {
@@ -149,23 +192,7 @@ export default function JobHeader({
 
         {/* ✅ COMPLETE JOB (cuando está pending o in_progress) */}
         {isAdmin && job?.status === "in_progress" && (
-          <Button
-            size="sm"
-            onClick={async () => {
-              if (!confirm("Mark this job as completed?")) return;
-
-              const res = await fetch(`/api/jobs/${job.id}/complete`, {
-                method: "POST",
-                credentials: "include",
-              });
-
-              if (res.ok) {
-                onComplete?.(); // 🔥 actualiza estado en el padre
-              } else {
-                console.error("❌ COMPLETE FAILED");
-              }
-            }}
-          >
+          <Button size="sm" onClick={() => openModal(job.id, "after")}>
             ✅ Complete Job
           </Button>
         )}
@@ -224,8 +251,56 @@ export default function JobHeader({
 
         {/* ⏱️ DURACIÓN — VISUALMENTE CLARA */}
         {job?.status === "completed" && (
-          <div className="ml-2 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-xs font-semibold">
-            <JobDuration jobId={job.id} />
+          <div className="ml-2 px-2 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold flex items-center gap-2">
+            {!editingDuration ? (
+              <>
+                <span>
+                  ⏱️ {hours > 0 ? `${hours} h ` : ""}
+                  {mins} min
+                </span>
+
+                {isAdmin && (
+                  <button
+                    onClick={() => setEditingDuration(true)}
+                    className="text-xs underline opacity-70 hover:opacity-100"
+                  >
+                    edit
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <input
+                  type="number"
+                  min={0}
+                  className="w-12 border rounded px-1 text-xs"
+                  value={hours}
+                  onChange={(e) => setHours(Number(e.target.value) || 0)}
+                />
+                h
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  className="w-12 border rounded px-1 text-xs"
+                  value={mins}
+                  onChange={(e) => setMins(Number(e.target.value) || 0)}
+                />
+                min
+                <button
+                  onClick={saveDuration}
+                  className="text-green-700 font-semibold"
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={() => setEditingDuration(false)}
+                  className="text-red-600"
+                >
+                  ✕
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

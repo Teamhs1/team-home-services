@@ -207,9 +207,19 @@ export default function JobPhotosPage() {
           onTitleUpdated={(newTitle) =>
             setJob((prev) => ({ ...prev, title: newTitle }))
           }
-          onReopen={handleReopen}
-          onStart={handleStart} // 👈 AQUÍ
-          onComplete={handleComplete}
+          onReopen={refreshJobData}
+          onStart={refreshJobData}
+          onComplete={(patch) => {
+            if (patch?.duration_minutes != null) {
+              setJob((prev) => ({
+                ...prev,
+                duration_minutes: patch.duration_minutes,
+              }));
+            }
+
+            // 🔄 respaldo desde backend
+            refreshJobData();
+          }}
         />
 
         <JobCompare
@@ -241,9 +251,7 @@ export default function JobPhotosPage() {
                 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
                 {
                   global: {
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                    },
+                    headers: { Authorization: `Bearer ${token}` },
                   },
                 },
               );
@@ -254,19 +262,16 @@ export default function JobPhotosPage() {
                       status: "completed",
                       completed_at: new Date().toISOString(),
                     }
-                  : {
-                      status: newStatus,
-                    };
+                  : { status: newStatus };
 
-              const { error } = await supabase
+              // 🧼 1) cleaning_jobs (fuente de verdad)
+              await supabase
                 .from("cleaning_jobs")
                 .update(payload)
                 .eq("id", jobId);
 
-              if (error) {
-                console.error("❌ Failed to update job status", error);
-                throw error;
-              }
+              // 📋 2) jobs (espejo UI)
+              await supabase.from("jobs").update(payload).eq("id", jobId);
             }}
             fetchJobs={() => {}}
           />

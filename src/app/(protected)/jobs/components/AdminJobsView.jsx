@@ -134,30 +134,6 @@ export default function AdminJobsView({
   const [isMobile, setIsMobile] = useState(false);
   const [bulkClientId, setBulkClientId] = useState("");
   const [bulkStaffId, setBulkStaffId] = useState("");
-  const [jobDurations, setJobDurations] = useState({});
-  useEffect(() => {
-    if (!Array.isArray(jobs)) return;
-
-    jobs.forEach((job) => {
-      if (job.status !== "completed") return;
-      if (jobDurations[job.id] !== undefined) return;
-
-      fetch(`/api/job-activity/last-duration?job_id=${job.id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          setJobDurations((prev) => ({
-            ...prev,
-            [job.id]: data.duration ?? 0, // ⏱️ SEGUNDOS
-          }));
-        })
-        .catch(() => {
-          setJobDurations((prev) => ({
-            ...prev,
-            [job.id]: 0,
-          }));
-        });
-    });
-  }, [jobs]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -233,8 +209,10 @@ export default function AdminJobsView({
   }
   // 🔁 Sync props → local state (CLAVE)
   useEffect(() => {
-    console.log("🧪 AdminJobsView jobs:", jobs);
-    setLocalJobs(safeArray(jobs));
+    setLocalJobs((prev) => {
+      if (!jobs?.length) return prev;
+      return safeArray(jobs);
+    });
   }, [jobs]);
 
   // Seleccion Multiple
@@ -483,11 +461,6 @@ export default function AdminJobsView({
 
         if (hasChanges) {
           console.log("🔄 Jobs changed → refreshing");
-
-          const fresh = await fetchJobs(); // 👈 fetchJobs DEBE retornar jobs
-          if (Array.isArray(fresh)) {
-            setLocalJobs(fresh); // 🔥 fuerza render inmediato
-          }
 
           setLastCheckedAt(new Date().toISOString());
         }
@@ -920,36 +893,19 @@ export default function AdminJobsView({
                       </span>
                     </td>
 
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      {/* IN PROGRESS */}
                       {job.status === "in_progress" && (
                         <JobTimer jobId={job.id} />
                       )}
 
+                      {/* COMPLETED */}
                       {job.status === "completed" && (
-                        <div className="flex flex-col gap-1">
-                          {/* DURATION */}
-                          <td className="px-4 py-2">
-                            {job.status === "in_progress" && (
-                              <JobTimer jobId={job.id} />
-                            )}
+                        <div className="flex flex-col leading-tight gap-0.5">
+                          <span className="inline-flex items-center gap-1 font-semibold text-green-700">
+                            ⏱️ {formatDuration(job.duration_minutes)}
+                          </span>
 
-                            {job.status === "completed" && (
-                              <div className="flex flex-col gap-1">
-                                <span className="inline-flex items-center gap-1 text-green-700 font-semibold">
-                                  ⏱️{" "}
-                                  {jobDurations[job.id] !== undefined
-                                    ? formatDuration(
-                                        Math.floor(jobDurations[job.id] / 60),
-                                      )
-                                    : "calculating…"}
-                                </span>
-                              </div>
-                            )}
-
-                            {job.status === "pending" && "—"}
-                          </td>
-
-                          {/* DATE */}
                           <span className="text-gray-400 text-[11px]">
                             Done on{" "}
                             {job.completed_at
@@ -959,6 +915,7 @@ export default function AdminJobsView({
                         </div>
                       )}
 
+                      {/* PENDING */}
                       {job.status === "pending" && "—"}
                     </td>
 
@@ -1189,15 +1146,19 @@ export default function AdminJobsView({
             <AdminEditDuration
               job={editingJob}
               onUpdated={(minutes) => {
+                setEditingJob(null);
+
+                // ✅ actualizar UI local
                 setLocalJobs((prev) =>
                   prev.map((j) =>
                     j.id === editingJob.id
-                      ? { ...j, duration_minutes: minutes, status: "completed" }
+                      ? { ...j, duration_minutes: minutes }
                       : j,
                   ),
                 );
 
-                setEditingJob(null);
+                // 🔄 respaldo
+                fetchJobs(); // ahora fetchJobs YA SOLO LEE cleaning_jobs
               }}
             />
 

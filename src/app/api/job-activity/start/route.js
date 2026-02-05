@@ -18,27 +18,45 @@ export async function POST(req) {
     return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
   }
 
-  const { data: job } = await supabase
+  // 1️⃣ Validar estado actual (cleaning_jobs = fuente de verdad)
+  const { data: job, error } = await supabase
     .from("cleaning_jobs")
     .select("status")
     .eq("id", jobId)
     .single();
 
-  if (job?.status !== "pending") {
+  if (error || !job) {
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
+
+  if (job.status !== "pending") {
     return NextResponse.json({ error: "Job already started" }, { status: 400 });
   }
 
+  const startedAt = new Date().toISOString();
+
+  // 2️⃣ Log de actividad
   await supabase.from("job_activity_log").insert({
     job_id: jobId,
     action: "start",
     created_by: userId,
   });
 
+  // 3️⃣ Actualizar cleaning_jobs (FUENTE)
   await supabase
     .from("cleaning_jobs")
     .update({
       status: "in_progress",
-      started_at: new Date().toISOString(),
+      started_at: startedAt,
+    })
+    .eq("id", jobId);
+
+  // 4️⃣ 🔥 Actualizar jobs (ESPEJO UI)
+  await supabase
+    .from("jobs")
+    .update({
+      status: "in_progress",
+      started_at: startedAt,
     })
     .eq("id", jobId);
 
