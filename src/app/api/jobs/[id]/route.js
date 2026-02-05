@@ -13,7 +13,7 @@ const supabase = createClient(
 /* =========================
    GET JOB DETAIL
 ========================= */
-export async function GET(req, { params }) {
+export async function GET(req, context) {
   try {
     const { userId } = getAuth(req);
 
@@ -21,7 +21,7 @@ export async function GET(req, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await context.params;
 
     /* 1️⃣ JOB BASE */
     const { data: job, error: jobError } = await supabase
@@ -91,7 +91,7 @@ export async function GET(req, { params }) {
    PATCH JOB
    (inline edits: title)
 ========================= */
-export async function PATCH(req, { params }) {
+export async function PATCH(req, context) {
   try {
     const { userId } = getAuth(req);
 
@@ -99,6 +99,7 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await context.params;
     const { title } = await req.json();
 
     if (!title || !title.trim()) {
@@ -108,7 +109,7 @@ export async function PATCH(req, { params }) {
     const { error } = await supabase
       .from("cleaning_jobs")
       .update({ title })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (error) {
       console.error("PATCH job error:", error);

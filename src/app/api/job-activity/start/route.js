@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getAuth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -8,42 +8,67 @@ const supabase = createClient(
 );
 
 export async function POST(req) {
-  const { userId } = await auth();
+  const { userId } = getAuth(req); // 🔥 CLAVE
+
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { jobId } = await req.json();
+
   if (!jobId) {
     return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
   }
 
-  // 1️⃣ Validar estado actual (cleaning_jobs = fuente de verdad)
-  const { data: job, error } = await supabase
+  /* =========================
+     1️⃣ VALIDAR JOB
+  ========================= */
+  const { data: job, error: jobError } = await supabase
     .from("cleaning_jobs")
-    .select("status")
+    .select("id, status")
     .eq("id", jobId)
     .single();
 
-  if (error || !job) {
+  if (jobError || !job) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 
+  // 🔒 idempotencia
+  if (job.status === "in_progress") {
+    return NextResponse.json({ success: true, alreadyStarted: true });
+  }
+
   if (job.status !== "pending") {
-    return NextResponse.json({ error: "Job already started" }, { status: 400 });
+    return NextResponse.json(
+      { error: `Job cannot be started from status: ${job.status}` },
+      { status: 400 },
+    );
   }
 
   const startedAt = new Date().toISOString();
 
-  // 2️⃣ Log de actividad
-  await supabase.from("job_activity_log").insert({
+  /* =========================
+     2️⃣ LOG START
+  ========================= */
+  const { error: logError } = await supabase.from("job_activity_log").insert({
     job_id: jobId,
     action: "start",
-    created_by: userId,
+    staff_id: userId,
+    created_at: startedAt,
   });
 
-  // 3️⃣ Actualizar cleaning_jobs (FUENTE)
-  await supabase
+  if (logError) {
+    console.error("❌ job_activity_log error:", logError);
+    return NextResponse.json(
+      { error: "Failed to log job start" },
+      { status: 500 },
+    );
+  }
+
+  /* =========================
+     3️⃣ UPDATE cleaning_jobs (source of truth)
+  ========================= */
+  const { error: updateCleaningError } = await supabase
     .from("cleaning_jobs")
     .update({
       status: "in_progress",
@@ -51,8 +76,18 @@ export async function POST(req) {
     })
     .eq("id", jobId);
 
-  // 4️⃣ 🔥 Actualizar jobs (ESPEJO UI)
-  await supabase
+  if (updateCleaningError) {
+    console.error("❌ cleaning_jobs update error:", updateCleaningError);
+    return NextResponse.json(
+      { error: "Failed to update cleaning job" },
+      { status: 500 },
+    );
+  }
+
+  /* =========================
+     4️⃣ UPDATE jobs (UI mirror)
+  ========================= */
+  const { error: updateJobsError } = await supabase
     .from("jobs")
     .update({
       status: "in_progress",
@@ -60,5 +95,13 @@ export async function POST(req) {
     })
     .eq("id", jobId);
 
-  return NextResponse.json({ success: true });
+  if (updateJobsError) {
+    console.error("⚠️ jobs mirror update error:", updateJobsError);
+    // no rompemos todo por esto
+  }
+
+  return NextResponse.json({
+    success: true,
+    started_at: startedAt,
+  });
 }

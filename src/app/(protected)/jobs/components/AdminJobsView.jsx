@@ -209,11 +209,8 @@ export default function AdminJobsView({
   }
   // 🔁 Sync props → local state (CLAVE)
   useEffect(() => {
-    setLocalJobs((prev) => {
-      if (!jobs?.length) return prev;
-      return safeArray(jobs);
-    });
-  }, [jobs]);
+    setLocalJobs(safeArray(jobs));
+  }, [jobs.length]);
 
   // Seleccion Multiple
   const [selectedJobs, setSelectedJobs] = useState(new Set());
@@ -799,7 +796,7 @@ export default function AdminJobsView({
               <tbody>
                 {paginatedJobs.map((job) => (
                   <tr
-                    key={job.id}
+                    key={`${job.id}-${job.duration_minutes}`}
                     className="border-t hover:bg-gray-50 cursor-pointer"
                     onClick={(e) => {
                       // 🔥 SI HAY SELECCIÓN, NO HAGAS NADA
@@ -1080,7 +1077,9 @@ export default function AdminJobsView({
                   {job.status === "completed" && (
                     <div className="flex flex-col text-xs text-green-700">
                       {job.duration_minutes != null ? (
-                        <div className="bg-green-50 px-3 py-1 inline-block font-semibold rounded-full shadow-sm"></div>
+                        <div className="bg-green-50 px-3 py-1 inline-block font-semibold rounded-full shadow-sm">
+                          ⏱️ {formatDuration(job.duration_minutes)}
+                        </div>
                       ) : (
                         <span className="text-gray-400 italic">—</span>
                       )}
@@ -1142,25 +1141,29 @@ export default function AdminJobsView({
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 w-80 space-y-4">
             <h3 className="font-semibold text-lg">Edit duration</h3>
+            {editingJob && (
+              <AdminEditDuration
+                job={editingJob}
+                onUpdated={(minutes) => {
+                  // 1️⃣ Actualiza la lista (tabla / grid)
+                  setLocalJobs((prev) =>
+                    prev.map((j) =>
+                      j.id === editingJob.id
+                        ? { ...j, duration_minutes: minutes }
+                        : j,
+                    ),
+                  );
 
-            <AdminEditDuration
-              job={editingJob}
-              onUpdated={(minutes) => {
-                setEditingJob(null);
+                  // 2️⃣ Actualiza el job que está siendo editado (evita valores viejos)
+                  setEditingJob((prev) =>
+                    prev ? { ...prev, duration_minutes: minutes } : prev,
+                  );
 
-                // ✅ actualizar UI local
-                setLocalJobs((prev) =>
-                  prev.map((j) =>
-                    j.id === editingJob.id
-                      ? { ...j, duration_minutes: minutes }
-                      : j,
-                  ),
-                );
-
-                // 🔄 respaldo
-                fetchJobs(); // ahora fetchJobs YA SOLO LEE cleaning_jobs
-              }}
-            />
+                  // 3️⃣ Cierra el modal
+                  setEditingJob(null);
+                }}
+              />
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setEditingJob(null)}>

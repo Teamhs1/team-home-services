@@ -146,53 +146,6 @@ export default function JobHeader({
             ▶️ Start Job
           </Button>
         )}
-
-        {/* ✅ COMPLETE JOB (cuando está pending o in_progress) */}
-        {isAdmin && job?.status === "in_progress" && (
-          <Button
-            size="sm"
-            onClick={async () => {
-              if (!confirm("Mark this job as completed?")) return;
-
-              const res = await fetch(`/api/jobs/${job.id}/complete`, {
-                method: "POST",
-                credentials: "include",
-              });
-
-              if (res.ok) {
-                onComplete?.(); // 🔥 actualiza estado en el padre
-              } else {
-                console.error("❌ COMPLETE FAILED");
-              }
-            }}
-          >
-            ✅ Complete Job
-          </Button>
-        )}
-
-        {/* 🔁 REOPEN JOB (solo cuando está completed) */}
-        {isAdmin && job?.status === "completed" && (
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={async () => {
-              if (!confirm("Reopen this job?")) return;
-
-              const res = await fetch(`/api/jobs/${job.id}/reopen`, {
-                method: "POST",
-                credentials: "include",
-              });
-
-              if (res.ok) {
-                onReopen?.();
-              } else {
-                console.error("❌ REOPEN FAILED");
-              }
-            }}
-          >
-            🔁 Reopen Job
-          </Button>
-        )}
       </div>
 
       {/* TITLE */}

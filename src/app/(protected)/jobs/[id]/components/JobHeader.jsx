@@ -14,6 +14,7 @@ import JobDuration from "../../components/JobDuration";
 import { useUser } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { CheckCircle } from "lucide-react";
 
 import { FEATURE_ICONS } from "@/app/(protected)/jobs/components/job-upload/featureIcons";
 import { FEATURES } from "@/app/(protected)/jobs/components/job-upload/features";
@@ -42,6 +43,8 @@ export default function JobHeader({
 
   const [hours, setHours] = useState(Math.floor(safeMinutes / 60));
   const [mins, setMins] = useState(safeMinutes % 60);
+  const canCompleteJob =
+    (isAdmin || isStaff) && ["pending", "in_progress"].includes(job?.status);
 
   useEffect(() => {
     const m = Number(job?.duration_minutes);
@@ -177,9 +180,11 @@ export default function JobHeader({
               });
 
               if (res.ok) {
-                onStart?.();
+                onStart?.({
+                  status: "in_progress",
+                  started_at: new Date().toISOString(),
+                });
 
-                // 🔥 ABRIR MODAL AL INICIAR
                 openModal(job.id, "before");
               } else {
                 console.error("❌ START FAILED");
@@ -190,10 +195,16 @@ export default function JobHeader({
           </Button>
         )}
 
-        {/* ✅ COMPLETE JOB (cuando está pending o in_progress) */}
-        {isAdmin && job?.status === "in_progress" && (
-          <Button size="sm" onClick={() => openModal(job.id, "after")}>
-            ✅ Complete Job
+        {/* ✅ COMPLETE JOB (pending o in_progress | admin + staff) */}
+        {canCompleteJob && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openModal(job.id, "after")}
+            className="flex items-center gap-2 text-sm"
+          >
+            <CheckCircle className="w-4 h-4 text-green-600" />
+            Complete
           </Button>
         )}
 
@@ -301,6 +312,12 @@ export default function JobHeader({
                 </button>
               </>
             )}
+          </div>
+        )}
+        {/* ⏱️ LIVE TIMER */}
+        {job?.status === "in_progress" && (
+          <div className="ml-2 px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold flex items-center gap-1">
+            <JobTimer jobId={job.id} startedAt={job.started_at} />
           </div>
         )}
       </div>

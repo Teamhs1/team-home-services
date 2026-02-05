@@ -126,3 +126,12 @@ set
   features = '["air_conditioner"]'::jsonb,
   unit_type = 'apartment'
 where id = 'f929747f-82b9-4b6c-8cc3-367936fffe6f';
+-----------------------------------------
+Cambiar Status de un cleaning Job:
+update cleaning_jobs
+set
+  status = 'in_progress',
+  started_at = now(),
+  completed_at = null
+where id = '4c15797d-5cd3-499c-af9b-5f25be5b55e2';
+-----------------------------------------

@@ -54,6 +54,21 @@ export function JobUploadModal({
 
   const [elapsed, setElapsed] = useState(null);
   const [startTime, setStartTime] = useState(null);
+
+  const authFetch = async (url, options = {}) => {
+    const token = await getToken({ template: "supabase" });
+
+    if (!token) throw new Error("Not authenticated");
+
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  };
+
   useEffect(() => {
     if (!jobId) return;
 
@@ -196,7 +211,7 @@ export function JobUploadModal({
 
         // ⏱️ timeout de seguridad (20s)
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
+        const timeout = setTimeout(() => controller.abort(), 60000);
 
         let res;
         try {
@@ -232,6 +247,16 @@ export function JobUploadModal({
   // --------------------------------------------------------
   // CONFIRM
   // --------------------------------------------------------
+  const getAuthHeaders = async () => {
+    const token = await getToken({ template: "supabase" });
+    if (!token) throw new Error("Not authenticated");
+
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+  };
+
   const handleConfirm = async () => {
     if (!Object.keys(localFiles).length) {
       toast.warning("Please upload at least one photo.");
@@ -269,18 +294,17 @@ export function JobUploadModal({
         updateLocalJob?.(jobId, { unit_type: unitType, features });
 
         // ✅ 2) STOP timer (solo log, NO completa)
-        await fetch("/api/job-activity/stop", {
+        await authFetch("/api/job-activity/stop", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ job_id: jobId }),
+          body: JSON.stringify({ jobId }),
         });
 
         // ✅ 3) Normalizar fotos (esperar a que termine)
-        const normRes = await fetch("/api/job-photos/normalize-general", {
+        const normRes = await authFetch("/api/job-photos/normalize-general", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ jobId }),
         });
+
         const normJson = await normRes.json().catch(() => ({}));
         if (!normRes.ok)
           throw new Error(normJson.error || "Failed to finalize photos");
@@ -305,11 +329,8 @@ export function JobUploadModal({
       // =========================
       // BEFORE → START JOB (SERVER)
       // =========================
-      const res = await fetch("/api/job-activity/start", {
+      const res = await authFetch("/api/job-activity/start", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ jobId }),
       });
 

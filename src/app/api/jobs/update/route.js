@@ -37,7 +37,7 @@ export async function POST(req) {
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json(
         { error: "Missing or invalid token" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -58,7 +58,7 @@ export async function POST(req) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
         global: { headers: { Authorization: `Bearer ${token}` } },
-      }
+      },
     );
 
     // 4️⃣ Leer el body

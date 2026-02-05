@@ -35,8 +35,10 @@ export default function AdminEditDuration({ job, onUpdated }) {
         }),
       });
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err?.error || "Failed to update duration");
+      }
 
       toast.success("⏱️ Duration updated");
       onUpdated?.(value); // 🔥 UI inmediata

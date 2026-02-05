@@ -104,6 +104,17 @@ export default function JobPhotosPage() {
         : prev,
     );
   };
+  // 🔥 ACTUALIZAR JOB LOCAL DESDE EL MODAL
+  const updateLocalJob = (jobId, patch) => {
+    setJob((prev) =>
+      prev && prev.id === jobId
+        ? {
+            ...prev,
+            ...patch,
+          }
+        : prev,
+    );
+  };
 
   // ===============================
   // 🔄 JOB
@@ -208,16 +219,34 @@ export default function JobPhotosPage() {
             setJob((prev) => ({ ...prev, title: newTitle }))
           }
           onReopen={refreshJobData}
-          onStart={refreshJobData}
-          onComplete={(patch) => {
-            if (patch?.duration_minutes != null) {
-              setJob((prev) => ({
-                ...prev,
-                duration_minutes: patch.duration_minutes,
-              }));
-            }
+          onStart={(patch) => {
+            setJob((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    ...(patch || {}),
+                    status: "in_progress",
+                    started_at: patch?.started_at || new Date().toISOString(),
+                  }
+                : prev,
+            );
 
-            // 🔄 respaldo desde backend
+            // 🔄 respaldo backend (opcional pero recomendado)
+            refreshJobData();
+          }}
+          onComplete={(patch) => {
+            setJob((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    ...(patch || {}),
+                    status: "completed",
+                    completed_at: new Date().toISOString(),
+                  }
+                : prev,
+            );
+
+            // 🔄 respaldo desde backend (por si algo cambió)
             refreshJobData();
           }}
         />
@@ -243,6 +272,7 @@ export default function JobPhotosPage() {
             jobId={currentJob}
             type={modalType}
             onClose={closeModal}
+            updateLocalJob={updateLocalJob} // 🔥🔥🔥 ESTA ES LA CLAVE
             updateStatus={async (jobId, newStatus) => {
               const token = await getToken({ template: "supabase" });
 
@@ -264,13 +294,10 @@ export default function JobPhotosPage() {
                     }
                   : { status: newStatus };
 
-              // 🧼 1) cleaning_jobs (fuente de verdad)
               await supabase
                 .from("cleaning_jobs")
                 .update(payload)
                 .eq("id", jobId);
-
-              // 📋 2) jobs (espejo UI)
               await supabase.from("jobs").update(payload).eq("id", jobId);
             }}
             fetchJobs={() => {}}
