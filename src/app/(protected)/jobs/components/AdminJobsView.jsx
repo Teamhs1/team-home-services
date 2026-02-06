@@ -134,6 +134,16 @@ export default function AdminJobsView({
   const [isMobile, setIsMobile] = useState(false);
   const [bulkClientId, setBulkClientId] = useState("");
   const [bulkStaffId, setBulkStaffId] = useState("");
+  const [editingDurationJobId, setEditingDurationJobId] = useState(null);
+  const [editHours, setEditHours] = useState("");
+  const [editMinutes, setEditMinutes] = useState("");
+
+  const startEditDuration = (job) => {
+    const total = job.duration_minutes || 0;
+    setEditHours(Math.floor(total / 60));
+    setEditMinutes(total % 60);
+    setEditingDurationJobId(job.id);
+  };
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -214,7 +224,6 @@ export default function AdminJobsView({
 
   // Seleccion Multiple
   const [selectedJobs, setSelectedJobs] = useState(new Set());
-  const [editingJob, setEditingJob] = useState(null);
 
   // Cambia el estado de selección de un job
   const toggleJobSelection = (jobId) => {
@@ -374,6 +383,51 @@ export default function AdminJobsView({
     if (h > 0 && m > 0) return `${h} h ${m} min`;
     if (h > 0) return `${h} h`;
     return `${m} min`;
+  };
+  const saveInlineDuration = async (jobId) => {
+    const h = Number(editHours);
+    const m = Number(editMinutes);
+
+    if (
+      !Number.isFinite(h) ||
+      !Number.isFinite(m) ||
+      h < 0 ||
+      m < 0 ||
+      m > 59
+    ) {
+      toast.error("Invalid duration");
+      return;
+    }
+
+    const totalMinutes = h * 60 + m;
+
+    try {
+      const res = await fetch("/api/jobs/save-duration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId,
+          minutes: totalMinutes,
+        }),
+      });
+
+      if (!res.ok) throw new Error();
+
+      // 🔥 actualizar UI sin refetch
+      setLocalJobs((prev) =>
+        prev.map((j) =>
+          j.id === jobId ? { ...j, duration_minutes: totalMinutes } : j,
+        ),
+      );
+
+      setEditingDurationJobId(null);
+      setEditHours("");
+      setEditMinutes("");
+
+      toast.success("⏱️ Duration updated");
+    } catch {
+      toast.error("Error saving duration");
+    }
   };
 
   // ASSIGN STAFF (USA API)
@@ -890,30 +944,82 @@ export default function AdminJobsView({
                       </span>
                     </td>
 
-                    <td className="px-4 py-2 whitespace-nowrap">
-                      {/* IN PROGRESS */}
-                      {job.status === "in_progress" && (
-                        <JobTimer jobId={job.id} />
-                      )}
+                    <td
+                      className="px-4 py-2 whitespace-nowrap"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {job.status === "completed" &&
+                        (editingDurationJobId === job.id ? (
+                          <div
+                            className="flex items-center gap-1"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="number"
+                              min={0}
+                              className="w-14 border rounded px-1 py-0.5 text-sm"
+                              value={editHours}
+                              onChange={(e) => setEditHours(e.target.value)}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
 
-                      {/* COMPLETED */}
-                      {job.status === "completed" && (
-                        <div className="flex flex-col leading-tight gap-0.5">
-                          <span className="inline-flex items-center gap-1 font-semibold text-green-700">
-                            ⏱️ {formatDuration(job.duration_minutes)}
-                          </span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={59}
+                              className="w-14 border rounded px-1 py-0.5 text-sm"
+                              value={editMinutes}
+                              onChange={(e) => setEditMinutes(e.target.value)}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
 
-                          <span className="text-gray-400 text-[11px]">
-                            Done on{" "}
-                            {job.completed_at
-                              ? new Date(job.completed_at).toLocaleDateString()
-                              : "—"}
-                          </span>
-                        </div>
-                      )}
+                            <span className="text-xs text-gray-500">m</span>
 
-                      {/* PENDING */}
-                      {job.status === "pending" && "—"}
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                saveInlineDuration(job.id);
+                              }}
+                            >
+                              Save
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingDurationJobId(null);
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <div
+                            className="flex flex-col gap-0.5 cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditDuration(job);
+                            }}
+                          >
+                            <span className="font-semibold text-green-700">
+                              ⏱️ {formatDuration(job.duration_minutes)}
+                            </span>
+                            <span className="text-gray-400 text-[11px]">
+                              Done on{" "}
+                              {job.completed_at
+                                ? new Date(
+                                    job.completed_at,
+                                  ).toLocaleDateString()
+                                : "—"}
+                            </span>
+                          </div>
+                        ))}
                     </td>
 
                     {/* ACTIONS */}
@@ -935,8 +1041,9 @@ export default function AdminJobsView({
                           {job.status === "completed" && (
                             <DropdownMenuItem
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
-                                setEditingJob(job);
+                                startEditDuration(job);
                               }}
                             >
                               ⏱️ Edit duration
@@ -1137,42 +1244,7 @@ export default function AdminJobsView({
           ))}
         </div>
       )}
-      {editingJob && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
-          <div className="bg-white rounded-xl p-6 w-80 space-y-4">
-            <h3 className="font-semibold text-lg">Edit duration</h3>
-            {editingJob && (
-              <AdminEditDuration
-                job={editingJob}
-                onUpdated={(minutes) => {
-                  // 1️⃣ Actualiza la lista (tabla / grid)
-                  setLocalJobs((prev) =>
-                    prev.map((j) =>
-                      j.id === editingJob.id
-                        ? { ...j, duration_minutes: minutes }
-                        : j,
-                    ),
-                  );
 
-                  // 2️⃣ Actualiza el job que está siendo editado (evita valores viejos)
-                  setEditingJob((prev) =>
-                    prev ? { ...prev, duration_minutes: minutes } : prev,
-                  );
-
-                  // 3️⃣ Cierra el modal
-                  setEditingJob(null);
-                }}
-              />
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setEditingJob(null)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* 📄 PAGINATION CONTROLS */}
       {totalJobs > PAGE_SIZE && (
         <div className="flex items-center justify-between pt-6">
