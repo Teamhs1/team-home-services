@@ -894,7 +894,7 @@ export default function AdminJobsView({
                     {/* STAFF */}
                     <td className="px-4 py-2">
                       <select
-                        className="border rounded-md p-1 text-sm"
+                        className="border rounded-md p-1 text-sm w-full min-w-0"
                         value={job.assigned_to || ""}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) =>
@@ -913,7 +913,7 @@ export default function AdminJobsView({
                     {/* CLIENT */}
                     <td className="px-4 py-2">
                       <select
-                        className="border rounded-md p-1 text-sm bg-white"
+                        className="border rounded-md p-1 text-sm w-full min-w-0 bg-white"
                         value={job.client_profile_id || ""}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) =>
