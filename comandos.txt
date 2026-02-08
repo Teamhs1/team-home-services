@@ -110,7 +110,7 @@ FROM (
 ) AS p(address)
 WHERE NOT EXISTS (
   SELECT 1
-  FROM properties pr
+  FROM properties prhttp://localhost:3000/theme-preview
   WHERE pr.company_id = '490d5aa3-2ace-477c-ace6-cd8deedd6eaa'
     AND LOWER(pr.address) = LOWER(p.address)
 );
