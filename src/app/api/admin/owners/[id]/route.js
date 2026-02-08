@@ -31,7 +31,19 @@ export async function GET(req, { params }) {
     }
 
     // 🔍 Query base
-    let query = supabase.from("owners").select("*").eq("id", ownerId);
+    let query = supabase
+      .from("owners")
+      .select(
+        `
+    *,
+    companies (
+      id,
+      name,
+      email
+    )
+  `,
+      )
+      .eq("id", ownerId);
 
     // 🔒 Client solo puede ver owners de su company
     if (profile.role !== "admin") {

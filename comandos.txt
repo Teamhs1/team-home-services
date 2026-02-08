@@ -135,3 +135,10 @@ set
   completed_at = null
 where id = '4c15797d-5cd3-499c-af9b-5f25be5b55e2';
 -----------------------------------------
+-- Reasignar jobs antes de eliminar usuario
+update cleaning_jobs
+set created_by = '4cb0caf2-666c-481f-90fe-b782549bd112'
+where created_by = '6e8fa13d-06b2-48d5-92f2-57ffad54b6d8';
+
+delete from profiles where id = :profileId;
+-----------------------------------------

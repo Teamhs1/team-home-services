@@ -7,6 +7,7 @@ import RentalsFilters from "./RentalsFilters";
 import { MapPin, MapPinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import GoogleMapsProvider from "@/components/GoogleMapsProvider";
 
 export default function RentalsMapView() {
   const [units, setUnits] = useState([]);
@@ -81,18 +82,23 @@ export default function RentalsMapView() {
         {showMap && (
           <div
             className="
-              hidden lg:block
-              fixed right-0 top-24
-              h-[calc(100vh-6rem)]
-              w-[40%]
-              border-l
-              bg-white
-              z-40
-            "
+        hidden lg:block
+        fixed right-0 top-24
+        h-[calc(100vh-6rem)]
+        w-[40%]
+        border-l
+        bg-white
+        z-40
+      "
           >
             <div className="relative h-full w-full">
-              {/* 🔥 SOLO MEJORA: ahora también recibe hoveredUnitId */}
-              <RentalsMap units={filteredUnits} hoveredUnitId={hoveredUnitId} />
+              {/* 🔑 AQUÍ VA EL PROVIDER */}
+              <GoogleMapsProvider>
+                <RentalsMap
+                  units={filteredUnits}
+                  hoveredUnitId={hoveredUnitId}
+                />
+              </GoogleMapsProvider>
             </div>
           </div>
         )}

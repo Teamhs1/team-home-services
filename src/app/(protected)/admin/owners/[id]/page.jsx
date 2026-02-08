@@ -48,12 +48,22 @@ export default function OwnerDetailPage() {
       />
 
       <input
-        value={owner.email || ""}
-        onChange={(e) => setOwner({ ...owner, email: e.target.value })}
-        onBlur={() => save("email", owner.email)}
+        value={owner.email ?? ""}
         placeholder="Email"
+        onChange={(e) => setOwner({ ...owner, email: e.target.value })}
+        onBlur={() => {
+          if (owner.email?.trim()) {
+            save("email", owner.email);
+          }
+        }}
         className="w-full border rounded p-2"
       />
+      {!owner.email && owner.companies?.email && (
+        <div className="text-xs text-gray-500 bg-gray-50 border rounded-md px-3 py-2">
+          Default contact email:{" "}
+          <span className="font-medium">{owner.companies.email}</span>
+        </div>
+      )}
     </div>
   );
 }

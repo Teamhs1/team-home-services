@@ -1,65 +1,120 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Image as ImageIcon } from "lucide-react";
+import { useState, useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import FullscreenGallery from "./FullscreenGallery";
 
 export default function MiniImageSlider({ images = [] }) {
   const [index, setIndex] = useState(0);
+  const [open, setOpen] = useState(false);
+  const startX = useRef(null);
 
-  if (!images.length) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-        <ImageIcon className="h-6 w-6" />
-      </div>
-    );
-  }
+  if (!images.length) return null;
 
-  const prev = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIndex((i) => Math.max(i - 1, 0));
+  const prev = () => setIndex((i) => Math.max(i - 1, 0));
+  const next = () => setIndex((i) => Math.min(i + 1, images.length - 1));
+
+  /* Swipe */
+  const onTouchStart = (e) => {
+    startX.current = e.touches[0].clientX;
   };
 
-  const next = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIndex((i) => Math.min(i + 1, images.length - 1));
+  const onTouchEnd = (e) => {
+    if (!startX.current) return;
+    const delta = startX.current - e.changedTouches[0].clientX;
+
+    if (delta > 50) next();
+    if (delta < -50) prev();
+
+    startX.current = null;
   };
 
   return (
-    <div className="absolute inset-0 overflow-hidden">
-      <img
-        src={images[index]}
-        alt="rental"
-        className="h-full w-full object-cover object-center transition-all duration-300"
-        loading="lazy"
-      />
-
-      {/* Counter */}
-      {images.length > 1 && (
-        <div className="absolute left-2 top-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
-          {index + 1}/{images.length}
+    <>
+      <div
+        className="group relative h-full w-full overflow-hidden rounded-xl"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onClick={(e) => {
+          // 🔒 evita navegación si el card es un <Link>
+          e.preventDefault();
+          setOpen(true);
+        }}
+      >
+        {/* SLIDER */}
+        <div
+          className="flex h-full transition-transform duration-500 ease-out"
+          style={{ transform: `translateX(-${index * 100}%)` }}
+        >
+          {images.map((src, i) => (
+            <img
+              key={i}
+              src={src}
+              alt=""
+              className="h-full w-full shrink-0 object-cover"
+              loading="lazy"
+            />
+          ))}
         </div>
-      )}
 
-      {/* Controls */}
-      {index > 0 && (
-        <button
-          onClick={prev}
-          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-1 shadow"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-      )}
+        {/* Dots */}
+        <div className="pointer-events-none absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+          {images.map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 w-1.5 rounded-full transition ${
+                i === index ? "bg-white" : "bg-white/50"
+              }`}
+            />
+          ))}
+        </div>
 
-      {index < images.length - 1 && (
-        <button
-          onClick={next}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-1 shadow"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
+        {/* Controls */}
+        {index > 0 && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              prev();
+            }}
+            className="
+              absolute left-2 top-1/2 -translate-y-1/2
+              rounded-full bg-white/90 p-1 shadow
+              opacity-0 transition group-hover:opacity-100
+            "
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
+
+        {index < images.length - 1 && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              next();
+            }}
+            className="
+              absolute right-2 top-1/2 -translate-y-1/2
+              rounded-full bg-white/90 p-1 shadow
+              opacity-0 transition group-hover:opacity-100
+            "
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* FULLSCREEN */}
+      {open && (
+        <FullscreenGallery
+          images={images}
+          startIndex={index}
+          onClose={() => setOpen(false)}
+        />
       )}
-    </div>
+    </>
   );
 }

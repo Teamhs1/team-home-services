@@ -50,10 +50,11 @@ export default function RentalDetailPage() {
   });
 
   const fullAddress = unit.property?.address
-    ? `${unit.property.address}${
+    ? `${unit.property.address}${unit.unit ? ` · Unit ${unit.unit}` : ""}${
         unit.property.postal_code ? `, ${unit.property.postal_code}` : ""
       }`
     : null;
+
   const sliderImages = (() => {
     if (!unit?.images) return [];
 

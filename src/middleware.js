@@ -11,18 +11,18 @@ export default clerkMiddleware({
     "/sign-in",
     "/sign-up",
 
-    // APIs públicas
+    // APIs realmente públicas
     "/api/robots",
     "/api/sitemap",
+
+    // 🔥 TODAS las APIs pasan sin middleware
+    "/api/:path*",
   ],
 });
 
 export const config = {
   matcher: [
-    // páginas
+    // páginas (no _next ni assets)
     "/((?!_next|.*\\..*).*)",
-
-    // 🔥 APIs PRIVADAS (ESTO FALTABA)
-    "/api/(.*)",
   ],
 };

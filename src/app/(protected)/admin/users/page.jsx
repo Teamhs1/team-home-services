@@ -31,7 +31,7 @@ async function getSupabase(getToken) {
           Authorization: `Bearer ${token}`,
         },
       },
-    }
+    },
   );
 }
 
@@ -64,22 +64,23 @@ export default function AdminUsersPage() {
         .from("profiles")
         .select(
           `
-        id,
-        clerk_id,
-        full_name,
-        email,
-        avatar_url,
-        role,
-        status,
-        created_at,
-        is_property_manager,
-        company_id,
-        companies:company_id (
-          id,
-          name
+  id,
+  clerk_id,
+  full_name,
+  email,
+  avatar_url,
+  role,
+  status,
+  created_at,
+  is_property_manager,
+  company_id,
+  companies:company_id (
+    id,
+    name
+  )
+`,
         )
-      `
-        )
+        .eq("status", "active") // 👈 CLAVE
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -109,7 +110,7 @@ export default function AdminUsersPage() {
           { event: "*", schema: "public", table: "profiles" },
           () => {
             fetchUsers();
-          }
+          },
         )
         .subscribe();
     }
@@ -209,44 +210,29 @@ export default function AdminUsersPage() {
   };
   // 🗑️ Eliminar usuario (admin only)
   const handleDeleteUser = async (userRow) => {
-    if (!userRow?.clerk_id || !userRow?.id) {
-      toast.error("Invalid user");
-      return;
-    }
-
     const confirmed = window.confirm(
-      `Are you sure you want to permanently delete:\n\n${
-        userRow.full_name || userRow.email
-      }\n\nThis action cannot be undone.`
+      `Deactivate user:\n\n${userRow.full_name || userRow.email}?`,
     );
 
     if (!confirmed) return;
 
     try {
-      toast.loading("Deleting user...");
-
-      const res = await fetch("/api/admin/delete-user", {
+      const res = await fetch("/api/admin/deactivate-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clerkId: userRow.clerk_id,
-          profileId: userRow.id,
-        }),
+        body: JSON.stringify({ profileId: userRow.id }),
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
 
-      if (!res.ok) {
-        throw new Error(data.error || "Delete failed");
-      }
-
-      toast.success("User deleted successfully");
+      toast.success("User deactivated");
       await fetchUsers();
     } catch (err) {
-      console.error("❌ Delete user error:", err);
       toast.error(err.message);
     }
   };
+
   // 🔁 Move staff to another company (admin only)
   const handleMoveStaff = async (staffClerkId) => {
     const targetCompanyId = window.prompt("Enter target company ID (UUID)");
@@ -422,7 +408,7 @@ export default function AdminUsersPage() {
                         src={
                           user.avatar_url ||
                           `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                            user.full_name || user.email || "User"
+                            user.full_name || user.email || "User",
                           )}&background=2563eb&color=fff`
                         }
                         alt={user.full_name || "User"}
@@ -527,6 +513,14 @@ export default function AdminUsersPage() {
                               Move to company
                             </DropdownMenuItem>
                           )}
+
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-700"
+                            onClick={() => handleDeleteUser(user)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete user
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>

@@ -34,9 +34,13 @@ export default function DashboardNavbar() {
   }, []);
 
   /* =========================
-     RESOLVER SECCIÓN
+     RESOLVER SECCIÓN (FIX REAL)
   ========================= */
   const getSection = () => {
+    // 👇 USERS (AISLADO)
+    if (pathname === "/admin/users") return "admin_users";
+    if (pathname.startsWith("/admin/users/")) return "admin_users";
+
     if (pathname === "/admin/companies") return null;
     if (pathname.startsWith("/admin/companies/")) return "admin_company";
     if (pathname.startsWith("/admin/profiles/")) return "admin_profile";
@@ -44,7 +48,7 @@ export default function DashboardNavbar() {
     if (pathname.startsWith("/admin/keys")) return "admin_keys";
     if (pathname.startsWith("/admin")) return "admin";
 
-    // 👇 CLIENT COMPANY (IMPORTANTE)
+    // 👇 CLIENT COMPANY
     if (pathname.startsWith("/dashboard/company")) return "dashboard_company";
 
     if (pathname.startsWith("/settings")) return "settings";
@@ -61,10 +65,11 @@ export default function DashboardNavbar() {
     : null;
 
   /* =========================
-     SUB NAV CONFIG
+     SUB NAV CONFIG (LIMPIO)
   ========================= */
   const subNav = {
     dashboard: [],
+
     dashboard_company: [
       { label: "Overview", href: "/dashboard/company" },
       { label: "Members", href: "/dashboard/company/members" },
@@ -91,8 +96,14 @@ export default function DashboardNavbar() {
       { label: "Notifications", href: "/settings/notifications" },
     ],
 
-    admin: [
+    /* ✅ USERS (SOLO ESTOS DOS) */
+    admin_users: [
       { label: "Users", href: "/admin/users" },
+      { label: "Archived Users", href: "/admin/users/archived" },
+    ],
+
+    /* ✅ ADMIN GENERAL */
+    admin: [
       { label: "Theme Preview", href: "/admin/theme-preview" },
       { label: "Staff Applications", href: "/admin/staff-applications" },
       { label: "Properties", href: "/admin/properties" },
@@ -151,8 +162,7 @@ export default function DashboardNavbar() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
       className={`
-fixed top-[4.5rem] right-0 z-[30]
-
+        fixed top-[4.5rem] right-0 z-[30]
         flex items-center gap-5
         backdrop-blur-sm
         px-4 md:px-10 py-2.5
@@ -197,7 +207,7 @@ fixed top-[4.5rem] right-0 z-[30]
             {isActive && (
               <motion.div
                 layoutId="activeTab"
-                className={`absolute -bottom-1 left-0 right-0 h-[2px] rounded-full opacity-90 ${
+                className={`absolute -bottom-1 left-0 right-0 h-[2px] rounded-full ${
                   sidebarTheme === "dark" ? "bg-blue-400" : "bg-blue-600"
                 }`}
               />

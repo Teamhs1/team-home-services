@@ -19,7 +19,7 @@ export default function PropertiesListPage() {
   const [properties, setProperties] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const [search, setSearch] = useState("");
   // 🔒 NO TOCAR (existente)
   const [selectedCompany, setSelectedCompany] = useState("all");
   const [viewMode, setViewMode] = useState("list");
@@ -154,7 +154,15 @@ export default function PropertiesListPage() {
         ? true
         : String(p.owners?.id) === String(selectedOwner);
 
-    return companyMatch && ownerMatch && p.is_active !== false;
+    // 🔎 SEARCH FILTER (name + address)
+    const query = search.trim().toLowerCase();
+
+    const searchMatch =
+      !query ||
+      p.name?.toLowerCase().includes(query) ||
+      p.address?.toLowerCase().includes(query);
+
+    return companyMatch && ownerMatch && searchMatch && p.is_active !== false;
   });
 
   /* =====================
@@ -362,6 +370,29 @@ export default function PropertiesListPage() {
 
       {/* FILTERS */}
       <div className="flex flex-col sm:flex-row gap-4 max-w-xl">
+        <div className="max-w-xl">
+          <label className="block text-sm font-medium mb-1">
+            Search property
+          </label>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or address…"
+            className="
+      w-full
+      border
+      rounded-lg
+      px-3
+      py-2
+      bg-white
+      focus:outline-none
+      focus:ring-2
+      focus:ring-primary
+    "
+          />
+        </div>
+
         {/* Company */}
         <div className="flex-1">
           <label className="block text-sm font-medium mb-1">

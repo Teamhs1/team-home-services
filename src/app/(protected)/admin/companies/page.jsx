@@ -17,7 +17,7 @@ export default function CompaniesListPage() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("list");
   const router = useRouter();
-
+  const [search, setSearch] = useState("");
   /* =====================
      LOAD COMPANIES
   ===================== */
@@ -49,13 +49,16 @@ export default function CompaniesListPage() {
       setViewMode("grid");
     }
   }, []);
+  const filteredCompanies = companies.filter((c) =>
+    c.name?.toLowerCase().includes(search.toLowerCase()),
+  );
 
   /* =====================
      DELETE COMPANY
   ===================== */
   async function handleDeleteCompany(id, name) {
     const confirmed = confirm(
-      `Are you sure you want to delete "${name}"?\nThis action cannot be undone.`
+      `Are you sure you want to delete "${name}"?\nThis action cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -111,14 +114,35 @@ export default function CompaniesListPage() {
           </Link>
         </div>
       </div>
+      {/* SEARCH BAR */}
+      <div className="max-w-sm">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search company by name..."
+          className="
+      w-full rounded-lg border px-3 py-2
+      text-sm
+      focus:outline-none focus:ring-2 focus:ring-primary
+    "
+        />
+      </div>
 
-      {/* EMPTY */}
+      {/* EMPTY – NO DATA */}
       {companies.length === 0 && (
         <p className="text-gray-500 mt-20 text-center">No companies found.</p>
       )}
 
+      {/* EMPTY – SEARCH NO MATCH */}
+      {companies.length > 0 && filteredCompanies.length === 0 && search && (
+        <p className="text-gray-500 mt-10 text-center">
+          No companies match your search.
+        </p>
+      )}
+
       {/* LIST VIEW */}
-      {viewMode === "list" && companies.length > 0 ? (
+      {viewMode === "list" && filteredCompanies.length > 0 ? (
         <div className="hidden sm:block bg-white border rounded-xl shadow-sm overflow-hidden">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
@@ -133,7 +157,7 @@ export default function CompaniesListPage() {
             </thead>
 
             <tbody>
-              {companies.map((c) => {
+              {filteredCompanies.map((c) => {
                 const companyId = c.id;
                 const propertiesCount = c.properties_count ?? 0;
                 const usersCount = c.users_count ?? 0;
@@ -213,7 +237,7 @@ export default function CompaniesListPage() {
       ) : (
         /* GRID VIEW */
         <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {companies.map((c) => {
+          {filteredCompanies.map((c) => {
             const companyId = c.id;
 
             return (

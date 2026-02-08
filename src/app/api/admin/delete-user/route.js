@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 export async function POST(req) {
@@ -14,7 +14,7 @@ export async function POST(req) {
     if (!clerkId || !profileId) {
       return NextResponse.json(
         { error: "Missing user identifiers" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -37,7 +37,7 @@ export async function POST(req) {
     console.error("DELETE USER ERROR:", err);
     return NextResponse.json(
       { error: "Server error deleting user" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
