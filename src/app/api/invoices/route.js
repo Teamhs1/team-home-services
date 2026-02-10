@@ -99,24 +99,29 @@ export async function GET() {
       .from("invoices")
       .select(
         `
-    id,
-    type,
-    amount_cents,
-    status,
-    due_date,
-    created_at,
-    notes,
-    properties (
       id,
-      address
-    ),
-    units (
-      id,
-      unit
-    )
-  `,
+      type,
+      amount_cents,
+      status,
+      due_date,
+      created_at,
+      notes,
+      properties (
+        id,
+        address
+      ),
+      units (
+        id,
+        unit
+      ),
+      creator:profiles (
+        id,
+        full_name,
+        email
       )
-      .is("deleted_at", null) // ✅ CLAVE
+    `,
+      )
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     // 3️⃣ SOLO filtrar por company si NO es admin

@@ -39,7 +39,7 @@ export default function InvoicesPage() {
         const [invoicesRes, profileRes] = await Promise.all([
           fetch("/api/invoices", {
             cache: "no-store",
-            credentials: "include", // ✅ PRODUCCIÓN
+            credentials: "include",
           }),
           fetch("/api/my/profile", {
             headers: { Authorization: `Bearer ${token}` },
@@ -211,6 +211,7 @@ function InvoicesTable({
             <th className="px-4 py-3 text-left">Amount</th>
             <th className="px-4 py-3 text-left">Status</th>
             <th className="px-4 py-3 text-left">Created</th>
+            <th className="px-4 py-3 text-left">Created by</th>
             <th className="px-4 py-3 text-left">Notes</th>
             {role === "admin" && (
               <th className="px-4 py-3 text-left">Actions</th>
@@ -242,19 +243,29 @@ function InvoicesTable({
               >
                 {inv.type}
               </td>
+
               <td className="px-4 py-3">{inv.properties?.address || "—"}</td>
+
               <td className="px-4 py-3">
                 ${(inv.amount_cents / 100).toFixed(2)} CAD
               </td>
+
               <td className="px-4 py-3">
                 <StatusBadge status={inv.status} />
               </td>
+
               <td className="px-4 py-3">
                 {new Date(inv.created_at).toLocaleDateString()}
               </td>
+
+              <td className="px-4 py-3">
+                {inv.creator?.full_name || inv.creator?.email || "—"}
+              </td>
+
               <td className="px-4 py-3 text-muted-foreground truncate max-w-[200px]">
                 {inv.notes || "—"}
               </td>
+
               {role === "admin" && (
                 <td className="px-4 py-3">
                   <button

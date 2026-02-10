@@ -32,17 +32,24 @@ export async function GET(req, { params }) {
     .from("invoices")
     .select(
       `
-      id,
-      type,
-      amount_cents,
-      status,
-      notes,
-      deleted_at,
-      created_at,
-      properties ( address ),
-      units ( unit )
-    `,
+  id,
+  type,
+  amount_cents,
+  status,
+  notes,
+  deleted_at,
+  created_at,
+  created_by,
+  properties ( address ),
+  units ( unit ),
+  creator:profiles!invoices_created_by_fkey (
+    id,
+    full_name,
+    email
+  )
+`,
     )
+
     .eq("id", id);
 
   // 🔐 Solo los NO admin filtran deleted_at

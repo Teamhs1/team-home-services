@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
 
 export default function InvoiceDetailPage() {
   const { id } = useParams();
@@ -11,6 +12,8 @@ export default function InvoiceDetailPage() {
 
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { user } = useUser();
+  const role = user?.publicMetadata?.role;
 
   // =========================
   // LOAD INVOICE (FUENTE ÚNICA)
@@ -158,6 +161,10 @@ export default function InvoiceDetailPage() {
         <Detail label="Property" value={invoice.properties?.address || "—"} />
         <Detail label="Unit" value={invoice.units?.unit || "—"} />
         <Detail
+          label="Created by"
+          value={invoice.creator?.full_name || invoice.creator?.email || "—"}
+        />
+        <Detail
           label="Amount"
           value={`$${(invoice.amount_cents / 100).toFixed(2)} CAD`}
         />
@@ -166,9 +173,10 @@ export default function InvoiceDetailPage() {
 
       {/* Actions */}
       <div className="flex gap-3 flex-wrap">
-        {/* Send invoice */}
-        {/* Pay with Stripe */}
-        {invoice.status === "sent" && (
+        {/* ======================
+      CLIENT ACTIONS
+  ====================== */}
+        {role === "client" && invoice.status === "sent" && (
           <button
             onClick={startStripeCheckout}
             className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700"
@@ -177,36 +185,62 @@ export default function InvoiceDetailPage() {
           </button>
         )}
 
-        <button
-          onClick={async () => {
-            try {
-              const res = await fetch(`/api/invoices/${invoice.id}/send`, {
-                method: "POST",
-                credentials: "include",
-              });
+        {/* ======================
+      ADMIN / STAFF ACTIONS
+  ====================== */}
+        {role !== "client" && (
+          <>
+            {/* Send invoice */}
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/invoices/${invoice.id}/send`, {
+                    method: "POST",
+                    credentials: "include",
+                  });
 
-              const json = await res.json();
-              if (!res.ok) throw new Error(json.error);
+                  const json = await res.json();
+                  if (!res.ok) throw new Error(json.error);
 
-              await loadInvoice();
-            } catch (err) {
-              alert(err.message || "Failed to send invoice");
-            }
-          }}
-          disabled={invoice.status !== "draft"}
-          className="px-4 py-2 rounded bg-primary text-primary-foreground disabled:opacity-50"
-        >
-          Send invoice
-        </button>
+                  await loadInvoice();
 
-        {/* Mark as paid */}
-        {invoice.status !== "paid" && (
-          <button onClick={markAsPaid} className="px-4 py-2 rounded border">
-            Mark as paid
-          </button>
+                  // ✅ POPUP AQUÍ
+                  toast.success("Invoice sent successfully", {
+                    description: "The client has been notified by email.",
+                  });
+                } catch (err) {
+                  toast.error("Failed to send invoice", {
+                    description: err.message,
+                  });
+                }
+              }}
+              disabled={invoice.status !== "draft"}
+              className="px-4 py-2 rounded bg-primary text-primary-foreground disabled:opacity-50"
+            >
+              Send invoice
+            </button>
+
+            {/* Mark as paid */}
+            {invoice.status !== "paid" && (
+              <button onClick={markAsPaid} className="px-4 py-2 rounded border">
+                Mark as paid
+              </button>
+            )}
+
+            {/* Delete */}
+            <button
+              onClick={deleteInvoice}
+              disabled={invoice.status === "paid"}
+              className="px-4 py-2 rounded border border-red-500 text-red-600 hover:bg-red-50 disabled:opacity-40"
+            >
+              Delete invoice
+            </button>
+          </>
         )}
 
-        {/* Print / PDF */}
+        {/* ======================
+      SHARED
+  ====================== */}
         <button
           onClick={() =>
             window.open(`/dashboard/invoices/${invoice.id}/print`, "_blank")
@@ -214,15 +248,6 @@ export default function InvoiceDetailPage() {
           className="px-4 py-2 rounded border"
         >
           Print / PDF
-        </button>
-
-        {/* Delete */}
-        <button
-          onClick={deleteInvoice}
-          disabled={invoice.status === "paid"}
-          className="px-4 py-2 rounded border border-red-500 text-red-600 hover:bg-red-50 disabled:opacity-40"
-        >
-          Delete invoice
         </button>
       </div>
     </section>

@@ -26,12 +26,15 @@ export default function NewInvoicePage() {
   useEffect(() => {
     async function loadProperties() {
       try {
-        const res = await fetch("/api/dashboard/properties", {
+        const res = await fetch("/api/properties", {
           cache: "no-store",
+          credentials: "include",
         });
-        if (!res.ok) throw new Error();
+
+        if (!res.ok) throw new Error("Failed to fetch properties");
+
         const json = await res.json();
-        setProperties(json.data || json.properties || []);
+        setProperties(json.properties || []);
       } catch (err) {
         console.error("Failed to load properties", err);
       }
@@ -53,6 +56,7 @@ export default function NewInvoicePage() {
       try {
         const res = await fetch(`/api/units?property_id=${form.property_id}`, {
           cache: "no-store",
+          credentials: "include",
         });
         const json = await res.json();
         setUnits(json.units || []);

@@ -14,18 +14,11 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile } = await supabase
       .from("profiles")
       .select("active_company_id")
       .eq("clerk_id", userId)
       .single();
-
-    if (profileError || !profile?.active_company_id) {
-      return NextResponse.json(
-        { error: "Profile or company not found" },
-        { status: 403 },
-      );
-    }
 
     const { data: properties, error } = await supabase
       .from("properties")

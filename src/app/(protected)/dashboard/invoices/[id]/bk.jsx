@@ -19,21 +19,48 @@ export default function InvoiceDetailPage() {
     try {
       const res = await fetch(`/api/invoices/${id}`, {
         cache: "no-store",
+        credentials: "include", // ✅ NECESARIO EN PRODUCCIÓN
       });
 
       const json = await res.json();
+
+      if (!res.ok) {
+        toast.error(json.error || "Invoice not available");
+        router.replace("/dashboard/invoices");
+        return;
+      }
+
       setInvoice(json.invoice);
     } catch (err) {
       console.error("Failed to load invoice", err);
+      toast.error("Failed to load invoice");
+      router.replace("/dashboard/invoices");
     } finally {
       setLoading(false);
     }
   }
 
-  // cargar al montar
   useEffect(() => {
     loadInvoice();
   }, [id]);
+  // =========================
+  // STRIPE CHECKOUT (STEP 1)
+  // =========================
+  async function startStripeCheckout() {
+    try {
+      const res = await fetch(`/api/stripe/invoices/${invoice.id}/checkout`, {
+        method: "POST",
+        credentials: "include", // ✅ CLAVE
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      window.location.href = json.url;
+    } catch (err) {
+      toast.error(err.message || "Failed to start payment");
+    }
+  }
 
   // =========================
   // MARK AS PAID
@@ -44,14 +71,43 @@ export default function InvoiceDetailPage() {
     try {
       const res = await fetch(`/api/invoices/${invoice.id}/mark-paid`, {
         method: "POST",
+        credentials: "include",
       });
 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
 
-      await loadInvoice(); // 🔥 refresco real
+      await loadInvoice();
     } catch (err) {
       alert(err.message || "Failed to mark as paid");
+    }
+  }
+
+  // =========================
+  // DELETE INVOICE (SOFT)
+  // =========================
+  async function deleteInvoice() {
+    if (
+      !confirm(
+        "Are you sure you want to delete this invoice?\nThis action cannot be undone.",
+      )
+    )
+      return;
+
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      toast.success("Invoice deleted");
+
+      router.push("/dashboard/invoices");
+    } catch (err) {
+      toast.error(err.message || "Failed to delete invoice");
     }
   }
 
@@ -70,9 +126,10 @@ export default function InvoiceDetailPage() {
   if (!invoice) {
     return <div className="p-6">Invoice not found.</div>;
   }
+  const isArchived = Boolean(invoice?.deleted_at);
 
   return (
-    <section className="p-6 space-y-6 max-w-3xl">
+    <section className="p-6 pt-14 space-y-6 max-w-3xl">
       {/* Back */}
       <button
         onClick={() => router.back()}
@@ -110,17 +167,28 @@ export default function InvoiceDetailPage() {
       {/* Actions */}
       <div className="flex gap-3 flex-wrap">
         {/* Send invoice */}
+        {/* Pay with Stripe */}
+        {invoice.status === "sent" && (
+          <button
+            onClick={startStripeCheckout}
+            className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700"
+          >
+            Pay with Stripe
+          </button>
+        )}
+
         <button
           onClick={async () => {
             try {
               const res = await fetch(`/api/invoices/${invoice.id}/send`, {
                 method: "POST",
+                credentials: "include",
               });
 
               const json = await res.json();
               if (!res.ok) throw new Error(json.error);
 
-              await loadInvoice(); // 🔥 AQUÍ está la solución real
+              await loadInvoice();
             } catch (err) {
               alert(err.message || "Failed to send invoice");
             }
@@ -146,6 +214,15 @@ export default function InvoiceDetailPage() {
           className="px-4 py-2 rounded border"
         >
           Print / PDF
+        </button>
+
+        {/* Delete */}
+        <button
+          onClick={deleteInvoice}
+          disabled={invoice.status === "paid"}
+          className="px-4 py-2 rounded border border-red-500 text-red-600 hover:bg-red-50 disabled:opacity-40"
+        >
+          Delete invoice
         </button>
       </div>
     </section>
