@@ -10,16 +10,17 @@ const supabase = createClient(
 export async function POST(req, { params }) {
   try {
     const { userId } = await auth();
+
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = params;
 
-    // buscar perfil
+    // 🔍 validar perfil
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id")
+      .select("role")
       .eq("clerk_id", userId)
       .single();
 
@@ -27,7 +28,26 @@ export async function POST(req, { params }) {
       return NextResponse.json({ error: "Profile not found" }, { status: 403 });
     }
 
-    // marcar como pagado
+    // 🔍 obtener invoice válida (no borrada)
+    const { data: existing, error: fetchError } = await supabase
+      .from("invoices")
+      .select("id, status, deleted_at")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .single();
+
+    if (fetchError || !existing) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+
+    if (existing.status === "paid") {
+      return NextResponse.json(
+        { error: "Invoice already paid" },
+        { status: 400 },
+      );
+    }
+
+    // ✅ marcar como pagada
     const { data: invoice, error } = await supabase
       .from("invoices")
       .update({
@@ -45,8 +65,9 @@ export async function POST(req, { params }) {
     return NextResponse.json({ invoice });
   } catch (err) {
     console.error("Mark paid error:", err);
+
     return NextResponse.json(
-      { error: err.message || "Internal error" },
+      { error: "Failed to mark invoice as paid" },
       { status: 500 },
     );
   }

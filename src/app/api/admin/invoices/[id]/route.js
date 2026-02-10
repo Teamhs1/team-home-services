@@ -9,7 +9,6 @@ const supabase = createClient(
 
 export async function GET(req, { params }) {
   const { userId } = await auth();
-
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -42,7 +41,6 @@ export async function GET(req, { params }) {
     `,
     )
     .eq("id", id)
-    .is("deleted_at", null) // ✅ AQUÍ
     .single();
 
   if (error || !invoice) {

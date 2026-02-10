@@ -9,23 +9,24 @@ const supabase = createClient(
 
 export async function GET(req, { params }) {
   const { userId } = await auth();
-
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = params;
 
-  const { data: profile } = await supabase
+  // 🔐 validar admin
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
     .eq("clerk_id", userId)
     .single();
 
-  if (profile?.role !== "admin") {
+  if (profileError || profile?.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // 📦 traer invoice archivada
   const { data: invoice, error } = await supabase
     .from("invoices")
     .select(
@@ -42,11 +43,14 @@ export async function GET(req, { params }) {
     `,
     )
     .eq("id", id)
-    .is("deleted_at", null) // ✅ AQUÍ
+    .not("deleted_at", "is", null)
     .single();
 
   if (error || !invoice) {
-    return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Archived invoice not found" },
+      { status: 404 },
+    );
   }
 
   return NextResponse.json({ invoice });

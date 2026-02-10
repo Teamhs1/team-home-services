@@ -33,6 +33,24 @@ export default function InvoiceDetailPage() {
   useEffect(() => {
     loadInvoice();
   }, [id]);
+  // =========================
+  // STRIPE CHECKOUT (STEP 1)
+  // =========================
+  async function startStripeCheckout() {
+    try {
+      const res = await fetch(`/api/stripe/invoices/${invoice.id}/checkout`, {
+        method: "POST",
+        credentials: "include", // ✅ CLAVE
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      window.location.href = json.url;
+    } catch (err) {
+      toast.error(err.message || "Failed to start payment");
+    }
+  }
 
   // =========================
   // MARK AS PAID
@@ -136,6 +154,16 @@ export default function InvoiceDetailPage() {
       {/* Actions */}
       <div className="flex gap-3 flex-wrap">
         {/* Send invoice */}
+        {/* Pay with Stripe */}
+        {invoice.status === "sent" && (
+          <button
+            onClick={startStripeCheckout}
+            className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700"
+          >
+            Pay with Stripe
+          </button>
+        )}
+
         <button
           onClick={async () => {
             try {

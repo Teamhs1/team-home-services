@@ -10,7 +10,7 @@ export default function ArchivedInvoicesPage() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ selección múltiple
+  // selección múltiple
   const [selected, setSelected] = useState([]);
   const isSelected = (id) => selected.includes(id);
 
@@ -69,7 +69,7 @@ export default function ArchivedInvoicesPage() {
 
   async function deleteForever(id) {
     const confirmed = window.confirm(
-      "⚠️ This will permanently delete this invoice.\nThis action cannot be undone.\n\nContinue?",
+      "⚠️ This will permanently delete this invoice.\nThis action cannot be undone.",
     );
     if (!confirmed) return;
 
@@ -89,12 +89,11 @@ export default function ArchivedInvoicesPage() {
     }
   }
 
-  // ✅ delete masivo
   async function deleteSelectedForever() {
     if (selected.length === 0) return;
 
     const confirmed = window.confirm(
-      `⚠️ Permanently delete ${selected.length} invoice(s)?\nThis cannot be undone.`,
+      `⚠️ Permanently delete ${selected.length} invoice(s)?`,
     );
     if (!confirmed) return;
 
@@ -110,7 +109,7 @@ export default function ArchivedInvoicesPage() {
       toast.success("Invoices permanently deleted");
       setInvoices((prev) => prev.filter((i) => !selected.includes(i.id)));
       setSelected([]);
-    } catch (err) {
+    } catch {
       toast.error("Failed to delete selected invoices");
     }
   }
@@ -144,88 +143,97 @@ export default function ArchivedInvoicesPage() {
         )}
       </div>
 
-      {invoices.length === 0 ? (
-        <div className="text-sm text-muted-foreground">
-          No archived invoices.
-        </div>
-      ) : (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted">
-              <tr>
-                <th className="px-4 py-2 w-10">
-                  <button onClick={toggleAll}>
-                    {selected.length === invoices.length &&
-                    invoices.length > 0 ? (
-                      <CheckSquare className="h-4 w-4" />
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-muted">
+            <tr>
+              <th className="px-4 py-2 w-10">
+                <button onClick={toggleAll}>
+                  {selected.length === invoices.length &&
+                  invoices.length > 0 ? (
+                    <CheckSquare className="h-4 w-4" />
+                  ) : (
+                    <Square className="h-4 w-4" />
+                  )}
+                </button>
+              </th>
+              <th className="px-4 py-2 text-left">Type</th>
+              <th className="px-4 py-2 text-left">Property</th>
+              <th className="px-4 py-2 text-left">Amount</th>
+              <th className="px-4 py-2 text-left">Deleted at</th>
+              <th className="px-4 py-2 text-right">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {invoices.map((inv) => (
+              <tr
+                key={inv.id}
+                onClick={() =>
+                  router.push(`/dashboard/invoices/archived/${inv.id}`)
+                }
+                className="border-t hover:bg-muted/50 cursor-pointer"
+              >
+                <td className="px-4 py-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleOne(inv.id);
+                    }}
+                  >
+                    {isSelected(inv.id) ? (
+                      <CheckSquare className="h-4 w-4 text-primary" />
                     ) : (
-                      <Square className="h-4 w-4" />
+                      <Square className="h-4 w-4 text-muted-foreground" />
                     )}
                   </button>
-                </th>
-                <th className="px-4 py-2 text-left">Type</th>
-                <th className="px-4 py-2 text-left">Property</th>
-                <th className="px-4 py-2 text-left">Amount</th>
-                <th className="px-4 py-2 text-left">Deleted at</th>
-                <th className="px-4 py-2 text-right">Actions</th>
+                </td>
+
+                <td className="px-4 py-2 capitalize">{inv.type}</td>
+                <td className="px-4 py-2">{inv.properties?.address || "—"}</td>
+                <td className="px-4 py-2">
+                  ${(inv.amount_cents / 100).toFixed(2)} CAD
+                </td>
+                <td className="px-4 py-2">
+                  {new Date(inv.deleted_at).toLocaleString()}
+                </td>
+
+                <td className="px-4 py-2 text-right flex justify-end gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/dashboard/invoices/archived/${inv.id}`);
+                    }}
+                    className="p-2 rounded border hover:bg-muted"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      restoreInvoice(inv.id);
+                    }}
+                    className="p-2 rounded border hover:bg-muted"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteForever(inv.id);
+                    }}
+                    className="p-2 rounded border border-red-500 text-red-600 hover:bg-red-50"
+                  >
+                    🗑️
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {invoices.map((inv) => (
-                <tr key={inv.id} className="border-t hover:bg-muted/50">
-                  <td className="px-4 py-2">
-                    <button onClick={() => toggleOne(inv.id)}>
-                      {isSelected(inv.id) ? (
-                        <CheckSquare className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Square className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </button>
-                  </td>
-
-                  <td className="px-4 py-2 capitalize">{inv.type}</td>
-                  <td className="px-4 py-2">
-                    {inv.properties?.address || "—"}
-                  </td>
-                  <td className="px-4 py-2">
-                    ${(inv.amount_cents / 100).toFixed(2)} CAD
-                  </td>
-                  <td className="px-4 py-2">
-                    {new Date(inv.deleted_at).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2 text-right flex justify-end gap-2">
-                    <button
-                      onClick={() =>
-                        router.push(`/dashboard/invoices/${inv.id}`)
-                      }
-                      className="p-2 rounded border hover:bg-muted"
-                      title="View"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-
-                    <button
-                      onClick={() => restoreInvoice(inv.id)}
-                      className="p-2 rounded border hover:bg-muted"
-                      title="Restore"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </button>
-
-                    <button
-                      onClick={() => deleteForever(inv.id)}
-                      className="p-2 rounded border border-red-500 text-red-600 hover:bg-red-50"
-                      title="Delete forever"
-                    >
-                      🗑️
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
