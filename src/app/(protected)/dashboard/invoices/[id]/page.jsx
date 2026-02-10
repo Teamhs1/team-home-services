@@ -71,6 +71,7 @@ export default function InvoiceDetailPage() {
     try {
       const res = await fetch(`/api/invoices/${invoice.id}/mark-paid`, {
         method: "POST",
+        credentials: "include",
       });
 
       const json = await res.json();
@@ -96,6 +97,7 @@ export default function InvoiceDetailPage() {
     try {
       const res = await fetch(`/api/invoices/${invoice.id}`, {
         method: "DELETE",
+        credentials: "include",
       });
 
       const json = await res.json();
@@ -127,7 +129,7 @@ export default function InvoiceDetailPage() {
   const isArchived = Boolean(invoice?.deleted_at);
 
   return (
-    <section className="p-6 space-y-6 max-w-3xl">
+    <section className="p-6 pt-14 space-y-6 max-w-3xl">
       {/* Back */}
       <button
         onClick={() => router.back()}
@@ -180,6 +182,7 @@ export default function InvoiceDetailPage() {
             try {
               const res = await fetch(`/api/invoices/${invoice.id}/send`, {
                 method: "POST",
+                credentials: "include",
               });
 
               const json = await res.json();
