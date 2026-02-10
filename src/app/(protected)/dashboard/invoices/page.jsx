@@ -3,16 +3,18 @@ import { useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
-import { CheckSquare, Square } from "lucide-react";
+import { Loader2, CheckSquare, Square } from "lucide-react";
+import { toast } from "sonner";
 
 export default function InvoicesPage() {
   const router = useRouter();
+  const { getToken } = useAuth();
+
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState(null);
-  const { getToken } = useAuth();
   const [selected, setSelected] = useState([]);
+
   const isSelected = (id) => selected.includes(id);
 
   const toggleOne = (id) => {
@@ -35,7 +37,10 @@ export default function InvoicesPage() {
         const token = await getToken({ template: "supabase" });
 
         const [invoicesRes, profileRes] = await Promise.all([
-          fetch("/api/invoices", { cache: "no-store" }),
+          fetch("/api/invoices", {
+            cache: "no-store",
+            credentials: "include", // ✅ PRODUCCIÓN
+          }),
           fetch("/api/my/profile", {
             headers: { Authorization: `Bearer ${token}` },
           }),
@@ -44,10 +49,15 @@ export default function InvoicesPage() {
         const invoicesJson = await invoicesRes.json();
         const profileJson = await profileRes.json();
 
+        if (!invoicesRes.ok) {
+          throw new Error(invoicesJson.error || "Failed to load invoices");
+        }
+
         setInvoices(invoicesJson.invoices || []);
-        setRole(profileJson.role || null); // 👈 Guardamos el rol
+        setRole(profileJson.role || null);
       } catch (err) {
-        console.error("Error loading data", err);
+        console.error(err);
+        toast.error("Failed to load invoices");
       } finally {
         setLoading(false);
       }
@@ -55,6 +65,7 @@ export default function InvoicesPage() {
 
     loadInvoices();
   }, []);
+
   async function archiveSelected() {
     if (selected.length === 0) return;
 
@@ -64,14 +75,18 @@ export default function InvoicesPage() {
     try {
       await Promise.all(
         selected.map((id) =>
-          fetch(`/api/invoices/${id}`, { method: "DELETE" }),
+          fetch(`/api/invoices/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          }),
         ),
       );
 
       setInvoices((prev) => prev.filter((i) => !selected.includes(i.id)));
       setSelected([]);
-    } catch (err) {
-      alert("Error archiving invoices");
+      toast.success("Invoices archived");
+    } catch {
+      toast.error("Error archiving invoices");
     }
   }
 
@@ -80,12 +95,12 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Invoices</h1>
+
         {role === "admin" && selected.length > 0 && (
-          <div className="flex items-center justify-between bg-muted px-4 py-2 border rounded-lg">
+          <div className="flex items-center gap-4 bg-muted px-4 py-2 border rounded-lg">
             <span className="text-sm text-muted-foreground">
               {selected.length} selected
             </span>
-
             <button
               onClick={archiveSelected}
               className="text-sm text-red-600 hover:underline"
@@ -95,16 +110,14 @@ export default function InvoicesPage() {
           </div>
         )}
 
-        {/* Botón futuro */}
         <Link
           href="/dashboard/invoices/new"
-          className="px-4 py-2 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition"
+          className="px-4 py-2 rounded bg-primary text-primary-foreground hover:bg-primary/90"
         >
           New invoice
         </Link>
       </div>
 
-      {/* Content */}
       {loading ? (
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -162,14 +175,17 @@ function InvoicesTable({
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`/api/invoices/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to archive");
+      const res = await fetch(`/api/invoices/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error();
 
       setInvoices((prev) => prev.filter((inv) => inv.id !== id));
-      alert("Invoice archived");
-    } catch (err) {
-      console.error(err);
-      alert("Error archiving invoice");
+      toast.success("Invoice archived");
+    } catch {
+      toast.error("Error archiving invoice");
     }
   }
 
@@ -190,14 +206,12 @@ function InvoicesTable({
                 </button>
               </th>
             )}
-
             <th className="px-4 py-3 text-left">Type</th>
             <th className="px-4 py-3 text-left">Property</th>
             <th className="px-4 py-3 text-left">Amount</th>
             <th className="px-4 py-3 text-left">Status</th>
             <th className="px-4 py-3 text-left">Created</th>
             <th className="px-4 py-3 text-left">Notes</th>
-
             {role === "admin" && (
               <th className="px-4 py-3 text-left">Actions</th>
             )}
@@ -238,10 +252,7 @@ function InvoicesTable({
               <td className="px-4 py-3">
                 {new Date(inv.created_at).toLocaleDateString()}
               </td>
-              <td
-                className="px-4 py-3 text-muted-foreground max-w-[200px] truncate"
-                title={inv.notes || ""}
-              >
+              <td className="px-4 py-3 text-muted-foreground truncate max-w-[200px]">
                 {inv.notes || "—"}
               </td>
               {role === "admin" && (
@@ -274,11 +285,7 @@ function StatusBadge({ status }) {
   };
 
   return (
-    <span
-      className={`px-2 py-1 rounded text-xs font-medium ${
-        map[status] || "bg-muted"
-      }`}
-    >
+    <span className={`px-2 py-1 rounded text-xs font-medium ${map[status]}`}>
       {status}
     </span>
   );
