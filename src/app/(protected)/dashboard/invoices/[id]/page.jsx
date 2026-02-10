@@ -19,12 +19,12 @@ export default function InvoiceDetailPage() {
     try {
       const res = await fetch(`/api/invoices/${id}`, {
         cache: "no-store",
+        credentials: "include", // ✅ NECESARIO EN PRODUCCIÓN
       });
 
       const json = await res.json();
 
       if (!res.ok) {
-        // 👇 CASO invoice eliminada / no accesible
         toast.error(json.error || "Invoice not available");
         router.replace("/dashboard/invoices");
         return;
