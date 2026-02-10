@@ -9,22 +9,30 @@ const supabase = createClient(
 
 export async function GET(req, { params }) {
   const { userId } = await auth();
+
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = params;
 
-  const { data: profile } = await supabase
+  // 🔹 Obtener perfil
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
     .eq("clerk_id", userId)
     .single();
 
-  if (profile?.role !== "admin") {
+  if (profileError || !profile) {
+    return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+  }
+
+  // 🔐 Endpoint EXCLUSIVO admin
+  if (profile.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // 🔹 Admin puede ver incluso invoices eliminadas
   const { data: invoice, error } = await supabase
     .from("invoices")
     .select(

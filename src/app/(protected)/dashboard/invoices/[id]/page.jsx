@@ -22,9 +22,19 @@ export default function InvoiceDetailPage() {
       });
 
       const json = await res.json();
+
+      if (!res.ok) {
+        // 👇 CASO invoice eliminada / no accesible
+        toast.error(json.error || "Invoice not available");
+        router.replace("/dashboard/invoices");
+        return;
+      }
+
       setInvoice(json.invoice);
     } catch (err) {
       console.error("Failed to load invoice", err);
+      toast.error("Failed to load invoice");
+      router.replace("/dashboard/invoices");
     } finally {
       setLoading(false);
     }
@@ -114,6 +124,7 @@ export default function InvoiceDetailPage() {
   if (!invoice) {
     return <div className="p-6">Invoice not found.</div>;
   }
+  const isArchived = Boolean(invoice?.deleted_at);
 
   return (
     <section className="p-6 space-y-6 max-w-3xl">

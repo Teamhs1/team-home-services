@@ -16,17 +16,19 @@ export async function GET(req, { params }) {
 
   const { id } = params;
 
-  const { data: profile } = await supabase
+  // 🔹 Obtener perfil
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role")
     .eq("clerk_id", userId)
     .single();
 
-  if (profile?.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (profileError || !profile) {
+    return NextResponse.json({ error: "Profile not found" }, { status: 404 });
   }
 
-  const { data: invoice, error } = await supabase
+  // 🔹 Query base
+  let query = supabase
     .from("invoices")
     .select(
       `
@@ -41,9 +43,14 @@ export async function GET(req, { params }) {
       units ( unit )
     `,
     )
-    .eq("id", id)
-    .is("deleted_at", null) // ✅ AQUÍ
-    .single();
+    .eq("id", id);
+
+  // 🔐 Solo los NO admin filtran deleted_at
+  if (profile.role !== "admin") {
+    query = query.is("deleted_at", null);
+  }
+
+  const { data: invoice, error } = await query.single();
 
   if (error || !invoice) {
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
