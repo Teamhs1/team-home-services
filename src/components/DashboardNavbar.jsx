@@ -51,6 +51,10 @@ export default function DashboardNavbar() {
     // 👇 CLIENT COMPANY
     if (pathname.startsWith("/dashboard/company")) return "dashboard_company";
 
+    // 👇 INVOICES
+    if (pathname === "/dashboard/invoices") return "invoices";
+    if (pathname.startsWith("/dashboard/invoices/")) return "invoices";
+
     if (pathname.startsWith("/settings")) return "settings";
     if (pathname.startsWith("/jobs")) return "jobs";
     if (pathname.startsWith("/dashboard")) return "dashboard";
@@ -65,8 +69,8 @@ export default function DashboardNavbar() {
     : null;
 
   /* =========================
-     SUB NAV CONFIG (LIMPIO)
-  ========================= */
+   SUB NAV CONFIG (LIMPIO)
+========================= */
   const subNav = {
     dashboard: [],
 
@@ -88,6 +92,12 @@ export default function DashboardNavbar() {
         href: "/jobs?status=in_progress",
         status: "in_progress",
       },
+    ],
+
+    /* 👇🔥 INVOICES (NUEVO) */
+    invoices: [
+      { label: "Invoices", href: "/dashboard/invoices" },
+      { label: "Archived invoices", href: "/dashboard/invoices/archived" },
     ],
 
     settings: [

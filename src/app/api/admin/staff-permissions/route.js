@@ -4,10 +4,17 @@ import { auth } from "@clerk/nextjs/server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
-const VALID_RESOURCES = ["jobs", "properties", "keys", "tenants", "expenses"];
+const VALID_RESOURCES = [
+  "jobs",
+  "properties",
+  "keys",
+  "tenants",
+  "expenses",
+  "invoices",
+];
 
 const VALID_ACTIONS = ["view", "create", "edit", "delete"];
 
@@ -36,7 +43,7 @@ export async function GET(req) {
       can_create,
       can_edit,
       can_delete
-    `
+    `,
     )
     .eq("staff_profile_id", staff_profile_id);
 
@@ -93,7 +100,7 @@ export async function POST(req) {
         resource: cleanResource,
         [column]: !!value,
       },
-      { onConflict: ["staff_profile_id", "resource"] }
+      { onConflict: ["staff_profile_id", "resource"] },
     );
 
     if (error) {
@@ -128,7 +135,7 @@ export async function POST(req) {
       resource: cleanResource,
       can_view: true,
     },
-    { onConflict: ["staff_profile_id", "resource"] }
+    { onConflict: ["staff_profile_id", "resource"] },
   );
 
   if (error) {

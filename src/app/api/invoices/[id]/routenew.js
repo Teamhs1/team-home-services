@@ -4,25 +4,21 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY, // 🔐 service role
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /* =========================
-   GET INVOICE (EXISTENTE)
+   GET INVOICE
 ========================= */
 export async function GET(req, { params }) {
   try {
     const { userId } = await auth();
-
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = params;
 
-    /* =========================
-       1️⃣ PERFIL (ROL REAL)
-    ========================= */
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role, active_company_id")
@@ -35,9 +31,6 @@ export async function GET(req, { params }) {
 
     const isAdmin = profile.role === "admin";
 
-    /* =========================
-       2️⃣ QUERY BASE
-    ========================= */
     let query = supabase
       .from("invoices")
       .select(
@@ -51,6 +44,7 @@ export async function GET(req, { params }) {
         created_at,
         property_id,
         unit_id,
+        company_id, -- 👈 importante para validación
         properties (
           id,
           address
@@ -61,12 +55,8 @@ export async function GET(req, { params }) {
         )
       `,
       )
-      .eq("id", id)
-      .is("deleted_at", null); // 👈 NO traer eliminadas
+      .eq("id", id);
 
-    /* =========================
-       3️⃣ SEGURIDAD POR COMPANY
-    ========================= */
     if (!isAdmin) {
       query = query.eq("company_id", profile.active_company_id);
     }
@@ -85,24 +75,20 @@ export async function GET(req, { params }) {
 }
 
 /* =========================
-   DELETE INVOICE (SOFT)
+   DELETE INVOICE
 ========================= */
 export async function DELETE(req, { params }) {
   try {
     const { userId } = await auth();
-
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = params;
 
-    /* =========================
-       PERFIL / PERMISOS
-    ========================= */
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("role, active_company_id")
+      .select("role")
       .eq("clerk_id", userId)
       .single();
 
@@ -110,27 +96,17 @@ export async function DELETE(req, { params }) {
       return NextResponse.json({ error: "Profile not found" }, { status: 403 });
     }
 
-    const isAdmin = profile.role === "admin";
-
-    /* =========================
-       SEGURIDAD: SOLO SU COMPANY
-    ========================= */
-    let deleteQuery = supabase
-      .from("invoices")
-      .update({
-        deleted_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .is("deleted_at", null);
-
-    if (!isAdmin) {
-      deleteQuery = deleteQuery.eq("company_id", profile.active_company_id);
+    if (profile.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { error } = await deleteQuery;
+    const { error: deleteError } = await supabase
+      .from("invoices")
+      .delete()
+      .eq("id", id);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

@@ -307,13 +307,28 @@ export default function Sidebar() {
 
         // 📦 5. Normalizar permisos
 
-        let newResources = data.map((p) => p.resource);
+        let newResources = data
+          .filter((p) => p.can_view)
+          .map((p) => p.resource);
 
-        // 🔐 CLIENT siempre ve company + invoices
+        /*  // 🔐 CLIENT ve company + invoices solo si no está explicitamente negado
         if (role === "client") {
-          if (!newResources.includes("company")) newResources.push("company");
-          if (!newResources.includes("invoices")) newResources.push("invoices");
-        }
+          const explicitlyDenied = data
+            .filter((p) => !p.can_view)
+            .map((p) => p.resource);
+
+          if (
+            !newResources.includes("company") &&
+            !explicitlyDenied.includes("company")
+          )
+            newResources.push("company");
+
+          if (
+            !newResources.includes("invoices") &&
+            !explicitlyDenied.includes("invoices")
+          )
+            newResources.push("invoices");
+        }*/
 
         const prevResources = prevResourcesRef.current || [];
 

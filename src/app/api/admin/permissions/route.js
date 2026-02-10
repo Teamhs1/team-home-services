@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // 🔑 service role (sin RLS)
+  process.env.SUPABASE_SERVICE_ROLE_KEY, // 🔑 service role (sin RLS)
 );
 
 /* ======================================================
@@ -20,6 +20,7 @@ const ALLOWED_RESOURCES = [
   "users",
   "companies",
   "permissions",
+  "invoices", // ✅ ahora sí está permitido
 ];
 
 const ALLOWED_ACTIONS = ["view", "create", "edit", "delete"];
@@ -31,6 +32,7 @@ const RESOURCE_ALIASES = {
   company: "companies",
   user: "users",
   property: "properties",
+  invoice: "invoices", // ✅ alias singular → plural
 };
 
 /* ======================================================
@@ -85,7 +87,7 @@ export async function GET(req) {
   if (!ALLOWED_ROLES.includes(role)) {
     return NextResponse.json(
       { error: "Invalid role", role, allowed: ALLOWED_ROLES },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -99,7 +101,7 @@ export async function GET(req) {
     console.error("LOAD PERMISSIONS ERROR:", error);
     return NextResponse.json(
       { error: "Failed to load permissions" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -154,14 +156,14 @@ export async function POST(req) {
   ) {
     return NextResponse.json(
       { error: "Missing or invalid fields", body },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (!ALLOWED_ROLES.includes(role)) {
     return NextResponse.json(
       { error: "Invalid role", role, allowed: ALLOWED_ROLES },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -172,14 +174,14 @@ export async function POST(req) {
         received: resource,
         allowed: ALLOWED_RESOURCES,
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (!ALLOWED_ACTIONS.includes(action)) {
     return NextResponse.json(
       { error: "Invalid action", action, allowed: ALLOWED_ACTIONS },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -191,7 +193,7 @@ export async function POST(req) {
   if (profile.company_id !== company_id) {
     return NextResponse.json(
       { error: "Cross-company update forbidden" },
-      { status: 403 }
+      { status: 403 },
     );
   }
 
@@ -206,14 +208,14 @@ export async function POST(req) {
     },
     {
       onConflict: "company_id,role,resource,action",
-    }
+    },
   );
 
   if (error) {
     console.error("PERMISSION SAVE ERROR:", error);
     return NextResponse.json(
       { error: "Failed to save permission", details: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 

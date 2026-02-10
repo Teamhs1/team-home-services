@@ -1,26 +1,53 @@
 "use client";
-
+import { useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { CheckSquare, Square } from "lucide-react";
 
 export default function InvoicesPage() {
   const router = useRouter();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState(null);
+  const { getToken } = useAuth();
+  const [selected, setSelected] = useState([]);
+  const isSelected = (id) => selected.includes(id);
+
+  const toggleOne = (id) => {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const toggleAll = () => {
+    if (selected.length === invoices.length) {
+      setSelected([]);
+    } else {
+      setSelected(invoices.map((i) => i.id));
+    }
+  };
 
   useEffect(() => {
     async function loadInvoices() {
       try {
-        const res = await fetch("/api/invoices", {
-          cache: "no-store",
-        });
+        const token = await getToken({ template: "supabase" });
 
-        const json = await res.json();
-        setInvoices(json.invoices || []);
+        const [invoicesRes, profileRes] = await Promise.all([
+          fetch("/api/invoices", { cache: "no-store" }),
+          fetch("/api/my/profile", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        const invoicesJson = await invoicesRes.json();
+        const profileJson = await profileRes.json();
+
+        setInvoices(invoicesJson.invoices || []);
+        setRole(profileJson.role || null); // 👈 Guardamos el rol
       } catch (err) {
-        console.error("Failed to load invoices", err);
+        console.error("Error loading data", err);
       } finally {
         setLoading(false);
       }
@@ -28,12 +55,45 @@ export default function InvoicesPage() {
 
     loadInvoices();
   }, []);
+  async function archiveSelected() {
+    if (selected.length === 0) return;
+
+    const confirmed = window.confirm(`Archive ${selected.length} invoice(s)?`);
+    if (!confirmed) return;
+
+    try {
+      await Promise.all(
+        selected.map((id) =>
+          fetch(`/api/invoices/${id}`, { method: "DELETE" }),
+        ),
+      );
+
+      setInvoices((prev) => prev.filter((i) => !selected.includes(i.id)));
+      setSelected([]);
+    } catch (err) {
+      alert("Error archiving invoices");
+    }
+  }
 
   return (
-    <section className="p-6 space-y-6 mt-6">
+    <section className="p-6 space-y-6 mt-6 pt-14">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Invoices</h1>
+        {role === "admin" && selected.length > 0 && (
+          <div className="flex items-center justify-between bg-muted px-4 py-2 border rounded-lg">
+            <span className="text-sm text-muted-foreground">
+              {selected.length} selected
+            </span>
+
+            <button
+              onClick={archiveSelected}
+              className="text-sm text-red-600 hover:underline"
+            >
+              Archive selected
+            </button>
+          </div>
+        )}
 
         {/* Botón futuro */}
         <Link
@@ -53,7 +113,16 @@ export default function InvoicesPage() {
       ) : invoices.length === 0 ? (
         <EmptyState />
       ) : (
-        <InvoicesTable invoices={invoices} router={router} />
+        <InvoicesTable
+          invoices={invoices}
+          setInvoices={setInvoices}
+          router={router}
+          role={role}
+          selected={selected}
+          isSelected={isSelected}
+          toggleOne={toggleOne}
+          toggleAll={toggleAll}
+        />
       )}
     </section>
   );
@@ -76,17 +145,62 @@ function EmptyState() {
 /* =========================
    Table
 ========================= */
-function InvoicesTable({ invoices, router }) {
+function InvoicesTable({
+  invoices,
+  setInvoices,
+  router,
+  role,
+  selected,
+  isSelected,
+  toggleOne,
+  toggleAll,
+}) {
+  async function archiveInvoice(id) {
+    const confirmed = window.confirm(
+      "Are you sure you want to archive this invoice?",
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/invoices/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to archive");
+
+      setInvoices((prev) => prev.filter((inv) => inv.id !== id));
+      alert("Invoice archived");
+    } catch (err) {
+      console.error(err);
+      alert("Error archiving invoice");
+    }
+  }
+
   return (
     <div className="border rounded-lg overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-muted text-muted-foreground">
           <tr>
+            {role === "admin" && (
+              <th className="px-4 py-3 w-10">
+                <button onClick={toggleAll}>
+                  {selected.length === invoices.length &&
+                  invoices.length > 0 ? (
+                    <CheckSquare className="h-4 w-4" />
+                  ) : (
+                    <Square className="h-4 w-4" />
+                  )}
+                </button>
+              </th>
+            )}
+
             <th className="px-4 py-3 text-left">Type</th>
             <th className="px-4 py-3 text-left">Property</th>
             <th className="px-4 py-3 text-left">Amount</th>
             <th className="px-4 py-3 text-left">Status</th>
             <th className="px-4 py-3 text-left">Created</th>
+            <th className="px-4 py-3 text-left">Notes</th>
+
+            {role === "admin" && (
+              <th className="px-4 py-3 text-left">Actions</th>
+            )}
           </tr>
         </thead>
 
@@ -94,24 +208,52 @@ function InvoicesTable({ invoices, router }) {
           {invoices.map((inv) => (
             <tr
               key={inv.id}
-              onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}
-              className="border-t cursor-pointer hover:bg-muted/50 transition-colors"
+              className="border-t hover:bg-muted/50 transition-colors"
             >
-              <td className="px-4 py-3 capitalize">{inv.type}</td>
+              {role === "admin" && (
+                <td className="px-4 py-3">
+                  <button onClick={() => toggleOne(inv.id)}>
+                    {isSelected(inv.id) ? (
+                      <CheckSquare className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Square className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+                </td>
+              )}
 
+              <td
+                onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}
+                className="px-4 py-3 capitalize cursor-pointer"
+              >
+                {inv.type}
+              </td>
               <td className="px-4 py-3">{inv.properties?.address || "—"}</td>
-
               <td className="px-4 py-3">
                 ${(inv.amount_cents / 100).toFixed(2)} CAD
               </td>
-
               <td className="px-4 py-3">
                 <StatusBadge status={inv.status} />
               </td>
-
               <td className="px-4 py-3">
                 {new Date(inv.created_at).toLocaleDateString()}
               </td>
+              <td
+                className="px-4 py-3 text-muted-foreground max-w-[200px] truncate"
+                title={inv.notes || ""}
+              >
+                {inv.notes || "—"}
+              </td>
+              {role === "admin" && (
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => archiveInvoice(inv.id)}
+                    className="text-red-500 hover:underline text-xs"
+                  >
+                    Archive
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

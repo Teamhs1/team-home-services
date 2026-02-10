@@ -30,6 +30,7 @@ export default function InvoiceDetailPage() {
     }
   }
 
+  // cargar al montar
   useEffect(() => {
     loadInvoice();
   }, [id]);
@@ -48,36 +49,9 @@ export default function InvoiceDetailPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
 
-      await loadInvoice();
+      await loadInvoice(); // 🔥 refresco real
     } catch (err) {
       alert(err.message || "Failed to mark as paid");
-    }
-  }
-
-  // =========================
-  // DELETE INVOICE (SOFT)
-  // =========================
-  async function deleteInvoice() {
-    if (
-      !confirm(
-        "Are you sure you want to delete this invoice?\nThis action cannot be undone.",
-      )
-    )
-      return;
-
-    try {
-      const res = await fetch(`/api/invoices/${invoice.id}`, {
-        method: "DELETE",
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-
-      toast.success("Invoice deleted");
-
-      router.push("/dashboard/invoices");
-    } catch (err) {
-      toast.error(err.message || "Failed to delete invoice");
     }
   }
 
@@ -146,7 +120,7 @@ export default function InvoiceDetailPage() {
               const json = await res.json();
               if (!res.ok) throw new Error(json.error);
 
-              await loadInvoice();
+              await loadInvoice(); // 🔥 AQUÍ está la solución real
             } catch (err) {
               alert(err.message || "Failed to send invoice");
             }
@@ -172,15 +146,6 @@ export default function InvoiceDetailPage() {
           className="px-4 py-2 rounded border"
         >
           Print / PDF
-        </button>
-
-        {/* Delete */}
-        <button
-          onClick={deleteInvoice}
-          disabled={invoice.status === "paid"}
-          className="px-4 py-2 rounded border border-red-500 text-red-600 hover:bg-red-50 disabled:opacity-40"
-        >
-          Delete invoice
         </button>
       </div>
     </section>

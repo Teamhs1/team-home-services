@@ -1,5 +1,6 @@
 "use client";
 
+import { Switch } from "@/components/ui/switch";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
@@ -16,12 +17,16 @@ const STAFF_MODULES = [
   },
   { key: "keys", label: "Keys", description: "Manage physical & digital keys" },
   { key: "tenants", label: "Tenants", description: "View tenant information" },
-
-  // ✅ NUEVO
   {
     key: "expenses",
     label: "Expenses",
     description: "View and manage expenses",
+  },
+  {
+    key: "invoices",
+    label: "Invoices",
+    description: "View and manage invoices",
+    notes: "Access to billing, client charges and payment records",
   },
 ];
 
@@ -32,6 +37,7 @@ const STAFF_TEMPLATES = {
   cleaner: ["jobs"],
   maintenance: ["jobs", "properties", "keys", "expenses"],
   manager: ["jobs", "properties", "keys", "tenants", "expenses"],
+  client: ["jobs", "properties", "keys", "tenants", "expenses", "invoices"], // 👈 nuevo
 };
 
 export default function StaffPermissionsPage() {
@@ -50,7 +56,7 @@ export default function StaffPermissionsPage() {
     async function loadPermissions() {
       try {
         const res = await fetch(
-          `/api/admin/staff-permissions?staff_profile_id=${staffProfileId}`
+          `/api/admin/staff-permissions?staff_profile_id=${staffProfileId}`,
         );
 
         if (!res.ok) throw new Error();
@@ -151,53 +157,78 @@ export default function StaffPermissionsPage() {
 
   if (!staffProfileId) return <p className="p-6">Invalid staff ID</p>;
   if (loading) return <p className="p-6">Loading permissions...</p>;
+  /**RESET */
+  async function resetPermissionsToDefault() {
+    toast.info("Resetting permissions…");
+
+    for (const mod of STAFF_MODULES) {
+      if (permissions[mod.key]) {
+        await togglePermission(mod.key, false);
+      }
+    }
+
+    setActiveTemplate(null);
+    toast.success("Permissions reset to default");
+  }
 
   return (
-    <div className="p-6 max-w-2xl mt-16">
-      <h1 className="text-2xl font-bold mb-2">Staff Access</h1>
-      <p className="text-sm text-gray-500 mb-4">
+    <div className="p-6 max-w-3xl mt-16">
+      <h1 className="text-3xl font-bold mb-2">Staff Access</h1>
+      <p className="text-sm text-muted-foreground mb-4">
         Control what this staff member can access.
       </p>
 
       {/* =========================
-          QUICK TEMPLATES
-      ========================= */}
-      <div className="flex gap-2 mb-6">
-        {["cleaner", "maintenance", "manager"].map((tpl) => (
+        QUICK TEMPLATES
+    ========================= */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {["cleaner", "maintenance", "manager", "client"].map((tpl) => (
           <button
             key={tpl}
             onClick={() => applyTemplate(tpl)}
-            className={`px-3 py-1.5 text-sm rounded-md border transition
-              ${
-                activeTemplate === tpl
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "hover:bg-gray-100"
-              }`}
+            className={`px-3 py-1.5 text-sm rounded-md border font-medium capitalize transition-all
+            ${
+              activeTemplate === tpl
+                ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                : "bg-white text-gray-700 hover:bg-gray-100"
+            }`}
           >
-            {tpl.charAt(0).toUpperCase() + tpl.slice(1)}
+            {tpl}
           </button>
         ))}
+
+        {/* RESET BUTTON */}
+        <button
+          onClick={resetPermissionsToDefault}
+          className="px-3 py-1.5 text-sm rounded-md border border-red-500 text-red-500 hover:bg-red-50 font-medium"
+        >
+          🔄 Reset to Default
+        </button>
       </div>
 
       {/* =========================
-          MODULE CHECKBOXES
-      ========================= */}
+        MODULE CHECKBOXES
+    ========================= */}
       <div className="space-y-3">
         {STAFF_MODULES.map((mod) => (
           <div
             key={mod.key}
-            className="flex items-center justify-between rounded-lg border p-4 hover:bg-gray-50 transition"
+            className="flex items-center justify-between rounded-lg border p-4 hover:bg-gray-50 transition-all"
           >
             <div>
-              <p className="font-medium">{mod.label}</p>
-              <p className="text-xs text-gray-500">{mod.description}</p>
+              <p className="font-medium text-sm">{mod.label}</p>
+              <p className="text-xs text-muted-foreground">{mod.description}</p>
+
+              {mod.notes && (
+                <p className="text-xs text-yellow-700 italic mt-1">
+                  {mod.notes}
+                </p>
+              )}
             </div>
 
-            <input
-              type="checkbox"
-              className="h-5 w-5 accent-blue-600"
+            <Switch
               checked={permissions[mod.key] ?? false}
-              onChange={() => togglePermission(mod.key)}
+              onCheckedChange={() => togglePermission(mod.key)}
             />
           </div>
         ))}

@@ -28,6 +28,7 @@ const RESOURCES = [
   { key: "property", label: "Properties" },
   { key: "job", label: "Jobs" },
   { key: "tenant", label: "Tenants" },
+  { key: "invoice", label: "Invoices" }, // ✅ agregado
 ];
 
 const ACTIONS = ["view", "create", "edit", "delete"];
