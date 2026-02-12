@@ -67,6 +67,7 @@ export default function StaffJobsView({
   const { getToken } = useAuth(); // ✅ OBLIGATORIO
 
   const [jobs, setJobs] = useState(initialJobs || []);
+  const [searchTerm, setSearchTerm] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null);
   const [currentJob, setCurrentJob] = useState(null);
@@ -86,12 +87,30 @@ export default function StaffJobsView({
   // ===================================================
   // FILTER JOBS (debe estar antes del useEffect)
   // ===================================================
-  const filteredJobs =
+  const filteredJobs = (
     statusFilter === "all"
       ? jobs
       : statusFilter === "upcoming"
         ? jobs.filter((j) => new Date(j.scheduled_date) > new Date())
-        : jobs.filter((j) => j.status === statusFilter);
+        : jobs.filter((j) => j.status === statusFilter)
+  )
+    .filter((job) => {
+      if (!searchTerm) return true;
+
+      const term = searchTerm.toLowerCase();
+
+      return (
+        job.title?.toLowerCase().includes(term) ||
+        job.property_address?.toLowerCase().includes(term) ||
+        job.service_type?.toLowerCase().includes(term)
+      );
+    })
+    .sort((a, b) =>
+      a.title.localeCompare(b.title, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      }),
+    );
 
   // ===================================================
   // 🔥 REAL PHOTO COUNTS (from API)
@@ -311,13 +330,26 @@ export default function StaffJobsView({
   return (
     <main className="pt-3 pb-6 sm:px-6 sm:py-10 max-w-[1600px] mx-auto space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center mt-1">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mt-1">
         <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
           <ClipboardList className="w-6 h-6 text-primary" />
           My Jobs
         </h1>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <input
+            type="text"
+            placeholder="🔍 Search job or address..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="
+        w-full sm:w-56
+        border rounded-full
+        px-4 py-2 text-sm
+        focus:outline-none focus:ring-2 focus:ring-blue-500
+      "
+          />
+
           <Button
             variant="outline"
             onClick={() => {

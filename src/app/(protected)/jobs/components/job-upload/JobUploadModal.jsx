@@ -1,5 +1,4 @@
 "use client";
-import { createClient } from "@supabase/supabase-js";
 
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -272,24 +271,15 @@ export function JobUploadModal({
       // AFTER → COMPLETE JOB
       // =========================
       if (type === "after") {
-        const token = await getToken({ template: "supabase" });
-
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-          {
-            global: { headers: { Authorization: `Bearer ${token}` } },
-          },
-        );
-
-        // ✅ 1) Guardar cambios finales
-        await supabase
-          .from("cleaning_jobs")
-          .update({
+        // 🔥 Guardar unit_type y features usando API segura
+        await authFetch("/api/jobs/update-meta", {
+          method: "POST",
+          body: JSON.stringify({
+            jobId,
             unit_type: unitType,
-            features: Array.isArray(features) ? features : [],
-          })
-          .eq("id", jobId);
+            features,
+          }),
+        });
 
         updateLocalJob?.(jobId, { unit_type: unitType, features });
 
@@ -325,6 +315,15 @@ export function JobUploadModal({
         router.push(`/jobs/${jobId}`);
         return;
       }
+      // 🔥 GUARDAR unit_type y features ANTES DE START
+      await authFetch("/api/jobs/update-meta", {
+        method: "POST",
+        body: JSON.stringify({
+          jobId,
+          unit_type: unitType,
+          features,
+        }),
+      });
 
       // =========================
       // BEFORE → START JOB (SERVER)
@@ -344,6 +343,8 @@ export function JobUploadModal({
       updateLocalJob?.(jobId, {
         status: "in_progress",
         started_at: new Date().toISOString(),
+        unit_type: unitType,
+        features: Array.isArray(features) ? features : [],
       });
 
       await fetchJobs?.();
@@ -381,6 +382,31 @@ export function JobUploadModal({
   const orderedSelectedFeatures = FEATURE_ORDER.filter((key) =>
     features.includes(key),
   );
+  // 🔥 VALIDAR QUE TODAS LAS CATEGORÍAS TENGAN FOTO
+
+  // 🔥 SIEMPRE OBLIGATORIAS (BASE)
+  const requiredCompareKeys = staticCompare.map((c) => c.key);
+
+  // 🔥 Dinámicas solo si existen
+  const dynamicCompareKeys = compareFromFeatures(features).map((c) => c.key);
+
+  // 🔥 General solo en AFTER
+  const requiredGeneralKeys =
+    type === "after" ? generalCategories.map((c) => c.key) : [];
+
+  // 🔥 Unir todas las requeridas
+  const requiredKeys = [
+    ...requiredCompareKeys,
+    ...dynamicCompareKeys,
+    ...requiredGeneralKeys,
+  ];
+
+  // 🔥 VALIDACIÓN REAL
+  const allCategoriesHavePhotos =
+    requiredKeys.length > 0 &&
+    requiredKeys.every(
+      (key) => photosByCategory[key] && photosByCategory[key].length > 0,
+    );
 
   // --------------------------------------------------------
   // UI
@@ -593,7 +619,7 @@ export function JobUploadModal({
           <div className="sticky bottom-0 w-full bg-white dark:bg-gray-900 border-t p-4">
             <Button
               className="w-full"
-              disabled={uploading}
+              disabled={uploading || !allCategoriesHavePhotos}
               onClick={handleConfirm}
             >
               {uploading

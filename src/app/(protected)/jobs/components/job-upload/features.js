@@ -7,6 +7,7 @@ export const FEATURES = [
   { key: "laundry", label: "Washer/Dryer" },
   { key: "freezer", label: "Freezer" },
   { key: "heat_pump", label: "Heat Pump" },
+  { key: "ceiling_fan", label: "Ceiling Fan" }, // 🔥 NUEVO
   { key: "balcony", label: "Balcony" },
   { key: "den", label: "Den / Office" },
   { key: "walkin_closet", label: "Walk-in Closet" },

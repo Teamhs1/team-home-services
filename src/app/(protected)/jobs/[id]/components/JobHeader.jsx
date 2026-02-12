@@ -16,6 +16,8 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { CheckCircle } from "lucide-react";
 
+import WorkFocusPlayer from "@/components/WorkFocusPlayer";
+
 import { FEATURE_ICONS } from "@/app/(protected)/jobs/components/job-upload/featureIcons";
 import { FEATURES } from "@/app/(protected)/jobs/components/job-upload/features";
 import { UNIT_TYPE_ICONS } from "@/app/(protected)/jobs/components/job-upload/unitTypeIcons";
@@ -316,8 +318,12 @@ export default function JobHeader({
         )}
         {/* ⏱️ LIVE TIMER */}
         {job?.status === "in_progress" && (
-          <div className="ml-2 px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold flex items-center gap-1">
-            <JobTimer jobId={job.id} startedAt={job.started_at} />
+          <div className="ml-2 flex items-center gap-3">
+            <div className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold flex items-center gap-1">
+              <JobTimer jobId={job.id} startedAt={job.started_at} />
+            </div>
+
+            {isStaff && <WorkFocusPlayer />}
           </div>
         )}
       </div>

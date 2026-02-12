@@ -13,6 +13,7 @@ import {
   BedSingle,
   Armchair,
   Wind,
+  Fan,
   PanelTop, // ✅ Nuevo icono agregado
 } from "lucide-react";
 
@@ -35,7 +36,6 @@ export const staticCompare = [
 export function compareFromFeatures(features) {
   const output = [];
 
-  // Dishwasher
   if (features.includes("dishwasher")) {
     output.push({
       key: "dishwasher",
@@ -44,14 +44,11 @@ export function compareFromFeatures(features) {
     });
   }
 
-  // ================================
-  // MICROWAVE — real icon (PanelTop)
-  // ================================
   if (features.includes("microwave")) {
     output.push({
       key: "microwave",
       label: "Microwave",
-      icon: PanelTop, // ✅ icono más parecido a un microondas
+      icon: PanelTop,
     });
 
     output.push({
@@ -61,7 +58,6 @@ export function compareFromFeatures(features) {
     });
   }
 
-  // Freezer
   if (features.includes("freezer")) {
     output.push({
       key: "freezer",
@@ -76,12 +72,20 @@ export function compareFromFeatures(features) {
     });
   }
 
-  // A/C Unit
   if (features.includes("air_conditioner") || features.includes("laundry")) {
     output.push({
       key: "ac_unit",
       label: "A/C Unit",
       icon: Wind,
+    });
+  }
+
+  // 🔥 NUEVO — Ceiling Fan
+  if (features.includes("ceiling_fan")) {
+    output.push({
+      key: "ceiling_fan",
+      label: "Ceiling Fan",
+      icon: Fan,
     });
   }
 

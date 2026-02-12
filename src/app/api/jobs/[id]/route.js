@@ -13,7 +13,7 @@ const supabase = createClient(
 /* =========================
    GET JOB DETAIL
 ========================= */
-export async function GET(req, context) {
+export async function GET(req, { params }) {
   try {
     const { userId } = getAuth(req);
 
@@ -21,9 +21,8 @@ export async function GET(req, context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await context.params;
+    const { id } = params; // ✅ AQUÍ
 
-    /* 1️⃣ JOB BASE */
     const { data: job, error: jobError } = await supabase
       .from("cleaning_jobs")
       .select(
@@ -36,6 +35,7 @@ export async function GET(req, context) {
         duration_minutes,
         completed_at,
         created_at,
+        started_at,
         unit_type,
         features,
         property_address,

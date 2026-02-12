@@ -35,6 +35,7 @@ export function JobUploadModal({
   onClose,
   updateStatus,
   fetchJobs,
+  updateLocalJob,
 }) {
   const { getToken } = useAuth();
   const router = useRouter();
@@ -53,6 +54,21 @@ export function JobUploadModal({
 
   const [elapsed, setElapsed] = useState(null);
   const [startTime, setStartTime] = useState(null);
+
+  const authFetch = async (url, options = {}) => {
+    const token = await getToken({ template: "supabase" });
+
+    if (!token) throw new Error("Not authenticated");
+
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  };
+
   useEffect(() => {
     if (!jobId) return;
 
@@ -84,6 +100,29 @@ export function JobUploadModal({
     const s = String(sec % 60).padStart(2, "0");
     return `${h}:${m}:${s}`;
   };
+  useEffect(() => {
+    if (type !== "after" || !jobId) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error);
+
+        // 🔥 CARGAR LO DEL BEFORE
+        setUnitType(data.unit_type || null);
+        setFeatures(Array.isArray(data.features) ? data.features : []);
+      } catch (err) {
+        console.error("Failed to load job data", err);
+        toast.error("Failed to load job info");
+      }
+    })();
+  }, [type, jobId]);
+
+  const getUnitTypeLabel = (key) => {
+    return UNIT_TYPES.find((u) => u.key === key)?.label || key;
+  };
 
   // --------------------------------------------------------
   // TOGGLE FEATURES
@@ -105,6 +144,12 @@ export function JobUploadModal({
   const normalizedUnitType = unitType?.toLowerCase()?.replace(/\s+/g, "_");
 
   const generalCategories = generalAreas(features, type, normalizedUnitType);
+  // 🔥 CATEGORÍAS VISIBLES EN UI
+
+  const visibleCategories =
+    type === "before"
+      ? dynamicCompareCategories
+      : [...dynamicCompareCategories, ...generalCategories];
 
   const handleCategoryClick = (key) => {
     setSelectedCategory(key);
@@ -118,31 +163,19 @@ export function JobUploadModal({
     const files = Array.from(e.target.files);
     if (!files.length || !selectedCategory) return;
 
-    const isCompare = dynamicCompareCategories.some(
-      (c) => c.key === selectedCategory,
-    );
-
-    const fileToUse = isCompare ? files[0] : files;
-
-    const previews = isCompare
-      ? [{ name: fileToUse.name, url: URL.createObjectURL(fileToUse) }]
-      : files.map((file) => ({
-          name: file.name,
-          url: URL.createObjectURL(file),
-        }));
+    const previews = files.map((file) => ({
+      name: file.name,
+      url: URL.createObjectURL(file),
+    }));
 
     setPhotosByCategory((prev) => ({
       ...prev,
-      [selectedCategory]: isCompare
-        ? previews
-        : [...(prev[selectedCategory] || []), ...previews],
+      [selectedCategory]: [...(prev[selectedCategory] || []), ...previews],
     }));
 
     setLocalFiles((prev) => ({
       ...prev,
-      [selectedCategory]: isCompare
-        ? [fileToUse]
-        : [...(prev[selectedCategory] || []), ...files],
+      [selectedCategory]: [...(prev[selectedCategory] || []), ...files],
     }));
 
     e.target.value = "";
@@ -184,7 +217,7 @@ export function JobUploadModal({
 
         // ⏱️ timeout de seguridad (20s)
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
+        const timeout = setTimeout(() => controller.abort(), 60000);
 
         let res;
         try {
@@ -220,6 +253,16 @@ export function JobUploadModal({
   // --------------------------------------------------------
   // CONFIRM
   // --------------------------------------------------------
+  const getAuthHeaders = async () => {
+    const token = await getToken({ template: "supabase" });
+    if (!token) throw new Error("Not authenticated");
+
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+  };
+
   const handleConfirm = async () => {
     if (!Object.keys(localFiles).length) {
       toast.warning("Please upload at least one photo.");
@@ -235,68 +278,81 @@ export function JobUploadModal({
       // AFTER → COMPLETE JOB
       // =========================
       if (type === "after") {
-        await fetch("/api/job-activity/stop", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ job_id: jobId }),
-        });
+        const token = await getToken({ template: "supabase" });
 
-        await updateStatus(jobId, "completed");
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+          {
+            global: { headers: { Authorization: `Bearer ${token}` } },
+          },
+        );
 
-        await fetch("/api/job-photos/normalize-general", {
+        // ✅ 1) Guardar cambios finales
+        await supabase
+          .from("cleaning_jobs")
+          .update({
+            unit_type: unitType,
+            features: Array.isArray(features) ? features : [],
+          })
+          .eq("id", jobId);
+
+        updateLocalJob?.(jobId, { unit_type: unitType, features });
+
+        // ✅ 2) STOP timer (solo log, NO completa)
+        await authFetch("/api/job-activity/stop", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ jobId }),
         });
 
-        toast.success("Job completed!");
-        // fetchJobs?.();
+        // ✅ 3) Normalizar fotos (esperar a que termine)
+        const normRes = await authFetch("/api/job-photos/normalize-general", {
+          method: "POST",
+          body: JSON.stringify({ jobId }),
+        });
 
+        const normJson = await normRes.json().catch(() => ({}));
+        if (!normRes.ok)
+          throw new Error(normJson.error || "Failed to finalize photos");
+
+        // ✅ 4) Completar job (status + completed_at)
+        const statusRes = await updateStatus(jobId, "completed");
+        // (si updateStatus no retorna nada, no pasa nada)
+
+        // ✅ 5) Actualizar UI sí o sí (AQUÍ estaba tu problema)
+        updateLocalJob?.(jobId, {
+          status: "completed",
+          completed_at: new Date().toISOString(),
+        });
+        await fetchJobs?.();
+
+        toast.success("Job completed!");
         onClose();
-        return; // ⛔ ESTO ELIMINA EL 401
+        router.push(`/jobs/${jobId}`);
+        return;
       }
 
-      const normalizedUnitType = unitType
-        ? unitType.toLowerCase().replace(/\s+/g, "_")
-        : null;
-
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${await getToken({
-                template: "supabase",
-              })}`,
-            },
-          },
-        },
-      );
-
-      await supabase
-        .from("cleaning_jobs")
-        .update({
-          unit_type: normalizedUnitType,
-          features: Array.isArray(features) ? features : [],
-          status: "in_progress",
-        })
-        .eq("id", jobId);
-
-      await fetchJobs?.(); //
-      toast.success("Job started!");
-      onClose();
-      router.push(`/jobs/${jobId}`);
-
-      await fetch("/api/job-activity", {
+      // =========================
+      // BEFORE → START JOB (SERVER)
+      // =========================
+      const res = await authFetch("/api/job-activity/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          job_id: jobId,
-          action: "start",
-          notes: "Job started",
-        }),
+        body: JSON.stringify({ jobId }),
       });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to start job");
+      }
+
+      // 🔥 actualizar UI local (optimistic)
+      updateLocalJob?.(jobId, {
+        status: "in_progress",
+        started_at: new Date().toISOString(),
+      });
+
+      await fetchJobs?.();
 
       toast.success("Job started!");
       onClose();
@@ -331,6 +387,21 @@ export function JobUploadModal({
   const orderedSelectedFeatures = FEATURE_ORDER.filter((key) =>
     features.includes(key),
   );
+  // 🔥 CATEGORÍAS QUE REALMENTE DEBEN EXISTIR
+
+  const requiredCategories =
+    type === "before"
+      ? dynamicCompareCategories
+      : [...dynamicCompareCategories, ...generalCategories];
+
+  // 🔥 SI NO HAY CATEGORÍAS AÚN, BLOQUEAR BOTÓN
+
+  const allCategoriesHavePhotos =
+    requiredCategories.length > 0 &&
+    requiredCategories.every(
+      (cat) =>
+        photosByCategory[cat.key] && photosByCategory[cat.key].length > 0,
+    );
 
   // --------------------------------------------------------
   // UI
@@ -378,7 +449,7 @@ export function JobUploadModal({
                 })()}
 
                 <p className="text-lg font-semibold text-blue-600">
-                  {unitType}
+                  {getUnitTypeLabel(unitType)}
                 </p>
               </div>
             )}
@@ -543,7 +614,7 @@ export function JobUploadModal({
           <div className="sticky bottom-0 w-full bg-white dark:bg-gray-900 border-t p-4">
             <Button
               className="w-full"
-              disabled={uploading}
+              disabled={uploading || !allCategoriesHavePhotos}
               onClick={handleConfirm}
             >
               {uploading

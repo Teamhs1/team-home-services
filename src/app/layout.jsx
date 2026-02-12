@@ -4,8 +4,8 @@ import { SupabaseProvider } from "@/contexts/SupabaseContext";
 import ConditionalNavbar from "@/components/ConditionalNavbar";
 import { Toaster } from "sonner";
 import "@/app/globals.css";
+import WorkFocusWrapper from "@/components/WorkFocusWrapper";
 
-// 👇 Nuevo import
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export const metadata = {
@@ -146,6 +146,9 @@ export default function RootLayout({ children }) {
               <main className="relative min-h-screen w-full overflow-x-hidden pb-24">
                 {children}
               </main>
+
+              {/* 🎧 STAFF FOCUS MODE */}
+              <WorkFocusWrapper />
 
               <MobileBottomNav />
               <Toaster position="bottom-right" richColors />
