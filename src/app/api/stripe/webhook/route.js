@@ -36,6 +36,7 @@ export async function POST(req) {
     ========================= */
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
+      console.log("SESSION METADATA:", session.metadata);
 
       console.log("✅ checkout.session.completed received");
 
