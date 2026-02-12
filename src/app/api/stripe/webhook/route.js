@@ -28,18 +28,23 @@ export async function POST(req) {
     return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
-  /* =========================
-     HANDLE EVENTS
-  ========================= */
   try {
     switch (event.type) {
+      /* =========================
+         CHECKOUT COMPLETED
+      ========================= */
       case "checkout.session.completed": {
         const session = event.data.object;
-
         const invoiceId = session.metadata?.invoice_id;
-        if (!invoiceId) break;
 
-        // ✅ mark invoice as paid
+        console.log("🔥 checkout.session.completed received");
+        console.log("Metadata:", session.metadata);
+
+        if (!invoiceId) {
+          console.warn("⚠️ No invoice_id in checkout.session metadata");
+          break;
+        }
+
         const { data, error } = await supabase
           .from("invoices")
           .update({
@@ -50,15 +55,46 @@ export async function POST(req) {
           .eq("id", invoiceId)
           .select();
 
-        console.log("INVOICE ID:", invoiceId);
-        console.log("UPDATE DATA:", data);
-        console.log("UPDATE ERROR:", error);
+        console.log("Invoice updated (checkout):", invoiceId);
+        console.log("Update data:", data);
+        console.log("Update error:", error);
+
+        break;
+      }
+
+      /* =========================
+         PAYMENT INTENT SUCCEEDED
+      ========================= */
+      case "payment_intent.succeeded": {
+        const paymentIntent = event.data.object;
+        const invoiceId = paymentIntent.metadata?.invoice_id;
+
+        console.log("🔥 payment_intent.succeeded received");
+        console.log("Metadata:", paymentIntent.metadata);
+
+        if (!invoiceId) {
+          console.warn("⚠️ No invoice_id in payment_intent metadata");
+          break;
+        }
+
+        const { data, error } = await supabase
+          .from("invoices")
+          .update({
+            status: "paid",
+            paid_at: new Date().toISOString(),
+          })
+          .eq("id", invoiceId)
+          .select();
+
+        console.log("Invoice updated (payment_intent):", invoiceId);
+        console.log("Update data:", data);
+        console.log("Update error:", error);
 
         break;
       }
 
       default:
-        console.log(`Unhandled event type ${event.type}`);
+        console.log(`ℹ️ Unhandled event type: ${event.type}`);
     }
   } catch (err) {
     console.error("❌ Webhook handler error:", err);
