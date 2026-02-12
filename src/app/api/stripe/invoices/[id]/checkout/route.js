@@ -63,6 +63,7 @@ export async function POST(req, { params }) {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
+
       line_items: [
         {
           price_data: {
@@ -76,10 +77,20 @@ export async function POST(req, { params }) {
           quantity: 1,
         },
       ],
+
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/invoices/${id}?paid=1`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/invoices/${id}`,
+
+      // ✅ Esto lo puedes dejar
       metadata: {
         invoice_id: invoice.id,
+      },
+
+      // 🔥🔥🔥 ESTO ES LO QUE TE FALTABA
+      payment_intent_data: {
+        metadata: {
+          invoice_id: invoice.id,
+        },
       },
     });
 
