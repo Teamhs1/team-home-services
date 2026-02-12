@@ -4,9 +4,7 @@ import Stripe from "stripe";
 import { headers } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -30,59 +28,32 @@ export async function POST(req) {
     return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
+  /* =========================
+     HANDLE EVENTS
+  ========================= */
   try {
-    /* =========================
-       CHECKOUT COMPLETED
-    ========================= */
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
-      console.log("SESSION METADATA:", session.metadata);
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object;
 
-      console.log("✅ checkout.session.completed received");
+        const invoiceId = session.metadata?.invoice_id;
+        if (!invoiceId) break;
 
-      const invoiceId = session.metadata?.invoice_id;
+        // ✅ mark invoice as paid
+        await supabase
+          .from("invoices")
+          .update({
+            status: "paid",
+            paid_at: new Date().toISOString(),
+            stripe_session_id: session.id,
+          })
+          .eq("id", invoiceId);
 
-      if (!invoiceId) {
-        console.warn("⚠️ No invoice_id in metadata");
-        return NextResponse.json({ received: true });
+        break;
       }
 
-      await supabase
-        .from("invoices")
-        .update({
-          status: "paid",
-          paid_at: new Date().toISOString(),
-          stripe_session_id: session.id,
-        })
-        .eq("id", invoiceId);
-
-      console.log("💰 Invoice marked as paid:", invoiceId);
-    }
-
-    /* =========================
-       PAYMENT INTENT SUCCEEDED
-    ========================= */
-    if (event.type === "payment_intent.succeeded") {
-      const paymentIntent = event.data.object;
-
-      console.log("✅ payment_intent.succeeded received");
-
-      const invoiceId = paymentIntent.metadata?.invoice_id;
-
-      if (!invoiceId) {
-        console.warn("⚠️ No invoice_id in metadata (payment_intent)");
-        return NextResponse.json({ received: true });
-      }
-
-      await supabase
-        .from("invoices")
-        .update({
-          status: "paid",
-          paid_at: new Date().toISOString(),
-        })
-        .eq("id", invoiceId);
-
-      console.log("💰 Invoice marked as paid (PI):", invoiceId);
+      default:
+        console.log(`Unhandled event type ${event.type}`);
     }
   } catch (err) {
     console.error("❌ Webhook handler error:", err);
