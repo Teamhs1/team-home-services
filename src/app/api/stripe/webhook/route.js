@@ -40,14 +40,19 @@ export async function POST(req) {
         if (!invoiceId) break;
 
         // ✅ mark invoice as paid
-        await supabase
+        const { data, error } = await supabase
           .from("invoices")
           .update({
             status: "paid",
             paid_at: new Date().toISOString(),
             stripe_session_id: session.id,
           })
-          .eq("id", invoiceId);
+          .eq("id", invoiceId)
+          .select();
+
+        console.log("INVOICE ID:", invoiceId);
+        console.log("UPDATE DATA:", data);
+        console.log("UPDATE ERROR:", error);
 
         break;
       }
