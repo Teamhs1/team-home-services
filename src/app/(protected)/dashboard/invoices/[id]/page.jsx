@@ -47,7 +47,10 @@ export default function InvoiceDetailPage() {
   }
 
   useEffect(() => {
-    loadInvoice();
+    if (paid) {
+      loadInvoice();
+      router.replace(`/dashboard/invoices/${id}`);
+    }
   }, [id, paid]);
 
   // =========================
