@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
-import { useSearchParams } from "next/navigation";
 
 export default function InvoiceDetailPage() {
   const { id } = useParams();
@@ -15,8 +14,6 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const { user } = useUser();
   const role = user?.publicMetadata?.role;
-  const searchParams = useSearchParams();
-  const paid = searchParams.get("paid");
 
   // =========================
   // LOAD INVOICE (FUENTE ÚNICA)
@@ -48,8 +45,7 @@ export default function InvoiceDetailPage() {
 
   useEffect(() => {
     loadInvoice();
-  }, [id, paid]);
-
+  }, [id]);
   // =========================
   // STRIPE CHECKOUT (STEP 1)
   // =========================
