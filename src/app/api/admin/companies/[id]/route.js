@@ -16,22 +16,24 @@ export async function GET(req, { params }) {
     .from("companies")
     .select(
       `
+  id,
+  name,
+  email,
+  phone,
+  logo_url,
+  created_at,
+  company_members (
+    role,
+    profile:profiles (
       id,
-      name,
-      email,
-      phone,
-      created_at,
-      company_members (
-        role,
-        profile:profiles (
-          id,
-          clerk_id,
-          full_name,
-          email
-        )
-      )
-    `
+      clerk_id,
+      full_name,
+      email
     )
+  )
+`,
+    )
+
     .eq("id", id)
     .single();
 
@@ -50,6 +52,7 @@ export async function GET(req, { params }) {
     email: data.email,
     phone: data.phone,
     created_at: data.created_at,
+    logo_url: data.logo_url,
 
     owner: owner?.profile || null,
 
@@ -85,7 +88,7 @@ export async function DELETE(req, { params }) {
   if (properties?.length > 0) {
     return NextResponse.json(
       { error: "Company has properties and cannot be deleted" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -98,7 +101,7 @@ export async function DELETE(req, { params }) {
   if ((members?.length ?? 0) > 1) {
     return NextResponse.json(
       { error: "Company has multiple members and cannot be deleted" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 

@@ -169,7 +169,26 @@ export default function CompaniesListPage() {
                     onClick={() => router.push(`/admin/companies/${companyId}`)}
                     className="border-t hover:bg-gray-50 cursor-pointer"
                   >
-                    <td className="px-4 py-3 font-medium">{c.name}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-white border shadow-sm flex items-center justify-center overflow-hidden">
+                          {c.logo_url ? (
+                            <img
+                              src={c.logo_url}
+                              alt={c.name}
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <span className="text-sm font-semibold text-gray-600">
+                              {c.name?.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+
+                        <span className="font-medium">{c.name}</span>
+                      </div>
+                    </td>
+
                     <td className="px-4 py-3 text-gray-600">
                       {c.email || "—"}
                     </td>
@@ -246,7 +265,24 @@ export default function CompaniesListPage() {
                 className="border rounded-2xl bg-white shadow-sm hover:shadow-md transition p-5 flex flex-col justify-between"
               >
                 <div>
-                  <h2 className="text-lg font-semibold truncate">{c.name}</h2>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 rounded-xl bg-white border shadow-sm flex items-center justify-center overflow-hidden">
+                      {c.logo_url ? (
+                        <img
+                          src={c.logo_url}
+                          alt={c.name}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-lg font-semibold text-gray-600">
+                          {c.name?.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+
+                    <h2 className="text-lg font-semibold truncate">{c.name}</h2>
+                  </div>
+
                   <p className="text-sm text-gray-600">
                     {c.email || "No email"}
                   </p>

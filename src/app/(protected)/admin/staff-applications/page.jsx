@@ -1,15 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { CheckCircle, Clock, RefreshCcw } from "lucide-react";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
 
 export default function StaffApplicationsPage() {
   const [applications, setApplications] = useState([]);
@@ -18,47 +12,41 @@ export default function StaffApplicationsPage() {
 
   async function fetchApplications() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("staff_applications")
-      .select("*")
-      .order("created_at", { ascending: false });
 
-    if (error) {
-      toast.error("Error loading applications");
+    const res = await fetch("/api/admin/staff-applications", {
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      toast.error(json.error || "Error loading applications");
     } else {
-      setApplications(data || []);
+      setApplications(json.applications || []);
     }
+
     setLoading(false);
   }
 
   useEffect(() => {
     fetchApplications();
-
-    const channel = supabase
-      .channel("realtime:staff_applications")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "staff_applications" },
-        () => fetchApplications()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   async function markReviewed(id, reviewed) {
-    const { error } = await supabase
-      .from("staff_applications")
-      .update({ reviewed })
-      .eq("id", id);
+    const res = await fetch("/api/admin/staff-applications/update", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, reviewed }),
+    });
 
-    if (error) {
-      toast.error("Error updating status");
+    const json = await res.json();
+
+    if (!res.ok) {
+      toast.error(json.error || "Error updating status");
     } else {
       toast.success(
-        reviewed ? "✅ Application marked as reviewed" : "↩️ Marked as pending"
+        reviewed ? "✅ Application marked as reviewed" : "↩️ Marked as pending",
       );
       fetchApplications();
     }
@@ -71,8 +59,6 @@ export default function StaffApplicationsPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 p-6 pt-[140px]">
-      {/* 👆 FIX: evita que el navbar tape la página */}
-
       <div className="max-w-6xl mx-auto bg-white shadow rounded-2xl p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <h1 className="text-2xl font-bold text-blue-600">
@@ -161,13 +147,10 @@ export default function StaffApplicationsPage() {
                     </td>
 
                     <td className="p-3 text-gray-600">{app.email}</td>
-
                     <td className="p-3 text-gray-600">{app.phone}</td>
-
                     <td className="p-3 text-gray-600">
                       {app.availability || "—"}
                     </td>
-
                     <td className="p-3 text-gray-600 max-w-xs truncate">
                       {app.message || "—"}
                     </td>

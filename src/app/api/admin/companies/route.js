@@ -7,30 +7,35 @@ export async function GET() {
     .from("companies")
     .select(
       `
-      id,
-      name,
-      email,
-      phone,
-      company_members (
-        role,
-        profile:profiles (
-          id,
-          full_name
-        )
-      ),
-      properties:properties ( id )
-    `
+        id,
+        name,
+        email,
+        phone,
+        logo_url,
+        created_at,
+        company_members (
+          role,
+          profile:profiles (
+            id,
+            full_name
+          )
+        ),
+        properties:properties ( id )
+      `,
     )
-    .order("name");
+    .order("name", { ascending: true });
 
   if (error) {
+    console.error("COMPANIES FETCH ERROR:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const normalized = (data || []).map((c) => {
+  const normalized = (data ?? []).map((c) => {
+    const members = c.company_members ?? [];
+
     const owner =
-      c.company_members.find((m) => m.role === "owner") ||
-      c.company_members.find((m) => m.role === "admin") ||
+      members.find((m) => m.role === "owner") ||
+      members.find((m) => m.role === "admin") ||
       null;
 
     return {
@@ -38,9 +43,11 @@ export async function GET() {
       name: c.name,
       email: c.email,
       phone: c.phone,
-      owner: owner?.profile || null,
+      logo_url: c.logo_url ?? null,
+      created_at: c.created_at ?? null,
+      owner: owner?.profile ?? null,
       properties_count: c.properties?.length ?? 0,
-      users_count: c.company_members?.length ?? 0,
+      users_count: members.length,
     };
   });
 

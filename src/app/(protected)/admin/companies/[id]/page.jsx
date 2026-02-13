@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import Image from "next/image";
 
 export default function CompanyPortfolioPage() {
   const { id } = useParams();
@@ -71,7 +72,7 @@ export default function CompanyPortfolioPage() {
               .sort((a, b) =>
                 a.full_name.localeCompare(b.full_name, undefined, {
                   sensitivity: "base",
-                })
+                }),
               );
 
             setUsers(normalizedUsers);
@@ -125,15 +126,38 @@ export default function CompanyPortfolioPage() {
       </div>
 
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">{company.name}</h1>
-          <p className="text-gray-500 text-sm">Company portfolio overview</p>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+        <div className="flex items-center gap-6">
+          {/* LOGO */}
+          <div className="w-20 h-20 rounded-2xl border bg-white shadow-sm flex items-center justify-center overflow-hidden">
+            {company.logo_url ? (
+              <Image
+                src={company.logo_url}
+                alt={`${company.name} logo`}
+                width={80}
+                height={80}
+                className="object-contain"
+              />
+            ) : (
+              <span className="text-2xl font-bold text-gray-700">
+                {company.name?.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+
+          <div>
+            <h1 className="text-4xl font-semibold tracking-tight">
+              {company.name}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Company portfolio overview
+            </p>
+          </div>
         </div>
 
         <Link
           href={`/admin/companies/${id}/edit`}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
+          className="inline-flex items-center justify-center rounded-xl bg-black px-6 py-3 text-white font-medium hover:opacity-90 transition"
         >
           Edit Company
         </Link>
@@ -141,12 +165,22 @@ export default function CompanyPortfolioPage() {
 
       {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <StatCard label="Properties" value={properties.length} />
-        <StatCard label="Users" value={users.length} />
-        <StatCard
-          label="Created"
-          value={new Date(company.created_at).toLocaleDateString()}
-        />
+        <div className="bg-white rounded-2xl border p-6 shadow-sm hover:shadow-md transition">
+          <p className="text-sm text-muted-foreground">Properties</p>
+          <p className="text-4xl font-semibold mt-2">{properties.length}</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border p-6 shadow-sm hover:shadow-md transition">
+          <p className="text-sm text-muted-foreground">Users</p>
+          <p className="text-4xl font-semibold mt-2">{users.length}</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border p-6 shadow-sm hover:shadow-md transition">
+          <p className="text-sm text-muted-foreground">Created</p>
+          <p className="text-xl font-medium mt-2">
+            {new Date(company.created_at).toLocaleDateString()}
+          </p>
+        </div>
       </div>
 
       {/* COMPANY DETAILS */}
@@ -223,8 +257,8 @@ export default function CompanyPortfolioPage() {
 ===================== */
 function Section({ title, children }) {
   return (
-    <div className="bg-white border rounded-xl p-6 shadow-sm space-y-4">
-      <h2 className="text-xl font-semibold">{title}</h2>
+    <div className="bg-white rounded-2xl border p-8 shadow-sm space-y-6">
+      <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
       {children}
     </div>
   );
