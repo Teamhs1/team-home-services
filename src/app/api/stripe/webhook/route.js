@@ -48,9 +48,7 @@ export async function POST(req) {
           break;
         }
 
-        /* =========================
-     1️⃣ GET INVOICE (para company_id real)
-  ========================= */
+        // 1️⃣ Obtener invoice
         const { data: invoiceData, error: invoiceFetchError } = await supabase
           .from("invoices")
           .select("company_id")
@@ -62,9 +60,9 @@ export async function POST(req) {
           break;
         }
 
-        /* =========================
-     2️⃣ Prevent duplicate processing
-  ========================= */
+        console.log("Invoice company_id:", invoiceData.company_id);
+
+        // 2️⃣ Prevent duplicate
         const { data: existingPayment } = await supabase
           .from("payments")
           .select("id")
@@ -76,12 +74,10 @@ export async function POST(req) {
           break;
         }
 
-        /* =========================
-     3️⃣ INSERT PAYMENT RECORD
-  ========================= */
+        // 3️⃣ Insert payment
         const { error: paymentError } = await supabase.from("payments").insert({
           invoice_id: invoiceId,
-          company_id: invoiceData.company_id, // 🔥 ahora sí seguro
+          company_id: invoiceData.company_id,
           amount_cents: paymentIntent.amount,
           currency: paymentIntent.currency,
           status: "succeeded",
@@ -90,11 +86,14 @@ export async function POST(req) {
           stripe_event_id: event.id,
         });
 
-        console.log("Payment insert error:", paymentError);
+        if (paymentError) {
+          console.error("❌ Payment insert failed:", paymentError);
+          break; // 🚫 no marcar invoice si falla payment
+        }
 
-        /* =========================
-     4️⃣ UPDATE INVOICE
-  ========================= */
+        console.log("✅ Payment inserted");
+
+        // 4️⃣ Update invoice
         const { error: invoiceError } = await supabase
           .from("invoices")
           .update({
@@ -103,7 +102,11 @@ export async function POST(req) {
           })
           .eq("id", invoiceId);
 
-        console.log("Invoice update error:", invoiceError);
+        if (invoiceError) {
+          console.error("❌ Invoice update failed:", invoiceError);
+        } else {
+          console.log("✅ Invoice marked as paid");
+        }
 
         break;
       }
