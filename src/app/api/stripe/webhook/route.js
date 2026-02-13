@@ -30,65 +30,64 @@ export async function POST(req) {
 
   try {
     switch (event.type) {
-      /* =========================
-         CHECKOUT COMPLETED
-      ========================= */
-      case "checkout.session.completed": {
-        const session = event.data.object;
-        const invoiceId = session.metadata?.invoice_id;
-
-        console.log("🔥 checkout.session.completed received");
-        console.log("Metadata:", session.metadata);
-
-        if (!invoiceId) {
-          console.warn("⚠️ No invoice_id in checkout.session metadata");
-          break;
-        }
-
-        const { data, error } = await supabase
-          .from("invoices")
-          .update({
-            status: "paid",
-            paid_at: new Date().toISOString(),
-            stripe_session_id: session.id,
-          })
-          .eq("id", invoiceId)
-          .select();
-
-        console.log("Invoice updated (checkout):", invoiceId);
-        console.log("Update data:", data);
-        console.log("Update error:", error);
-
-        break;
-      }
-
-      /* =========================
-         PAYMENT INTENT SUCCEEDED
-      ========================= */
+      /* ============================================
+         ✅ PAYMENT INTENT SUCCEEDED (FUENTE REAL)
+      ============================================ */
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object;
+
+        if (paymentIntent.status !== "succeeded") return;
+
         const invoiceId = paymentIntent.metadata?.invoice_id;
 
         console.log("🔥 payment_intent.succeeded received");
         console.log("Metadata:", paymentIntent.metadata);
 
         if (!invoiceId) {
-          console.warn("⚠️ No invoice_id in payment_intent metadata");
+          console.warn("⚠️ No invoice_id in metadata");
           break;
         }
 
-        const { data, error } = await supabase
+        // 🚫 Prevent duplicate processing (important!)
+        const { data: existingPayment } = await supabase
+          .from("payments")
+          .select("id")
+          .eq("stripe_payment_intent_id", paymentIntent.id)
+          .maybeSingle();
+
+        if (existingPayment) {
+          console.log("⚠️ Payment already recorded. Skipping.");
+          break;
+        }
+
+        /* =========================
+           1️⃣ INSERT PAYMENT RECORD
+        ========================= */
+        const { error: paymentError } = await supabase.from("payments").insert({
+          invoice_id: invoiceId,
+          company_id: paymentIntent.metadata?.company_id || null,
+          amount_cents: paymentIntent.amount,
+          currency: paymentIntent.currency,
+          status: "succeeded",
+          stripe_payment_intent_id: paymentIntent.id,
+          stripe_charge_id: paymentIntent.latest_charge || null,
+          stripe_event_id: event.id,
+        });
+
+        console.log("Payment insert error:", paymentError);
+
+        /* =========================
+           2️⃣ UPDATE INVOICE
+        ========================= */
+        const { error: invoiceError } = await supabase
           .from("invoices")
           .update({
             status: "paid",
             paid_at: new Date().toISOString(),
           })
-          .eq("id", invoiceId)
-          .select();
+          .eq("id", invoiceId);
 
-        console.log("Invoice updated (payment_intent):", invoiceId);
-        console.log("Update data:", data);
-        console.log("Update error:", error);
+        console.log("Invoice update error:", invoiceError);
 
         break;
       }
