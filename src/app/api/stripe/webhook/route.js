@@ -36,7 +36,7 @@ export async function POST(req) {
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object;
 
-        if (paymentIntent.status !== "succeeded") return;
+        if (paymentIntent.status !== "succeeded") break;
 
         const invoiceId = paymentIntent.metadata?.invoice_id;
 
@@ -48,7 +48,23 @@ export async function POST(req) {
           break;
         }
 
-        // 🚫 Prevent duplicate processing (important!)
+        /* =========================
+     1️⃣ GET INVOICE (para company_id real)
+  ========================= */
+        const { data: invoiceData, error: invoiceFetchError } = await supabase
+          .from("invoices")
+          .select("company_id")
+          .eq("id", invoiceId)
+          .single();
+
+        if (invoiceFetchError || !invoiceData) {
+          console.error("❌ Could not fetch invoice:", invoiceFetchError);
+          break;
+        }
+
+        /* =========================
+     2️⃣ Prevent duplicate processing
+  ========================= */
         const { data: existingPayment } = await supabase
           .from("payments")
           .select("id")
@@ -61,11 +77,11 @@ export async function POST(req) {
         }
 
         /* =========================
-           1️⃣ INSERT PAYMENT RECORD
-        ========================= */
+     3️⃣ INSERT PAYMENT RECORD
+  ========================= */
         const { error: paymentError } = await supabase.from("payments").insert({
           invoice_id: invoiceId,
-          company_id: paymentIntent.metadata?.company_id || null,
+          company_id: invoiceData.company_id, // 🔥 ahora sí seguro
           amount_cents: paymentIntent.amount,
           currency: paymentIntent.currency,
           status: "succeeded",
@@ -77,8 +93,8 @@ export async function POST(req) {
         console.log("Payment insert error:", paymentError);
 
         /* =========================
-           2️⃣ UPDATE INVOICE
-        ========================= */
+     4️⃣ UPDATE INVOICE
+  ========================= */
         const { error: invoiceError } = await supabase
           .from("invoices")
           .update({
