@@ -205,9 +205,7 @@ export default function InvoiceDetailPage() {
                   await loadInvoice();
 
                   // ✅ POPUP AQUÍ
-                  toast.success("Invoice sent successfully", {
-                    description: "The client has been notified by email.",
-                  });
+                  toast.success("Invoice marked as sent");
                 } catch (err) {
                   toast.error("Failed to send invoice", {
                     description: err.message,
