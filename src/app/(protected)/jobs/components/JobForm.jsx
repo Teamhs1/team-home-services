@@ -23,6 +23,21 @@ const isUUID = (v) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     v,
   );
+/* =======================
+   SERVICE TYPES
+======================= */
+const SERVICE_TYPES = [
+  { value: "light", label: "Light Cleaning" },
+  { value: "standard", label: "Standard Cleaning" },
+  { value: "deep", label: "Deep Cleaning" },
+  { value: "hallway_standard", label: "Hallway Standard Cleaning" },
+  { value: "hallway_deep", label: "Hallway Deep Cleaning" },
+  { value: "move-out", label: "Move-Out Cleaning" },
+  { value: "post-construction", label: "Post-Construction Cleaning" },
+  { value: "restoration", label: "Restoration Cleaning" },
+  { value: "renovation", label: "Renovation Cleaning" },
+  { value: "add-ons", label: "Add-Ons / Extras" },
+];
 
 export default function JobForm({
   staffList = [],
@@ -30,17 +45,26 @@ export default function JobForm({
   fetchJobs,
 }) {
   const [title, setTitle] = useState("");
-  const [serviceType, setServiceType] = useState("standard"); // ✅ NUEVO
+  const [serviceType, setServiceType] = useState("standard");
   const [assignedTo, setAssignedTo] = useState(""); // clerk_id
   const [companyId, setCompanyId] = useState("");
   const [clientId, setClientId] = useState(""); // profile UUID
   const [companyClients, setCompanyClients] = useState([]);
   const [scheduledDate, setScheduledDate] = useState("");
   const [creating, setCreating] = useState(false);
+  const [serviceTypes, setServiceTypes] = useState([]);
 
   const isValid =
     title && scheduledDate && companyId && clientId && serviceType;
 
+  useEffect(() => {
+    async function loadServiceTypes() {
+      const res = await fetch("/api/service-types");
+      const data = await res.json();
+      setServiceTypes(data || []);
+    }
+    loadServiceTypes();
+  }, []);
   /* =======================
      LOAD CLIENTS PER COMPANY
   ======================= */
@@ -119,7 +143,7 @@ export default function JobForm({
 
       // reset
       setTitle("");
-      setServiceType("standard");
+      setServiceType("");
       setAssignedTo("");
       setCompanyId("");
       setClientId("");
@@ -155,11 +179,13 @@ export default function JobForm({
           <SelectTrigger className="bg-white border border-gray-300 shadow-sm hover:border-gray-400 focus:ring-2 focus:ring-blue-500">
             <SelectValue placeholder="Select service type" />
           </SelectTrigger>
+
           <SelectContent className="bg-white border border-gray-200 shadow-xl">
-            <SelectItem value="standard">Standard</SelectItem>
-            <SelectItem value="deep">Deep Cleaning</SelectItem>
-            <SelectItem value="move_out">Move Out</SelectItem>
-            <SelectItem value="post_renovation">Post Renovation</SelectItem>
+            {serviceTypes.map((type) => (
+              <SelectItem key={type.id} value={type.value}>
+                {type.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

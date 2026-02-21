@@ -53,7 +53,7 @@ export function JobUploadModal({
 
   const [elapsed, setElapsed] = useState(null);
   const [startTime, setStartTime] = useState(null);
-
+  const [serviceType, setServiceType] = useState(null);
   const authFetch = async (url, options = {}) => {
     const token = await getToken({ template: "supabase" });
 
@@ -100,7 +100,7 @@ export function JobUploadModal({
     return `${h}:${m}:${s}`;
   };
   useEffect(() => {
-    if (type !== "after" || !jobId) return;
+    if (!jobId) return;
 
     (async () => {
       try {
@@ -109,15 +109,19 @@ export function JobUploadModal({
 
         if (!res.ok) throw new Error(data.error);
 
-        // 🔥 CARGAR LO DEL BEFORE
-        setUnitType(data.unit_type || null);
-        setFeatures(Array.isArray(data.features) ? data.features : []);
+        // 🔥 CLAVE
+        setServiceType(data.service_type || null);
+
+        if (type === "after") {
+          setUnitType(data.unit_type || null);
+          setFeatures(Array.isArray(data.features) ? data.features : []);
+        }
       } catch (err) {
         console.error("Failed to load job data", err);
         toast.error("Failed to load job info");
       }
     })();
-  }, [type, jobId]);
+  }, [jobId, type]);
 
   const getUnitTypeLabel = (key) => {
     return UNIT_TYPES.find((u) => u.key === key)?.label || key;
@@ -135,10 +139,29 @@ export function JobUploadModal({
   // --------------------------------------------------------
   // CATEGORY LISTS
   // --------------------------------------------------------
-  const dynamicCompareCategories = [
-    ...staticCompare,
-    ...compareFromFeatures(features),
-  ];
+  const hallwayCategories = {
+    before: [
+      { key: "floor_condition", label: "Floor Condition" },
+      { key: "baseboards_condition", label: "Baseboards" },
+      { key: "walls_condition", label: "Walls" },
+      { key: "handrails_condition", label: "Handrails" },
+      { key: "corners_condition", label: "Corners" },
+      { key: "lights_condition", label: "Light Fixtures" },
+    ],
+    after: [
+      { key: "floor_cleaned", label: "Floor Cleaned" },
+      { key: "baseboards_cleaned", label: "Baseboards Cleaned" },
+      { key: "walls_cleaned", label: "Walls Cleaned" },
+      { key: "handrails_cleaned", label: "Handrails Cleaned" },
+      { key: "final_overview", label: "Final Overview" },
+    ],
+  };
+
+  const isHallway = serviceType?.includes("hallway");
+
+  const dynamicCompareCategories = isHallway
+    ? hallwayCategories[type] || []
+    : [...staticCompare, ...compareFromFeatures(features)];
 
   const normalizedUnitType = unitType?.toLowerCase()?.replace(/\s+/g, "_");
 
@@ -385,14 +408,18 @@ export function JobUploadModal({
   // 🔥 VALIDAR QUE TODAS LAS CATEGORÍAS TENGAN FOTO
 
   // 🔥 SIEMPRE OBLIGATORIAS (BASE)
-  const requiredCompareKeys = staticCompare.map((c) => c.key);
+  const requiredCompareKeys = isHallway
+    ? hallwayCategories[type]?.map((c) => c.key) || []
+    : staticCompare.map((c) => c.key);
 
   // 🔥 Dinámicas solo si existen
-  const dynamicCompareKeys = compareFromFeatures(features).map((c) => c.key);
+  const dynamicCompareKeys = isHallway
+    ? []
+    : compareFromFeatures(features).map((c) => c.key);
 
   // 🔥 General solo en AFTER
   const requiredGeneralKeys =
-    type === "after" ? generalCategories.map((c) => c.key) : [];
+    type === "after" && !isHallway ? generalCategories.map((c) => c.key) : [];
 
   // 🔥 Unir todas las requeridas
   const requiredKeys = [
@@ -402,11 +429,9 @@ export function JobUploadModal({
   ];
 
   // 🔥 VALIDACIÓN REAL
-  const allCategoriesHavePhotos =
-    requiredKeys.length > 0 &&
-    requiredKeys.every(
-      (key) => photosByCategory[key] && photosByCategory[key].length > 0,
-    );
+  const allCategoriesHavePhotos = requiredKeys.every(
+    (key) => photosByCategory[key] && photosByCategory[key].length > 0,
+  );
 
   // --------------------------------------------------------
   // UI
@@ -465,86 +490,93 @@ export function JobUploadModal({
               </div>
             )}
 
-            <select
-              value={unitType || ""}
-              onChange={(e) => setUnitType(e.target.value)}
-              className="w-full border rounded-lg p-3 bg-white dark:bg-gray-800 text-sm pr-10"
-            >
-              <option value="" disabled>
-                Select unit type...
-              </option>
-
-              <option value="bachelor">Bachelor</option>
-              <option value="1_bed">1 Bed</option>
-              <option value="2_beds">2 Beds</option>
-              <option value="3_beds">3 Beds</option>
-              <option value="4_beds">4 Beds</option>
-              <option value="studio">Studio</option>
-              <option value="house">House</option>
-            </select>
+            {!isHallway && (
+              <select
+                value={unitType || ""}
+                onChange={(e) => setUnitType(e.target.value)}
+                className="w-full border rounded-lg p-3 bg-white dark:bg-gray-800 text-sm pr-10"
+              >
+                <option value="" disabled>
+                  Select unit type...
+                </option>
+                <option value="bachelor">Bachelor</option>
+                <option value="1_bed">1 Bed</option>
+                <option value="2_beds">2 Beds</option>
+                <option value="3_beds">3 Beds</option>
+                <option value="4_beds">4 Beds</option>
+                <option value="studio">Studio</option>
+                <option value="house">House</option>
+              </select>
+            )}
 
             {/* ====================================================
                 FEATURES
             ==================================================== */}
-            <h3 className="text-lg font-semibold mb-3">Included Features</h3>
+            {!isHallway && (
+              <>
+                <h3 className="text-lg font-semibold mb-3">
+                  Included Features
+                </h3>
 
-            {type === "before" ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-10">
-                {FEATURES.map((f) => (
-                  <label
-                    key={f.key}
-                    className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer bg-white dark:bg-gray-800"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={features.includes(f.key)}
-                      onChange={() => toggleFeature(f.key)}
-                      className="w-4 h-4 accent-primary"
-                    />
-                    {f.label}
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-3 mb-10">
-                {orderedSelectedFeatures.map((featKey, idx) => {
-                  const Icon = FEATURE_ICONS[featKey];
-                  const label =
-                    FEATURES.find((f) => f.key === featKey)?.label ||
-                    featKey.replaceAll("_", " ");
-
-                  return (
-                    <span
-                      key={idx}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl 
-                          bg-blue-50 text-blue-700 
-                          dark:bg-blue-900/40 dark:text-blue-200 
-                          text-sm font-medium shadow-sm border border-blue-200/40 
-                          dark:border-blue-800/40"
-                    >
-                      {Icon && (
-                        <Icon
-                          size={16}
-                          className="text-blue-600 dark:text-blue-300"
+                {type === "before" ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-10">
+                    {FEATURES.map((f) => (
+                      <label
+                        key={f.key}
+                        className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer bg-white dark:bg-gray-800"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={features.includes(f.key)}
+                          onChange={() => toggleFeature(f.key)}
+                          className="w-4 h-4 accent-primary"
                         />
-                      )}
-                      {label}
-                    </span>
-                  );
-                })}
+                        {f.label}
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-3 mb-10">
+                    {orderedSelectedFeatures.map((featKey, idx) => {
+                      const Icon = FEATURE_ICONS[featKey];
+                      const label =
+                        FEATURES.find((f) => f.key === featKey)?.label ||
+                        featKey.replaceAll("_", " ");
 
-                {orderedSelectedFeatures.length === 0 && (
-                  <p className="text-gray-500 text-sm italic">
-                    No features selected.
-                  </p>
+                      return (
+                        <span
+                          key={idx}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl 
+                bg-blue-50 text-blue-700 
+                dark:bg-blue-900/40 dark:text-blue-200 
+                text-sm font-medium shadow-sm border border-blue-200/40 
+                dark:border-blue-800/40"
+                        >
+                          {Icon && (
+                            <Icon
+                              size={16}
+                              className="text-blue-600 dark:text-blue-300"
+                            />
+                          )}
+                          {label}
+                        </span>
+                      );
+                    })}
+
+                    {orderedSelectedFeatures.length === 0 && (
+                      <p className="text-gray-500 text-sm italic">
+                        No features selected.
+                      </p>
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
 
             {/* COMPARE */}
             <h3 className="text-lg font-semibold mb-3">Compare Photos</h3>
 
-            {type === "before" && unitType === null ? (
+            {type === "before" && unitType === null && !isHallway ? (
               <p className="text-sm text-red-500 mb-4">
                 ❗ Please select a Unit Type first.
               </p>
@@ -566,7 +598,7 @@ export function JobUploadModal({
             )}
 
             {/* GENERAL AREAS */}
-            {type === "after" && (
+            {type === "after" && !isHallway && (
               <>
                 <h3 className="text-lg font-semibold mb-3">General Areas</h3>
 
@@ -618,15 +650,29 @@ export function JobUploadModal({
           {/* FOOTER */}
           <div className="sticky bottom-0 w-full bg-white dark:bg-gray-900 border-t p-4">
             <Button
-              className="w-full"
-              disabled={uploading || !allCategoriesHavePhotos}
+              className={`w-full transition-all ${
+                uploading ||
+                requiredKeys.length === 0 ||
+                !allCategoriesHavePhotos
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }`}
+              disabled={
+                uploading ||
+                requiredKeys.length === 0 ||
+                !allCategoriesHavePhotos
+              }
               onClick={handleConfirm}
             >
               {uploading
                 ? "Uploading..."
-                : type === "before"
-                  ? "Confirm & Start Job"
-                  : "Confirm & Complete Job"}
+                : requiredKeys.length === 0
+                  ? "No Categories Available"
+                  : !allCategoriesHavePhotos
+                    ? "Upload All Required Photos"
+                    : type === "before"
+                      ? "Confirm & Start Job"
+                      : "Confirm & Complete Job"}
             </Button>
           </div>
 

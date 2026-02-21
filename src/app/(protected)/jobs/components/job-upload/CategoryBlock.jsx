@@ -1,7 +1,7 @@
 // components/job-upload/CategoryBlock.jsx
 
 "use client";
-
+import { ImageIcon } from "lucide-react";
 export default function CategoryBlock({
   icon: Icon,
   label,
@@ -21,7 +21,11 @@ export default function CategoryBlock({
           bg-white dark:bg-gray-800 transition relative shadow-sm
         "
       >
-        <Icon className="w-6 h-6 text-primary mb-1" />
+        {Icon ? (
+          <Icon className="w-6 h-6 text-primary mb-1" />
+        ) : (
+          <ImageIcon className="w-6 h-6 text-gray-400 mb-1" />
+        )}
         <span className="text-sm font-medium">{label}</span>
 
         {photos?.length > 0 && (
@@ -46,14 +50,14 @@ export default function CategoryBlock({
                   setPhotosByCategory((prev) => ({
                     ...prev,
                     [categoryKey]: prev[categoryKey].filter(
-                      (_, idx) => idx !== i
+                      (_, idx) => idx !== i,
                     ),
                   }));
 
                   setLocalFiles((prev) => ({
                     ...prev,
                     [categoryKey]: prev[categoryKey].filter(
-                      (_, idx) => idx !== i
+                      (_, idx) => idx !== i,
                     ),
                   }));
                 }}

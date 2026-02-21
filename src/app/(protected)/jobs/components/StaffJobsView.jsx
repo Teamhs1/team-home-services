@@ -84,6 +84,7 @@ export default function StaffJobsView({
     cancelled: "bg-red-100 text-red-700",
   };
 
+  const [typeFilter, setTypeFilter] = useState("all"); // 👈 NUEVO
   // ===================================================
   // FILTER JOBS (debe estar antes del useEffect)
   // ===================================================
@@ -94,6 +95,11 @@ export default function StaffJobsView({
         ? jobs.filter((j) => new Date(j.scheduled_date) > new Date())
         : jobs.filter((j) => j.status === statusFilter)
   )
+    // 🔥 NUEVO FILTRO POR TYPE
+    .filter((job) =>
+      typeFilter === "all" ? true : job.service_type === typeFilter,
+    )
+    // 🔎 SEARCH
     .filter((job) => {
       if (!searchTerm) return true;
 
@@ -112,6 +118,10 @@ export default function StaffJobsView({
       }),
     );
 
+  // 🔥 TIPOS VISIBLES SEGÚN FILTROS ACTUALES
+  const visibleTypes = [
+    ...new Set(filteredJobs.map((j) => j.service_type)),
+  ].filter(Boolean);
   // ===================================================
   // 🔥 REAL PHOTO COUNTS (from API)
   // ===================================================
@@ -349,7 +359,26 @@ export default function StaffJobsView({
         focus:outline-none focus:ring-2 focus:ring-blue-500
       "
           />
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="
+    border rounded-full
+    px-4 py-2 text-sm
+    bg-white
+    focus:outline-none focus:ring-2 focus:ring-blue-500
+  "
+          >
+            <option value="all">All Types</option>
 
+            {visibleTypes.map((type) => (
+              <option key={type} value={type}>
+                {type
+                  .replace(/_/g, " ")
+                  .replace(/\b\w/g, (l) => l.toUpperCase())}
+              </option>
+            ))}
+          </select>
           <Button
             variant="outline"
             onClick={() => {

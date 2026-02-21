@@ -224,16 +224,30 @@ export default function AdminJobsView({
 
   // Seleccion Multiple
   const [selectedJobs, setSelectedJobs] = useState(new Set());
-
+  const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
   // Cambia el estado de selección de un job
-  const toggleJobSelection = (jobId) => {
+  const handleRowSelection = (e, jobId, index) => {
     setSelectedJobs((prev) => {
       const next = new Set(prev);
-      next.has(jobId) ? next.delete(jobId) : next.add(jobId);
+
+      // 🔵 SHIFT → seleccionar rango
+      if (e.shiftKey && lastSelectedIndex !== null) {
+        const start = Math.min(lastSelectedIndex, index);
+        const end = Math.max(lastSelectedIndex, index);
+
+        for (let i = start; i <= end; i++) {
+          next.add(paginatedJobs[i].id);
+        }
+      }
+      // 🟢 Click normal → toggle individual (sin limpiar)
+      else {
+        next.has(jobId) ? next.delete(jobId) : next.add(jobId);
+      }
+
+      setLastSelectedIndex(index);
       return next;
     });
   };
-
   // Verifica si un job está seleccionado
   const isSelected = (jobId) => selectedJobs.has(jobId);
 
@@ -837,7 +851,7 @@ export default function AdminJobsView({
                   <th className="px-4 py-2 w-[180px] text-left">Job</th>
                   <th className="px-4 py-2 w-[320px] text-left">Address</th>
                   <th className="px-4 py-2 w-[110px] text-left">Date</th>
-                  <th className="px-4 py-2 w-[90px] text-left">Type</th>
+                  <th className="px-4 py-2 w-[160px] text-left">Type</th>
 
                   <th className="px-4 py-2 text-left">Staff</th>
                   <th className="px-4 py-2 text-left">Client</th>
@@ -848,15 +862,16 @@ export default function AdminJobsView({
               </thead>
 
               <tbody>
-                {paginatedJobs.map((job) => (
+                {paginatedJobs.map((job, index) => (
                   <tr
                     key={`${job.id}-${job.duration_minutes}`}
-                    className="border-t hover:bg-gray-50 cursor-pointer"
+                    className={`border-t cursor-pointer transition ${
+                      isSelected(job.id) ? "bg-blue-50" : "hover:bg-gray-50"
+                    }`}
                     onClick={(e) => {
-                      // 🔥 SI HAY SELECCIÓN, NO HAGAS NADA
-                      if (selectedJobs.size > 0) return;
-
                       const tag = e.target.tagName.toLowerCase();
+
+                      // 🔹 Ignorar clicks en elementos interactivos
                       if (
                         [
                           "button",
@@ -866,10 +881,21 @@ export default function AdminJobsView({
                           "path",
                           "input",
                         ].includes(tag)
-                      )
+                      ) {
                         return;
+                      }
 
-                      window.location.href = `/jobs/${job.id}`;
+                      // 🔹 Si NO hay selección activa → navegar
+                      if (selectedJobs.size === 0) {
+                        window.location.href = `/jobs/${job.id}`;
+                        return;
+                      }
+
+                      // 🔹 Si ya hay selección activa → toggle
+                      const index = paginatedJobs.findIndex(
+                        (j) => j.id === job.id,
+                      );
+                      handleRowSelection(e, job.id, index);
                     }}
                   >
                     <td
@@ -879,7 +905,8 @@ export default function AdminJobsView({
                       <input
                         type="checkbox"
                         checked={isSelected(job.id)}
-                        onChange={() => toggleJobSelection(job.id)}
+                        readOnly
+                        onClick={(e) => handleRowSelection(e, job.id, index)}
                       />
                     </td>
 
@@ -889,7 +916,9 @@ export default function AdminJobsView({
                     </td>
 
                     <td className="px-4 py-2">{job.scheduled_date}</td>
-                    <td className="px-4 py-2">{job.service_type}</td>
+                    <td className="px-4 py-2 capitalize whitespace-nowrap">
+                      {job.service_type.replaceAll("_", " ")}
+                    </td>
 
                     {/* STAFF */}
                     <td className="px-4 py-2">

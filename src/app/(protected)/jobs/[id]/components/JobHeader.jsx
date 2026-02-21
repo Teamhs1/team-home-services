@@ -45,8 +45,7 @@ export default function JobHeader({
 
   const [hours, setHours] = useState(Math.floor(safeMinutes / 60));
   const [mins, setMins] = useState(safeMinutes % 60);
-  const canCompleteJob =
-    (isAdmin || isStaff) && ["pending", "in_progress"].includes(job?.status);
+  const canCompleteJob = (isAdmin || isStaff) && job?.status === "in_progress";
 
   useEffect(() => {
     const m = Number(job?.duration_minutes);
@@ -129,8 +128,14 @@ export default function JobHeader({
     ? new Date(job.scheduled_date).toLocaleDateString()
     : "Sin fecha";
 
-  const typeLabel = job?.service_type || "Sin tipo";
-  const statusLabel = job?.status?.replace("_", " ") || "N/A";
+  const typeLabel = job?.service_type
+    ? job.service_type
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (l) => l.toUpperCase())
+    : "Sin tipo";
+  const statusLabel = job?.status
+    ? job.status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+    : "N/A";
 
   const statusColor =
     job?.status === "pending"
@@ -164,32 +169,18 @@ export default function JobHeader({
           Volver
         </Button>
         {/* ▶️ START JOB */}
-        {isAdmin && job?.status === "pending" && (
+        {(isAdmin || isStaff) && job?.status === "pending" && (
           <Button
             size="sm"
-            onClick={async () => {
-              if (!confirm("Start this job?")) return;
+            onClick={() => {
+              const isHallway =
+                job?.service_type === "hallway_standard" ||
+                job?.service_type === "hallway_deep";
 
-              const res = await fetch(`/api/job-activity/start`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                credentials: "include",
-                body: JSON.stringify({
-                  jobId: job.id,
-                }),
-              });
-
-              if (res.ok) {
-                onStart?.({
-                  status: "in_progress",
-                  started_at: new Date().toISOString(),
-                });
-
-                openModal(job.id, "before");
+              if (isHallway) {
+                openModal(job.id, "hallway_before");
               } else {
-                console.error("❌ START FAILED");
+                openModal(job.id, "before");
               }
             }}
           >
@@ -210,11 +201,19 @@ export default function JobHeader({
           </Button>
         )}
 
-        {/* 🔁 REOPEN JOB (solo cuando está completed) */}
+        {/* 🔁 REOPEN JOB */}
         {isAdmin && job?.status === "completed" && (
           <Button
             size="sm"
-            variant="destructive"
+            variant="outline"
+            className="
+    border-amber-300
+    text-amber-700
+    hover:bg-amber-100
+    hover:text-amber-800
+    hover:border-amber-400
+    transition
+  "
             onClick={async () => {
               if (!confirm("Reopen this job?")) return;
 
@@ -230,7 +229,7 @@ export default function JobHeader({
               }
             }}
           >
-            🔁 Reopen Job
+            🔄 Reopen Job
           </Button>
         )}
       </div>
@@ -239,7 +238,30 @@ export default function JobHeader({
       <h1 className="text-2xl font-bold flex items-center gap-3 flex-wrap">
         <ClipboardList className="w-5 h-5 text-primary" />
 
-        <span>{job?.title || "Job"}</span>
+        {!editingTitle ? (
+          <span
+            className={`${isAdmin ? "cursor-pointer hover:opacity-80" : ""}`}
+            onClick={() => isAdmin && setEditingTitle(true)}
+          >
+            {title || "Job"}
+          </span>
+        ) : (
+          <input
+            value={title}
+            autoFocus
+            disabled={saving}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={saveTitle}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveTitle();
+              if (e.key === "Escape") {
+                setTitle(job.title);
+                setEditingTitle(false);
+              }
+            }}
+            className="border rounded px-2 py-1 text-xl font-bold outline-none focus:ring-2 focus:ring-primary"
+          />
+        )}
 
         {unitTypeLabel && (
           <span className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700">
@@ -249,22 +271,29 @@ export default function JobHeader({
         )}
       </h1>
 
-      {/* META ROW — AQUÍ ES DONDE SE VE SIEMPRE */}
-      <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
-        <CalendarDays className="w-4 h-4" />
-        <span>{dateLabel}</span>
-        <span>•</span>
-        <span className="capitalize">{typeLabel}</span>
+      {/* META ROW — SaaS Style */}
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        {/* DATE */}
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
+          <CalendarDays className="w-3.5 h-3.5" />
+          {dateLabel}
+        </div>
 
-        <span
-          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}
+        {/* SERVICE TYPE */}
+        <div className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+          {typeLabel}
+        </div>
+
+        {/* STATUS */}
+        <div
+          className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}
         >
           {statusLabel}
-        </span>
+        </div>
 
-        {/* ⏱️ DURACIÓN — VISUALMENTE CLARA */}
+        {/* ⏱️ COMPLETED DURATION */}
         {job?.status === "completed" && (
-          <div className="ml-2 px-2 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold flex items-center gap-2">
+          <div className="ml-1 px-3 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold flex items-center gap-2">
             {!editingDuration ? (
               <>
                 <span>
@@ -275,7 +304,7 @@ export default function JobHeader({
                 {isAdmin && (
                   <button
                     onClick={() => setEditingDuration(true)}
-                    className="text-xs underline opacity-70 hover:opacity-100"
+                    className="text-xs opacity-70 hover:opacity-100"
                   >
                     edit
                   </button>
@@ -316,13 +345,11 @@ export default function JobHeader({
             )}
           </div>
         )}
+
         {/* ⏱️ LIVE TIMER */}
         {job?.status === "in_progress" && (
-          <div className="ml-2 flex items-center gap-3">
-            <div className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold flex items-center gap-1">
-              <JobTimer jobId={job.id} startedAt={job.started_at} />
-            </div>
-
+          <div className="ml-1 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold flex items-center gap-2">
+            <JobTimer jobId={job.id} startedAt={job.started_at} />
             {isStaff && <WorkFocusPlayer />}
           </div>
         )}

@@ -13,7 +13,7 @@ const supabase = createClient(
 /* =========================
    GET JOB DETAIL
 ========================= */
-export async function GET(req, { params }) {
+export async function GET(req, context) {
   try {
     const { userId } = getAuth(req);
 
@@ -21,7 +21,7 @@ export async function GET(req, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = params; // ✅ AQUÍ
+    const { id } = await context.params;
 
     const { data: job, error: jobError } = await supabase
       .from("cleaning_jobs")

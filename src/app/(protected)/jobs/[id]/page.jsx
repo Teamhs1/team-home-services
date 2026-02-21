@@ -162,6 +162,31 @@ export default function JobPhotosPage() {
   // ===============================
   const compareKeys = useMemo(() => {
     if (!job) return [];
+
+    const isHallway =
+      job.service_type === "hallway_standard" ||
+      job.service_type === "hallway_deep";
+
+    if (isHallway) {
+      return [
+        // BEFORE hallway
+        "floor_condition",
+        "baseboards_condition",
+        "walls_condition",
+        "handrails_condition",
+        "corners_condition",
+        "lights_condition",
+
+        // AFTER hallway
+        "floor_cleaned",
+        "baseboards_cleaned",
+        "walls_cleaned",
+        "handrails_cleaned",
+        "final_overview",
+      ];
+    }
+
+    // normal units
     return [
       ...staticCompare.map((c) => c.key),
       ...compareFromFeatures(job.features || []).map((c) => c.key),
@@ -270,9 +295,9 @@ export default function JobPhotosPage() {
           <JobUploadModal
             key={currentJob}
             jobId={currentJob}
-            type={modalType}
+            type={modalType === "hallway_before" ? "before" : modalType}
             onClose={closeModal}
-            updateLocalJob={updateLocalJob} // 🔥🔥🔥 ESTA ES LA CLAVE
+            updateLocalJob={updateLocalJob}
             updateStatus={async (jobId, newStatus) => {
               const token = await getToken({ template: "supabase" });
 
@@ -298,7 +323,6 @@ export default function JobPhotosPage() {
                 .from("cleaning_jobs")
                 .update(payload)
                 .eq("id", jobId);
-              await supabase.from("jobs").update(payload).eq("id", jobId);
             }}
             fetchJobs={() => {}}
           />
