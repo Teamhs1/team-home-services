@@ -45,6 +45,50 @@ export default function ClientJobsView({
 }) {
   const searchParams = useSearchParams();
   const status = searchParams.get("status") || "all";
+  const [serviceTypes, setServiceTypes] = React.useState([]);
+  const [serviceLoading, setServiceLoading] = React.useState(true);
+  const [estimatedDuration, setEstimatedDuration] = React.useState(null);
+  const [estimateLoading, setEstimateLoading] = React.useState(false);
+  const isHallwayService = form.service_type?.includes("hallway");
+  useEffect(() => {
+    if (!form.service_type) {
+      setEstimatedDuration(null);
+      return;
+    }
+
+    setEstimateLoading(true);
+
+    fetch("/api/duration-estimate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service_type: form.service_type,
+
+        bedrooms: isHallwayService ? null : Number(form.bedrooms),
+        bathrooms: isHallwayService ? null : Number(form.bathrooms),
+
+        floors: isHallwayService ? Number(form.floors) : null,
+
+        unit_type: form.unit_type,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setEstimatedDuration(data.hours ?? null);
+      })
+      .catch(() => {
+        setEstimatedDuration(null);
+      })
+      .finally(() => {
+        setEstimateLoading(false);
+      });
+  }, [
+    form.service_type,
+    form.bedrooms,
+    form.bathrooms,
+    form.floors,
+    form.unit_type,
+  ]);
 
   // ⭐ Forzar GRID en móviles
   useEffect(() => {
@@ -52,13 +96,40 @@ export default function ClientJobsView({
       setViewMode("grid");
     }
   }, [setViewMode]);
+  useEffect(() => {
+    async function loadServiceTypes() {
+      try {
+        const res = await fetch("/api/service-types");
 
+        if (!res.ok) {
+          console.error("Service types fetch failed:", res.status);
+          return;
+        }
+
+        const text = await res.text();
+        if (!text) return;
+
+        const data = JSON.parse(text);
+
+        const active =
+          data
+            ?.filter((t) => t.is_active !== false)
+            ?.sort((a, b) => a.name.localeCompare(b.name)) || [];
+
+        setServiceTypes(active);
+      } catch (err) {
+        console.error("Error loading service types", err);
+      } finally {
+        setServiceLoading(false);
+      }
+    }
+
+    loadServiceTypes();
+  }, []);
   // ⭐ Friendly Display Name
-  const getFriendlyName = (type) => {
-    if (type === "deep") return "Deep Cleaning";
-    if (type === "standard") return "Standard Cleaning";
-    if (type === "move-out") return "Move-out Cleaning";
-    return type;
+  const getFriendlyName = (value) => {
+    const found = serviceTypes.find((t) => t.value === value);
+    return found?.name || value?.replaceAll("_", " ");
   };
 
   // ⭐ Remove duplicates
@@ -129,11 +200,111 @@ export default function ClientJobsView({
                   <SelectValue placeholder="Choose service type" />
                 </SelectTrigger>
                 <SelectContent className="bg-white border shadow-md">
-                  <SelectItem value="standard">Standard Cleaning</SelectItem>
-                  <SelectItem value="deep">Deep Cleaning</SelectItem>
-                  <SelectItem value="move-out">Move-out Cleaning</SelectItem>
+                  {serviceLoading && (
+                    <SelectItem value="loading" disabled>
+                      Loading...
+                    </SelectItem>
+                  )}
+
+                  {serviceTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.value}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {/* Property Details */}
+              {!isHallwayService ? (
+                /* 🏠 NORMAL APARTMENT/HOUSE */
+                <div className="grid md:grid-cols-3 grid-cols-1 gap-4 mt-4">
+                  <Select
+                    value={String(form.bedrooms || 2)}
+                    onValueChange={(v) =>
+                      setForm({ ...form, bedrooms: Number(v) })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Bedrooms" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 Bedroom</SelectItem>
+                      <SelectItem value="2">2 Bedrooms</SelectItem>
+                      <SelectItem value="3">3 Bedrooms</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={String(form.bathrooms || 1)}
+                    onValueChange={(v) =>
+                      setForm({ ...form, bathrooms: Number(v) })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Bathrooms" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 Bathroom</SelectItem>
+                      <SelectItem value="2">2 Bathrooms</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={form.unit_type || "apartment"}
+                    onValueChange={(v) => setForm({ ...form, unit_type: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Unit Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="apartment">Apartment</SelectItem>
+                      <SelectItem value="house">House</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                /* 🏢 HALLWAY MODE */
+                <div className="grid md:grid-cols-1 grid-cols-1 gap-4 mt-4">
+                  <Select
+                    value={String(form.floors || 1)}
+                    onValueChange={(v) =>
+                      setForm({ ...form, floors: Number(v) })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Number of Levels" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 Level</SelectItem>
+                      <SelectItem value="2">2 Levels</SelectItem>
+                      <SelectItem value="3">3 Levels</SelectItem>
+                      <SelectItem value="4">4+ Levels</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {form.service_type && (
+                <div className="mt-3 transition-all duration-300">
+                  {estimateLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-blue-600">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Calculating estimated duration...
+                    </div>
+                  ) : estimatedDuration !== null ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+                      <div className="flex items-center gap-2 text-blue-800 font-medium">
+                        ⏱ Estimated duration
+                      </div>
+                      <div className="text-sm text-blue-700 mt-1">
+                        {estimatedDuration} hours
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-500">
+                      ⏱ No estimate available for this configuration
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>

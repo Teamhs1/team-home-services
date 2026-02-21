@@ -38,46 +38,19 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
     );
   }
 
-  const normalize = (v) => (v || "unknown").trim().toLowerCase();
-
-  // 🔥 AGRUPAR POR CATEGORÍA Y EMPAREJAR POR ÍNDICE
-  const groupedBefore = {};
-  const groupedAfter = {};
-
-  // Agrupar BEFORE
-  beforePhotos.forEach((photo) => {
-    const category = normalize(photo.category);
-    if (!groupedBefore[category]) groupedBefore[category] = [];
-    groupedBefore[category].push(photo);
-  });
-
-  // Agrupar AFTER
-  afterPhotos.forEach((photo) => {
-    const category = normalize(photo.category);
-    if (!groupedAfter[category]) groupedAfter[category] = [];
-    groupedAfter[category].push(photo);
-  });
-
-  // Crear pares por categoría e índice
+  // 🔥 EMPAREJAR DIRECTAMENTE POR ÍNDICE (SIN CATEGORÍAS)
   const pairs = [];
 
-  Object.keys(groupedBefore).forEach((category) => {
-    if (!groupedAfter[category]) return;
+  const minLength = Math.min(beforePhotos.length, afterPhotos.length);
 
-    const beforeList = groupedBefore[category];
-    const afterList = groupedAfter[category];
-
-    const minLength = Math.min(beforeList.length, afterList.length);
-
-    for (let i = 0; i < minLength; i++) {
-      pairs.push({
-        before: beforeList[i],
-        after: afterList[i],
-        key: `${category}-${i}`, // clave única
-        label: category,
-      });
-    }
-  });
+  for (let i = 0; i < minLength; i++) {
+    pairs.push({
+      before: beforePhotos[i],
+      after: afterPhotos[i],
+      key: `pair-${i}`,
+      label: `Comparison ${i + 1}`,
+    });
+  }
 
   if (!pairs.length) {
     return (

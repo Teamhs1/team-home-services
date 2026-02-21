@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Card,
   CardHeader,
@@ -16,18 +16,118 @@ export default function ClientJobRequests({ clerkId, getToken }) {
   const { jobs, loading, fetchCustomerJobs, createJobRequest } =
     useCustomerJobs({ clerkId, getToken });
 
-  // 🔹 FORM STATE
+  const [estimatedDuration, setEstimatedDuration] = useState(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [hallwayOptions, setHallwayOptions] = useState([]);
+
+  /* =========================
+     SERVICE TYPES (dynamic)
+  ========================= */
+  const [serviceTypes, setServiceTypes] = useState([]);
+  const [serviceLoading, setServiceLoading] = useState(true);
+
+  /* =========================
+     FORM STATE
+  ========================= */
   const [form, setForm] = useState({
     title: "",
     service_type: "",
     property_address: "",
     scheduled_date: "",
     notes: "",
+    bedrooms: 2,
+    bathrooms: 1,
+    unit_type: "apartment",
+    floors: 1,
   });
+  const isHallway = form.service_type?.toLowerCase().includes("hallway");
+  // Opciones válidas para el servicio seleccionado
+  const validHallwayOptions = useMemo(() => {
+    if (!isHallway) return [];
 
-  // 🔹 SUBMIT STATE (NO MEZCLAR CON FETCH)
+    return hallwayOptions.filter(
+      (opt) =>
+        opt.service_type?.toLowerCase().trim() ===
+        form.service_type?.toLowerCase().trim(),
+    );
+  }, [hallwayOptions, form.service_type, isHallway]);
+
+  // Floors disponibles según DB
+  const availableFloors = useMemo(() => {
+    return [...new Set(validHallwayOptions.map((o) => o.floors))];
+  }, [validHallwayOptions]);
+
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    async function fetchHallwayOptions() {
+      const res = await fetch("/api/hallway-options");
+      const data = await res.json();
+      setHallwayOptions(data || []);
+    }
+
+    fetchHallwayOptions();
+  }, []);
+
+  useEffect(() => {
+    if (!form.service_type) {
+      setEstimatedDuration(null);
+      return;
+    }
+
+    // Para hallway: no calcular si faltan datos
+    if (isHallway && !form.floors) {
+      setEstimatedDuration(null);
+      return;
+    }
+
+    async function getEstimate() {
+      try {
+        setEstimateLoading(true);
+        setEstimatedDuration(null);
+
+        // 🔥 recalcular aquí mismo si es hallway
+        const hallwayCheck = form.service_type
+          ?.toLowerCase()
+          .includes("hallway");
+
+        const payload = {
+          service_type: form.service_type,
+          bedrooms: hallwayCheck ? null : Number(form.bedrooms) || 2,
+          bathrooms: hallwayCheck ? null : Number(form.bathrooms) || 1,
+          unit_type: hallwayCheck ? null : form.unit_type || "apartment",
+          floors: hallwayCheck ? Number(form.floors) : null,
+        };
+
+        console.log("SENDING TO API:", payload);
+
+        const res = await fetch("/api/duration-estimate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+
+        console.log("API RESPONSE:", data);
+
+        setEstimatedDuration(data?.hours ?? null);
+      } catch (err) {
+        console.error("Estimate error:", err);
+        setEstimatedDuration(null);
+      } finally {
+        setEstimateLoading(false);
+      }
+    }
+
+    getEstimate();
+  }, [
+    form.service_type,
+    form.bedrooms,
+    form.bathrooms,
+    form.unit_type,
+    form.floors,
+  ]);
   /* =========================
      LOAD JOBS
   ========================= */
@@ -35,7 +135,6 @@ export default function ClientJobRequests({ clerkId, getToken }) {
     fetchCustomerJobs();
   }, [fetchCustomerJobs]);
 
-  // 🔔 EVENTO GLOBAL (admin escucha esto)
   const emitJobCreated = (job) => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("job:created", { detail: job }));
@@ -43,7 +142,15 @@ export default function ClientJobRequests({ clerkId, getToken }) {
   };
 
   /* =========================
-     FORM HANDLERS
+     HELPERS
+  ========================= */
+  const getServiceName = (value) => {
+    const found = serviceTypes.find((t) => t.value === value);
+    return found?.name || value?.replaceAll("_", " ");
+  };
+
+  /* =========================
+     HANDLERS
   ========================= */
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -51,11 +158,7 @@ export default function ClientJobRequests({ clerkId, getToken }) {
   };
 
   const handleSubmit = async () => {
-    if (
-      !form.title?.trim() ||
-      !form.service_type?.trim() ||
-      !form.scheduled_date
-    ) {
+    if (!form.title?.trim() || !form.service_type || !form.scheduled_date) {
       toast.error("Please fill all required fields.");
       return;
     }
@@ -64,13 +167,16 @@ export default function ClientJobRequests({ clerkId, getToken }) {
       setSubmitting(true);
 
       const createdJob = await createJobRequest({
-        ...form,
+        title: form.title.trim(),
         property_address: form.property_address?.trim() || form.title.trim(),
+        service_type: form.service_type,
+        scheduled_date: form.scheduled_date,
+        notes: form.notes || null,
       });
 
       if (createdJob?.id) {
         emitJobCreated(createdJob);
-        fetchCustomerJobs(); // opcional pero seguro
+        fetchCustomerJobs();
       }
 
       setForm({
@@ -90,7 +196,7 @@ export default function ClientJobRequests({ clerkId, getToken }) {
   };
 
   /* =========================
-     LOADING STATE (FETCH)
+     LOADING STATE
   ========================= */
   if (loading) {
     return (
@@ -100,12 +206,8 @@ export default function ClientJobRequests({ clerkId, getToken }) {
     );
   }
 
-  /* =========================
-     RENDER
-  ========================= */
   return (
     <div className="space-y-8">
-      {/* 🔹 NEW REQUEST */}
       <Card>
         <CardHeader>
           <CardTitle>Request a Cleaning Service</CardTitle>
@@ -118,7 +220,7 @@ export default function ClientJobRequests({ clerkId, getToken }) {
           <input
             name="title"
             className="w-full border rounded-lg p-2 text-sm"
-            placeholder="Title (e.g. 44 Cameron #10)"
+            placeholder="Unit or Reference (e.g. Unit 10)"
             value={form.title}
             onChange={handleChange}
           />
@@ -126,15 +228,66 @@ export default function ClientJobRequests({ clerkId, getToken }) {
           <select
             name="service_type"
             value={form.service_type}
-            onChange={handleChange}
-            className="w-full border rounded-lg p-2 text-sm"
-          >
-            <option value="">Select service type</option>
-            <option value="standard">Standard Cleaning</option>
-            <option value="deep">Deep Cleaning</option>
-            <option value="move-out">Move-out Cleaning</option>
-          </select>
+            onChange={(e) => {
+              const newService = e.target.value;
 
+              setForm((prev) => ({
+                ...prev,
+                service_type: newService,
+                floors: "",
+              }));
+            }}
+            className="w-full border rounded-lg p-2 text-sm"
+            disabled={serviceLoading}
+          >
+            <option value="">
+              {serviceLoading ? "Loading services..." : "Select service type"}
+            </option>
+
+            {serviceTypes.map((type) => (
+              <option key={type.id} value={type.value}>
+                {type.name}
+              </option>
+            ))}
+          </select>
+          {/* Property Details */}
+          {isHallway && (
+            <div className="grid md:grid-cols-1 grid-cols-1 gap-3">
+              <select
+                name="floors"
+                value={form.floors}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    floors: e.target.value,
+                  }))
+                }
+                className="border rounded-lg p-2 text-sm"
+              >
+                <option value="">Select number of levels</option>
+
+                {availableFloors.map((floor) => (
+                  <option key={floor} value={floor}>
+                    {floor} {floor > 1 ? "Levels" : "Level"}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <p className="text-xs text-red-500">
+            DEBUG: {form.service_type || "EMPTY"}
+          </p>
+          {form.service_type && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              {estimateLoading ? (
+                <p className="text-sm text-blue-600">Calculating...</p>
+              ) : (
+                <p className="text-sm font-semibold text-blue-700">
+                  ⏱ Estimated duration: {estimatedDuration ?? "Not found"}
+                </p>
+              )}
+            </div>
+          )}
           <input
             name="property_address"
             className="w-full border rounded-lg p-2 text-sm"
@@ -167,27 +320,27 @@ export default function ClientJobRequests({ clerkId, getToken }) {
               !form.scheduled_date
             }
             onClick={handleSubmit}
-            className="w-full"
+            className="w-full flex items-center justify-center gap-2"
           >
+            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
             {submitting ? "Submitting..." : "Submit Request"}
           </Button>
         </CardContent>
       </Card>
 
-      {/* 🔹 JOB LIST */}
       <div>
         <h2 className="text-xl font-semibold mb-3">My Requests</h2>
 
         {jobs.length === 0 ? (
           <p className="text-gray-500 text-sm">No requests yet.</p>
         ) : (
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 grid-cols-1 gap-4">
             {jobs.map((job) => (
               <Card key={job.id} className="border">
                 <CardHeader>
                   <CardTitle>{job.title}</CardTitle>
                   <CardDescription>
-                    {job.service_type || "No service type"}
+                    {getServiceName(job.service_type) || "No service type"}
                   </CardDescription>
                 </CardHeader>
 
@@ -195,19 +348,24 @@ export default function ClientJobRequests({ clerkId, getToken }) {
                   <p className="text-gray-500 text-sm">
                     📍 {job.property_address || "No address"}
                   </p>
+
                   <p className="text-gray-500 text-xs mt-1">
-                    🗓️ {job.scheduled_date}
+                    🗓️{" "}
+                    {job.scheduled_date
+                      ? new Date(job.scheduled_date).toLocaleDateString()
+                      : "No date"}
                   </p>
+
                   <p
                     className={`mt-2 text-xs px-2 py-1 rounded-full font-semibold inline-block ${
                       job.status === "completed"
                         ? "bg-green-100 text-green-700"
                         : job.status === "in_progress"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-yellow-100 text-yellow-700"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-yellow-100 text-yellow-700"
                     }`}
                   >
-                    {job.status || "pending"}
+                    {job.status?.replaceAll("_", " ") || "pending"}
                   </p>
                 </CardContent>
               </Card>

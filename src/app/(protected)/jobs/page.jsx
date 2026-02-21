@@ -46,6 +46,12 @@ export default function JobsPage() {
     property_address: "",
     scheduled_date: "",
     notes: "",
+
+    // 🔥 AGREGAR ESTO
+    bedrooms: 1,
+    bathrooms: 1,
+    unit_type: "apartment",
+    floors: 1,
   });
 
   /* ======================
@@ -122,13 +128,16 @@ export default function JobsPage() {
       if (!res.ok) throw new Error(json.error || "Failed to create job");
 
       toast.success("🧽 Cleaning request created");
-
       setForm({
         title: "",
         service_type: "",
         property_address: "",
         scheduled_date: "",
         notes: "",
+        bedrooms: 1,
+        bathrooms: 1,
+        unit_type: "apartment",
+        floors: 1,
       });
 
       await fetchCustomerJobs();

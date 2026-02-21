@@ -206,17 +206,11 @@ export default function JobPhotosPage() {
   // 📸 FILTERS (FINAL)
   // ===============================
   const beforePhotos = photos.filter(
-    (p) =>
-      p.type === "before" &&
-      compareKeys.includes(p.category) &&
-      isImage(p.image_url),
+    (p) => p.type === "before" && isImage(p.image_url),
   );
 
   const afterPhotos = photos.filter(
-    (p) =>
-      p.type === "after" &&
-      compareKeys.includes(p.category) &&
-      isImage(p.image_url),
+    (p) => p.type === "after" && isImage(p.image_url),
   );
 
   const generalPhotos = photos.filter(
