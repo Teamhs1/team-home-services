@@ -149,9 +149,6 @@ export default function Sidebar() {
   const prevResourcesRef = useRef([]);
 
   const [role, setRole] = useState("user");
-  const isSuperAdmin = role === "super_admin";
-  const isAdmin = role === "admin";
-  const isAdminLevel = isAdmin || isSuperAdmin;
   const [staffType, setStaffType] = useState(null);
   const [hasSyncError, setHasSyncError] = useState(false);
   const [sidebarTheme, setSidebarTheme] = useState("dark");
@@ -159,7 +156,8 @@ export default function Sidebar() {
   const [permissionsReady, setPermissionsReady] = useState(false);
   const fetchPermissionsRef = useRef(null);
   const { getToken } = useAuth();
-  const effectiveRole = staffType ? staffType : role;
+  const effectiveRole =
+    role === "admin" ? "admin" : staffType ? staffType : role;
 
   /* =========================
      THEME
@@ -205,8 +203,8 @@ export default function Sidebar() {
   useEffect(() => {
     if (!user?.id) return;
 
-    // 👑 SUPER ADMIN: acceso global
-    if (isSuperAdmin) {
+    // ✅ ADMIN: permisos inmediatos
+    if (role === "admin") {
       setAllowedResources(ALL_RESOURCES);
       setStaffType(null);
       setPermissionsReady(true);
@@ -506,14 +504,10 @@ export default function Sidebar() {
      HELPERS
   ========================= */
   function hasPermission(resource) {
-    if (isSuperAdmin) return true; // 👑 VE TODO GLOBAL
-
-    if (isAdmin) {
-      return allowedResources.includes(resource);
-    }
-
+    if (effectiveRole === "admin") return true;
     return allowedResources.includes(resource);
   }
+
   /* =========================
      MENU CONFIG
   ========================= */
@@ -588,66 +582,67 @@ export default function Sidebar() {
     },
   ];
 
-  const adminItems = isAdminLevel
-    ? [
-        {
-          id: "admin-content",
-          name: "Edit Landing Content",
-          href: "/admin/content",
-          icon: ICONS.content,
-        },
-        {
-          id: "admin-users",
-          name: "Users",
-          href: "/admin/users",
-          icon: ICONS.users,
-        },
+  const adminItems =
+    effectiveRole === "admin"
+      ? [
+          {
+            id: "admin-content",
+            name: "Edit Landing Content",
+            href: "/admin/content",
+            icon: ICONS.content,
+          },
+          {
+            id: "admin-users",
+            name: "Users",
+            href: "/admin/users",
+            icon: ICONS.users,
+          },
 
-        {
-          id: "admin-staff-apps",
-          name: "Staff Applications",
-          href: "/admin/staff-applications",
-          icon: ICONS.staffApps,
-        },
-        {
-          id: "admin-sync-logs",
-          name: "Sync Logs",
-          href: "/admin/sync-logs",
-          icon: ICONS.syncLogs,
-          hasError: hasSyncError,
-        },
-        {
-          id: "admin-properties",
-          name: "Properties",
-          href: "/admin/properties",
-          icon: ICONS.properties,
-        },
-        {
-          id: "admin-companies",
-          name: "Companies",
-          href: "/admin/companies",
-          icon: ICONS.companies,
-        },
-        {
-          id: "admin-keys",
-          name: "Keys",
-          href: "/admin/keys",
-          icon: ICONS.keys,
-        },
-        {
-          id: "admin-permissions",
-          name: "Permissions",
-          href: "/admin/permissions",
-          icon: ICONS.permissions,
-        },
-        {
-          id: "admin-features",
-          name: "Features",
-          href: "/admin/features",
-          icon: ICONS.features,
-        },
-      ]
-    : [];
+          {
+            id: "admin-staff-apps",
+            name: "Staff Applications",
+            href: "/admin/staff-applications",
+            icon: ICONS.staffApps,
+          },
+          {
+            id: "admin-sync-logs",
+            name: "Sync Logs",
+            href: "/admin/sync-logs",
+            icon: ICONS.syncLogs,
+            hasError: hasSyncError,
+          },
+          {
+            id: "admin-properties",
+            name: "Properties",
+            href: "/admin/properties",
+            icon: ICONS.properties,
+          },
+          {
+            id: "admin-companies",
+            name: "Companies",
+            href: "/admin/companies",
+            icon: ICONS.companies,
+          },
+          {
+            id: "admin-keys",
+            name: "Keys",
+            href: "/admin/keys",
+            icon: ICONS.keys,
+          },
+          {
+            id: "admin-permissions",
+            name: "Permissions",
+            href: "/admin/permissions",
+            icon: ICONS.permissions,
+          },
+          {
+            id: "admin-features",
+            name: "Features",
+            href: "/admin/features",
+            icon: ICONS.features,
+          },
+        ]
+      : [];
 
   const staticItems = [
     {
@@ -785,7 +780,7 @@ export default function Sidebar() {
         </div>
 
         {/* ADMIN DIVIDER */}
-        {isAdminLevel && adminNavItems.length > 0 && (
+        {role === "admin" && adminNavItems.length > 0 && (
           <div className="mt-4 mb-2">
             <div className="mx-6 border-t border-slate-700/60" />
             {isOpen && (
@@ -854,16 +849,14 @@ export default function Sidebar() {
           {/* ROLE BADGE */}
           <span
             className={`text-[10px] font-semibold px-3 py-1 rounded-full ${
-              role === "super_admin"
-                ? "bg-purple-600/20 text-purple-400"
-                : role === "admin"
-                  ? "bg-blue-600/20 text-blue-400"
-                  : role === "staff"
-                    ? "bg-green-600/20 text-green-400"
-                    : "bg-gray-600/20 text-gray-300"
+              role === "admin"
+                ? "bg-blue-600/20 text-blue-400"
+                : role === "staff"
+                  ? "bg-green-600/20 text-green-400"
+                  : "bg-gray-600/20 text-gray-300"
             }`}
           >
-            {role.replace(/_/g, " ").toUpperCase()}
+            {effectiveRole.toUpperCase()}
           </span>
 
           {/* STAFF SUBROLE BADGE */}

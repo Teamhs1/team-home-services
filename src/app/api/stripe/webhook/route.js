@@ -10,7 +10,17 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
+function mapPriceToPlan(priceId) {
+  if (priceId === process.env.STRIPE_PRICE_GROWTH) return "growth";
+  if (priceId === process.env.STRIPE_PRICE_PRO) return "pro";
+  return "unknown";
+}
 
+function mapPlanToUnits(priceId) {
+  if (priceId === process.env.STRIPE_PRICE_GROWTH) return 25;
+  if (priceId === process.env.STRIPE_PRICE_PRO) return 75;
+  return 0;
+}
 export async function POST(req) {
   const body = await req.text();
   const sig = headers().get("stripe-signature");
@@ -110,7 +120,78 @@ export async function POST(req) {
 
         break;
       }
+      case "checkout.session.completed": {
+        const session = event.data.object;
 
+        if (session.mode !== "subscription") break;
+
+        const subscription = await stripe.subscriptions.retrieve(
+          session.subscription,
+        );
+
+        const priceId = subscription.items.data[0].price.id;
+
+        await supabase
+          .from("companies")
+          .update({
+            stripe_subscription_id: subscription.id,
+            subscription_status: subscription.status,
+            plan_type: mapPriceToPlan(priceId),
+            max_units: mapPlanToUnits(priceId),
+            subscription_current_period_end: new Date(
+              subscription.current_period_end * 1000,
+            ),
+          })
+          .eq("stripe_customer_id", session.customer);
+
+        console.log("✅ Subscription activated");
+        break;
+      }
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object;
+
+        await supabase
+          .from("companies")
+          .update({
+            subscription_status: "canceled",
+            max_units: 0,
+          })
+          .eq("stripe_subscription_id", subscription.id);
+
+        console.log("⚠️ Subscription canceled");
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object;
+
+        await supabase
+          .from("companies")
+          .update({
+            subscription_status: "past_due",
+          })
+          .eq("stripe_customer_id", invoice.customer);
+
+        console.log("⚠️ Subscription payment failed");
+        break;
+      }
+      case "customer.subscription.updated": {
+        const subscription = event.data.object;
+
+        await supabase
+          .from("companies")
+          .update({
+            subscription_status: subscription.status,
+            subscription_current_period_end: new Date(
+              subscription.current_period_end * 1000,
+            ),
+            stripe_subscription_id: subscription.id, // ← refuerzo
+          })
+          .eq("stripe_customer_id", subscription.customer);
+
+        console.log("🔄 Subscription status synced:", subscription.status);
+        break;
+      }
       default:
         console.log(`ℹ️ Unhandled event type: ${event.type}`);
     }

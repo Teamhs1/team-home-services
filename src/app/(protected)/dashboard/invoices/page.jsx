@@ -15,6 +15,10 @@ export default function InvoicesPage() {
   const [role, setRole] = useState(null);
   const [selected, setSelected] = useState([]);
 
+  const isSuperAdmin = role === "super_admin";
+  const isCompanyAdmin = role === "admin";
+  const isAdminLevel = isSuperAdmin || isCompanyAdmin;
+
   const isSelected = (id) => selected.includes(id);
 
   const toggleOne = (id) => {
@@ -96,7 +100,7 @@ export default function InvoicesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Invoices</h1>
 
-        {role === "admin" && selected.length > 0 && (
+        {isAdminLevel && selected.length > 0 && (
           <div className="flex items-center gap-4 bg-muted px-4 py-2 border rounded-lg">
             <span className="text-sm text-muted-foreground">
               {selected.length} selected
@@ -130,11 +134,11 @@ export default function InvoicesPage() {
           invoices={invoices}
           setInvoices={setInvoices}
           router={router}
-          role={role}
           selected={selected}
           isSelected={isSelected}
           toggleOne={toggleOne}
           toggleAll={toggleAll}
+          isAdminLevel={isAdminLevel}
         />
       )}
     </section>
@@ -162,11 +166,11 @@ function InvoicesTable({
   invoices,
   setInvoices,
   router,
-  role,
   selected,
   isSelected,
   toggleOne,
   toggleAll,
+  isAdminLevel,
 }) {
   async function archiveInvoice(id) {
     const confirmed = window.confirm(
@@ -194,7 +198,7 @@ function InvoicesTable({
       <table className="w-full text-sm">
         <thead className="bg-muted text-muted-foreground">
           <tr>
-            {role === "admin" && (
+            {isAdminLevel && (
               <th className="px-4 py-3 w-10">
                 <button onClick={toggleAll}>
                   {selected.length === invoices.length &&
@@ -213,9 +217,7 @@ function InvoicesTable({
             <th className="px-4 py-3 text-left">Created</th>
             <th className="px-4 py-3 text-left">Created by</th>
             <th className="px-4 py-3 text-left">Notes</th>
-            {role === "admin" && (
-              <th className="px-4 py-3 text-left">Actions</th>
-            )}
+            {isAdminLevel && <th className="px-4 py-3 text-left">Actions</th>}
           </tr>
         </thead>
 
@@ -225,7 +227,7 @@ function InvoicesTable({
               key={inv.id}
               className="border-t hover:bg-muted/50 transition-colors"
             >
-              {role === "admin" && (
+              {isAdminLevel && (
                 <td className="px-4 py-3">
                   <button onClick={() => toggleOne(inv.id)}>
                     {isSelected(inv.id) ? (
@@ -266,7 +268,7 @@ function InvoicesTable({
                 {inv.notes || "—"}
               </td>
 
-              {role === "admin" && (
+              {isAdminLevel && (
                 <td className="px-4 py-3">
                   <button
                     onClick={() => archiveInvoice(inv.id)}

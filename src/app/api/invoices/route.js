@@ -124,8 +124,20 @@ export async function GET() {
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
-    // 3️⃣ SOLO filtrar por company si NO es admin
-    if (profile.role !== "admin") {
+    // 👑 SUPER ADMIN → ve todo global
+    if (profile.role === "super_admin") {
+      // no filter
+    }
+
+    // 🏢 TODOS LOS DEMÁS → filtrar por company
+    else {
+      if (!profile.active_company_id) {
+        return NextResponse.json(
+          { error: "No active company" },
+          { status: 403 },
+        );
+      }
+
       query = query.eq("company_id", profile.active_company_id);
     }
 

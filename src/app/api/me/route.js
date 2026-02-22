@@ -1,43 +1,60 @@
 import { NextResponse } from "next/server";
-import { getAuth } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-);
+export async function GET() {
+  try {
+    const { userId, getToken } = await auth();
 
-export async function GET(req) {
-  const { userId } = getAuth(req);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    const token = await getToken({ template: "supabase" });
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
-      id,
-      clerk_id,
-      role,
-      active_company_id,
-      full_name
-      `,
-    )
-    .eq("clerk_id", userId)
-    .maybeSingle(); // 👈 CLAVE
+    if (!token) {
+      return NextResponse.json({ error: "No Supabase token" }, { status: 401 });
+    }
 
-  // 👇 PERFIL AÚN NO INICIALIZADO
-  if (!data) {
-    return NextResponse.json(
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      },
+    );
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        `
+        id,
+        clerk_id,
+        role,
+        active_company_id,
+        full_name
+      `,
+      )
+      .eq("clerk_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (!data) {
+      return NextResponse.json({
         error: "Profile not initialized",
         needsSetup: true,
-      },
-      { status: 200 },
-    );
-  }
+      });
+    }
 
-  return NextResponse.json(data);
+    return NextResponse.json(data);
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
