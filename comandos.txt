@@ -142,3 +142,16 @@ where created_by = '6e8fa13d-06b2-48d5-92f2-57ffad54b6d8';
 
 delete from profiles where id = :profileId;
 -----------------------------------------
+Para pagar con Stripe
+
+UPDATE companies
+SET billing_enabled = true
+WHERE name = '4 Rent Solutions';
+------------------------
+
+Super adminupdate profiles
+set role = 'super_admin'
+where email = 'info@teamhomeservices.ca';
+
+
+------------------------

@@ -41,7 +41,8 @@ export async function GET(req, context) {
         profiles:profile_id (
           id,
           full_name,
-          email
+          email,
+          avatar_url
         )
       `,
       )
@@ -53,13 +54,12 @@ export async function GET(req, context) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ members: data });
+    return NextResponse.json({ members: data || [] });
   } catch (err) {
     console.error("SERVER ERROR:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
-
 /* =========================
    POST · ADD MEMBER ✅
 ========================= */

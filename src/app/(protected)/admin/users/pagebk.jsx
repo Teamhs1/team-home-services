@@ -10,14 +10,38 @@ import {
 import { useRouter } from "next/navigation";
 
 import { useEffect, useState, useMemo } from "react";
-
+import { createClient } from "@supabase/supabase-js";
 import Image from "next/image";
 import { Loader2, Search, RefreshCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
 
+import { useAuth } from "@clerk/nextjs";
+
+async function getSupabase(getToken) {
+  const token = await getToken({ template: "supabase" });
+  if (!token) throw new Error("No Clerk token");
+
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    },
+  );
+}
+
 export default function AdminUsersPage() {
+  const { user } = useUser();
   const router = useRouter();
+
+  const { getToken } = useAuth();
+
+  const currentRole = user?.publicMetadata?.role || "client";
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,49 +51,41 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [myProfile, setMyProfile] = useState(null);
 
-  const currentRole = myProfile?.role;
-
-  const isSystemAdmin =
-    currentRole === "admin" || currentRole === "super_admin";
-
-  useEffect(() => {
-    const fetchMe = async () => {
-      try {
-        const res = await fetch("/api/me", {
-          credentials: "include",
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-          setMyProfile(data);
-        }
-      } catch (err) {
-        console.error("Error loading profile:", err);
-      }
-    };
-
-    fetchMe();
-  }, []);
   // 🔹 Cargar usuarios desde Supabase (con Clerk JWT)
   const fetchUsers = async () => {
     try {
       setLoading(true);
 
-      const res = await fetch("/api/admin/users", {
-        credentials: "include",
-        cache: "no-store",
-      });
+      // 🔑 Supabase autenticado con Clerk
+      const supabase = await getSupabase(getToken);
 
-      const json = await res.json();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          `
+  id,
+  clerk_id,
+  full_name,
+  email,
+  avatar_url,
+  role,
+  status,
+  created_at,
+  is_property_manager,
+  company_id,
+  companies:company_id (
+    id,
+    name
+  )
+`,
+        )
+        .eq("status", "active") // 👈 CLAVE
+        .order("created_at", { ascending: false });
 
-      if (!res.ok) {
-        throw new Error(json.error || "Failed to load users");
-      }
+      if (error) throw error;
 
-      setUsers(json.users || []);
+      setUsers(data || []);
     } catch (err) {
       console.error("❌ Error loading users:", err);
       setError("Could not load users.");
@@ -77,9 +93,35 @@ export default function AdminUsersPage() {
       setLoading(false);
     }
   };
+
   // 🔄 Escucha cambios en tiempo real
   useEffect(() => {
-    fetchUsers();
+    let channel;
+
+    async function init() {
+      await fetchUsers();
+
+      const supabase = await getSupabase(getToken);
+
+      channel = supabase
+        .channel("profiles-changes")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "profiles" },
+          () => {
+            fetchUsers();
+          },
+        )
+        .subscribe();
+    }
+
+    init();
+
+    return () => {
+      if (channel) {
+        channel.unsubscribe();
+      }
+    };
   }, []);
 
   // 🧩 Sincronización completa: Backfill + Sync Roles
@@ -247,7 +289,7 @@ export default function AdminUsersPage() {
           👥 User Management
         </h1>
 
-        {isSystemAdmin && (
+        {currentRole === "admin" && (
           <div className="flex items-center gap-2">
             <button
               onClick={handleSyncAll}
@@ -296,7 +338,6 @@ export default function AdminUsersPage() {
           {/* CORE */}
           <option value="admin">Admin (System Owner)</option>
           <option value="staff">Staff (Internal)</option>
-          <option value="super_admin">Super Admin</option>
 
           {/* CLIENT SIDE */}
           <option value="client">Client / Owner</option>
@@ -345,7 +386,7 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Joined</th>
 
-                {isSystemAdmin && (
+                {currentRole === "admin" && (
                   <th className="px-4 py-2 text-right">Actions</th>
                 )}
               </tr>
@@ -394,8 +435,7 @@ export default function AdminUsersPage() {
                     <div className="flex flex-col text-sm leading-tight">
                       {/* Rol principal */}
                       <span className="capitalize font-medium">
-                        {currentRole === "admin" ||
-                        currentRole === "super_admin" ? (
+                        {currentRole === "admin" ? (
                           <select
                             value={user.role || "client"}
                             onClick={(e) => e.stopPropagation()}
@@ -405,11 +445,6 @@ export default function AdminUsersPage() {
                             className="border border-gray-300 rounded-md px-2 py-1 text-sm"
                             disabled={changing}
                           >
-                            {/* Solo super_admin puede ver esta opción */}
-                            {currentRole === "super_admin" && (
-                              <option value="super_admin">Super Admin</option>
-                            )}
-
                             <option value="admin">Admin</option>
                             <option value="staff">Staff</option>
                             <option value="client">Client</option>
@@ -450,7 +485,7 @@ export default function AdminUsersPage() {
                   <td className="px-4 py-2 text-sm text-gray-500">
                     {new Date(user.created_at).toLocaleDateString()}
                   </td>
-                  {currentRole === "super_admin" && (
+                  {currentRole === "admin" && (
                     <td
                       className="px-4 py-2 text-right"
                       onClick={(e) => e.stopPropagation()}

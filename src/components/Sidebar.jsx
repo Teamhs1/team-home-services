@@ -150,8 +150,7 @@ export default function Sidebar() {
 
   const [role, setRole] = useState("user");
   const isSuperAdmin = role === "super_admin";
-  const isAdmin = role === "admin";
-  const isAdminLevel = isAdmin || isSuperAdmin;
+  const isCompanyAdmin = role === "admin";
   const [staffType, setStaffType] = useState(null);
   const [hasSyncError, setHasSyncError] = useState(false);
   const [sidebarTheme, setSidebarTheme] = useState("dark");
@@ -506,9 +505,9 @@ export default function Sidebar() {
      HELPERS
   ========================= */
   function hasPermission(resource) {
-    if (isSuperAdmin) return true; // 👑 VE TODO GLOBAL
+    if (isSuperAdmin) return true;
 
-    if (isAdmin) {
+    if (isCompanyAdmin) {
       return allowedResources.includes(resource);
     }
 
@@ -588,39 +587,13 @@ export default function Sidebar() {
     },
   ];
 
-  const adminItems = isAdminLevel
+  const superAdminItems = isSuperAdmin
     ? [
-        {
-          id: "admin-content",
-          name: "Edit Landing Content",
-          href: "/admin/content",
-          icon: ICONS.content,
-        },
         {
           id: "admin-users",
           name: "Users",
           href: "/admin/users",
           icon: ICONS.users,
-        },
-
-        {
-          id: "admin-staff-apps",
-          name: "Staff Applications",
-          href: "/admin/staff-applications",
-          icon: ICONS.staffApps,
-        },
-        {
-          id: "admin-sync-logs",
-          name: "Sync Logs",
-          href: "/admin/sync-logs",
-          icon: ICONS.syncLogs,
-          hasError: hasSyncError,
-        },
-        {
-          id: "admin-properties",
-          name: "Properties",
-          href: "/admin/properties",
-          icon: ICONS.properties,
         },
         {
           id: "admin-companies",
@@ -629,10 +602,10 @@ export default function Sidebar() {
           icon: ICONS.companies,
         },
         {
-          id: "admin-keys",
-          name: "Keys",
-          href: "/admin/keys",
-          icon: ICONS.keys,
+          id: "admin-sync-logs",
+          name: "Sync Logs",
+          href: "/admin/sync-logs",
+          icon: ICONS.syncLogs,
         },
         {
           id: "admin-permissions",
@@ -645,6 +618,23 @@ export default function Sidebar() {
           name: "Features",
           href: "/admin/features",
           icon: ICONS.features,
+        },
+      ]
+    : [];
+
+  const companyAdminItems = isCompanyAdmin
+    ? [
+        {
+          id: "company-members",
+          name: "Company Members",
+          href: "/dashboard/company/members",
+          icon: ICONS.users,
+        },
+        {
+          id: "company-settings",
+          name: "Company Settings",
+          href: "/dashboard/company",
+          icon: ICONS.companies,
         },
       ]
     : [];
@@ -677,7 +667,8 @@ export default function Sidebar() {
         (!item.resource || hasPermission(item.resource)) &&
         !(role === "admin" && item.hideForAdmin),
     ),
-    ...adminItems,
+    ...superAdminItems,
+    ...companyAdminItems,
     ...staticItems,
   ];
 
@@ -689,11 +680,16 @@ export default function Sidebar() {
     (item) => item.href !== "/profile" && item.href !== "/settings",
   );
   const mainNavItems = navItems.filter(
-    (item) => !item.id?.startsWith("admin-"),
+    (item) =>
+      !item.id?.startsWith("admin-") && !item.id?.startsWith("company-"),
   );
 
-  const adminNavItems = navItems.filter((item) =>
+  const superAdminNavItems = navItems.filter((item) =>
     item.id?.startsWith("admin-"),
+  );
+
+  const companyAdminNavItems = navItems.filter((item) =>
+    item.id?.startsWith("company-"),
   );
 
   const publicRoutes = ["/", "/sign-in", "/sign-up"];
@@ -785,7 +781,7 @@ export default function Sidebar() {
         </div>
 
         {/* ADMIN DIVIDER */}
-        {isAdminLevel && adminNavItems.length > 0 && (
+        {(superAdminNavItems.length > 0 || companyAdminNavItems.length > 0) && (
           <div className="mt-4 mb-2">
             <div className="mx-6 border-t border-slate-700/60" />
             {isOpen && (
@@ -798,7 +794,7 @@ export default function Sidebar() {
 
         {/* ADMIN NAV */}
         <div className="space-y-1">
-          {adminNavItems.map((item) => {
+          {superAdminNavItems.map((item) => {
             const Icon = item.icon;
             const active =
               pathname === item.href || pathname.startsWith(item.href + "/");
@@ -815,12 +811,27 @@ export default function Sidebar() {
               >
                 <Icon size={18} />
                 {isOpen && <span>{item.name}</span>}
-                {item.hasError && (
-                  <AlertCircle
-                    size={16}
-                    className="text-red-500 animate-pulse ml-auto"
-                  />
-                )}
+              </Link>
+            );
+          })}
+
+          {companyAdminNavItems.map((item) => {
+            const Icon = item.icon;
+            const active =
+              pathname === item.href || pathname.startsWith(item.href + "/");
+
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                className={`flex items-center gap-3 px-6 py-2.5 text-sm transition-all ${
+                  active
+                    ? `${SIDEBAR_THEMES[sidebarTheme].active} border-r-4`
+                    : SIDEBAR_THEMES[sidebarTheme].hover
+                }`}
+              >
+                <Icon size={18} />
+                {isOpen && <span>{item.name}</span>}
               </Link>
             );
           })}

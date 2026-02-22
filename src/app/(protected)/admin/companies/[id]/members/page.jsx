@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/utils/supabase/supabaseClient";
@@ -248,6 +248,7 @@ export default function CompanyMembersPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
+              <th className="px-5 py-3 text-left">Avatar</th>
               <th className="px-5 py-3 text-left">Name</th>
               <th className="px-5 py-3 text-left">Email</th>
               <th className="px-5 py-3 text-center">Role</th>
@@ -259,8 +260,32 @@ export default function CompanyMembersPage() {
             {members.map((m) => {
               const profileId = m.profiles?.id;
               return (
-                <tr key={m.id} className="border-t hover:bg-gray-50">
-                  <td className="px-5 py-4 font-medium">
+                <tr
+                  key={m.id}
+                  className="border-t border-gray-100 hover:bg-gray-50 transition"
+                >
+                  {/* AVATAR */}
+                  <td className="px-5 py-4">
+                    <div className="relative w-10 h-10">
+                      <Image
+                        src={
+                          m.profiles?.avatar_url ||
+                          `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                            m.profiles?.full_name ||
+                              m.profiles?.email ||
+                              "User",
+                          )}&background=2563eb&color=fff`
+                        }
+                        alt={m.profiles?.full_name || "User"}
+                        fill
+                        sizes="40px"
+                        className="rounded-full object-cover border"
+                      />
+                    </div>
+                  </td>
+
+                  {/* NAME */}
+                  <td className="px-5 py-4 font-medium text-blue-600 hover:underline">
                     {m.profiles?.full_name || "—"}
                   </td>
 

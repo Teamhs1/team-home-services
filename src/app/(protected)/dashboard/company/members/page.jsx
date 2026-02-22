@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 
 /* =====================
@@ -87,15 +88,38 @@ export default function CompanyMembersPage() {
           {members.map((m) => (
             <div
               key={m.id}
-              className="flex items-center justify-between border rounded-lg px-4 py-3"
+              className="flex items-center justify-between border border-gray-200 rounded-xl px-5 py-4 hover:bg-gray-50 transition"
             >
-              {/* INFO */}
-              <div>
-                <p className="font-medium">{m.full_name}</p>
-                <p className="text-sm text-muted-foreground">{m.email}</p>
+              {/* LEFT SIDE (Avatar + Info) */}
+              <div className="flex items-center gap-4">
+                {/* Avatar */}
+                <div className="relative w-10 h-10">
+                  <Image
+                    src={
+                      m.avatar_url ||
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        m.full_name || m.email || "User",
+                      )}&background=2563eb&color=fff`
+                    }
+                    alt={m.full_name || "User"}
+                    fill
+                    sizes="40px"
+                    className="rounded-full object-cover border"
+                  />
+                </div>
+
+                {/* Info */}
+                <div>
+                  <p className="font-medium text-blue-600 hover:underline cursor-pointer">
+                    {m.full_name || "—"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {m.email || "—"}
+                  </p>
+                </div>
               </div>
 
-              {/* ROLE */}
+              {/* RIGHT SIDE (Role + Controls) */}
               <div className="flex items-center gap-3">
                 <RoleBadge role={m.role} />
 

@@ -9,13 +9,13 @@ const supabase = createClient(
 );
 
 export async function GET() {
-  const { userId } = await auth(); // ✅
+  const { userId } = await auth();
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 1️⃣ obtener perfil + company
+  // 1️⃣ Obtener perfil + company
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, role, company_id")
@@ -26,15 +26,15 @@ export async function GET() {
     return NextResponse.json([], { status: 200 });
   }
 
-  // 🔒 solo admin o client (owner)
+  // 🔒 Solo admin o client
   if (!["admin", "client"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 2️⃣ traer miembros de la company
+  // 2️⃣ Traer miembros de la company (🔥 ahora con avatar)
   const { data: members, error } = await supabase
     .from("profiles")
-    .select("id, full_name, role, email")
+    .select("id, full_name, role, email, avatar_url")
     .eq("company_id", profile.company_id)
     .order("full_name");
 
@@ -42,5 +42,5 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(members);
+  return NextResponse.json(members || []);
 }

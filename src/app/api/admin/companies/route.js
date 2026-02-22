@@ -7,21 +7,28 @@ export async function GET() {
     .from("companies")
     .select(
       `
-        id,
-        name,
-        email,
-        phone,
-        logo_url,
-        created_at,
-        company_members (
-          role,
-          profile:profiles (
-            id,
-            full_name
-          )
-        ),
-        properties:properties ( id )
-      `,
+      id,
+      name,
+      email,
+      phone,
+      logo_url,
+      created_at,
+      billing_enabled,
+      internal_company,
+      subscription_status,
+      plan_type,
+      subscription_current_period_end,
+      max_units,
+      current_units,
+      company_members (
+        role,
+        profile:profiles (
+          id,
+          full_name
+        )
+      ),
+      properties:properties ( id )
+    `,
     )
     .order("name", { ascending: true });
 
@@ -48,6 +55,16 @@ export async function GET() {
       owner: owner?.profile ?? null,
       properties_count: c.properties?.length ?? 0,
       users_count: members.length,
+
+      // 🔥 NUEVOS CAMPOS DE CONTROL SaaS
+      billing_enabled: c.billing_enabled ?? false,
+      internal_company: c.internal_company ?? false,
+      subscription_status: c.subscription_status ?? "inactive",
+      plan_type: c.plan_type ?? null,
+      subscription_current_period_end:
+        c.subscription_current_period_end ?? null,
+      max_units: c.max_units ?? 0,
+      current_units: c.current_units ?? 0,
     };
   });
 

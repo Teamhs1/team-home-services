@@ -78,6 +78,36 @@ export default function CompaniesListPage() {
     }
   }
 
+  async function toggleBilling(companyId, currentValue) {
+    try {
+      const res = await fetch(`/api/admin/companies/${companyId}/billing`, {
+        method: "PATCH",
+        credentials: "include", // 🔥 ESTO ES LO QUE FALTA
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          billing_enabled: !currentValue,
+        }),
+      });
+
+      if (!res.ok) {
+        alert("Failed to update billing");
+        return;
+      }
+
+      // 🔥 Actualiza estado local sin recargar
+      setCompanies((prev) =>
+        prev.map((c) =>
+          c.id === companyId ? { ...c, billing_enabled: !currentValue } : c,
+        ),
+      );
+    } catch (err) {
+      console.error(err);
+      alert("Unexpected error updating billing");
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-10 pt-[130px] text-center text-gray-500">
@@ -152,6 +182,9 @@ export default function CompaniesListPage() {
                 <th className="px-4 py-3 text-left">Phone</th>
                 <th className="px-4 py-3 text-center">Properties</th>
                 <th className="px-4 py-3 text-center">Users</th>
+                <th className="px-4 py-3 text-center">Type</th>
+                <th className="px-4 py-3 text-center">Billing</th>
+                <th className="px-4 py-3 text-center">Subscription</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -197,6 +230,43 @@ export default function CompaniesListPage() {
                     </td>
                     <td className="px-4 py-3 text-center">{propertiesCount}</td>
                     <td className="px-4 py-3 text-center">{usersCount}</td>
+                    <td className="px-4 py-3 text-center">
+                      {c.internal_company ? (
+                        <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full">
+                          Internal
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">
+                          Client
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3 text-center">
+                      {c.billing_enabled ? (
+                        <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">
+                          Enabled
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
+                          Disabled
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3 text-center">
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          c.subscription_status === "active"
+                            ? "bg-green-100 text-green-700"
+                            : c.subscription_status === "past_due"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {c.subscription_status}
+                      </span>
+                    </td>
 
                     <td
                       className="px-4 py-3 text-right"
@@ -230,6 +300,15 @@ export default function CompaniesListPage() {
                             </Link>
                           </DropdownMenuItem>
 
+                          <DropdownMenuItem
+                            onClick={() =>
+                              toggleBilling(companyId, c.billing_enabled)
+                            }
+                          >
+                            {c.billing_enabled
+                              ? "Disable Billing"
+                              : "Enable Billing"}
+                          </DropdownMenuItem>
                           {canDelete ? (
                             <DropdownMenuItem
                               className="text-red-600"
@@ -281,6 +360,24 @@ export default function CompaniesListPage() {
                     </div>
 
                     <h2 className="text-lg font-semibold truncate">{c.name}</h2>
+
+                    <div className="flex gap-2 mt-2">
+                      {c.internal_company ? (
+                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                          Internal
+                        </span>
+                      ) : (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                          Client
+                        </span>
+                      )}
+
+                      {c.billing_enabled && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                          Billing On
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <p className="text-sm text-gray-600">
@@ -310,6 +407,12 @@ export default function CompaniesListPage() {
                   >
                     Edit Company →
                   </Link>
+                  <button
+                    onClick={() => toggleBilling(companyId, c.billing_enabled)}
+                    className="text-xs text-gray-500 hover:text-black"
+                  >
+                    {c.billing_enabled ? "Disable Billing" : "Enable Billing"}
+                  </button>
                 </div>
               </div>
             );
