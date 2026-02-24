@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 export async function GET() {
@@ -33,7 +33,7 @@ export async function GET() {
       unit,
       is_active,
       companies:company_id ( id, name )
-    `
+    `,
     )
     .eq("is_active", false);
 

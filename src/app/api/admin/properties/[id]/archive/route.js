@@ -8,7 +8,7 @@ import { auth } from "@clerk/nextjs/server";
 ====================================================== */
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /* ======================================================
@@ -27,7 +27,7 @@ export async function PATCH(req, { params }) {
   if (!id) {
     return NextResponse.json(
       { error: "Missing property id in route params" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -46,7 +46,7 @@ export async function PATCH(req, { params }) {
     console.error("❌ SERVICE ROLE KEY NOT LOADED");
     return NextResponse.json(
       { error: "Server misconfiguration: service role key missing" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -63,7 +63,7 @@ export async function PATCH(req, { params }) {
     console.error("❌ PROFILE ERROR:", profileError);
     return NextResponse.json(
       { error: "Failed to load profile" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -89,7 +89,7 @@ export async function PATCH(req, { params }) {
     console.error("❌ NO ROW UPDATED FOR ID:", id);
     return NextResponse.json(
       { error: "Property not found or already archived" },
-      { status: 404 }
+      { status: 404 },
     );
   }
 

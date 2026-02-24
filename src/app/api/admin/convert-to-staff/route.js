@@ -4,10 +4,8 @@ import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
-    /* ======================
-       AUTH
-    ====================== */
     const { userId } = await auth();
+
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -27,15 +25,29 @@ export async function POST(req) {
     );
 
     /* ======================
-       VERIFY ADMIN
+       CURRENT USER
     ====================== */
-    const { data: adminProfile } = await supabase
+    const { data: currentUser } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, company_id")
       .eq("clerk_id", userId)
       .single();
 
-    if (adminProfile?.role !== "admin") {
+    if (!currentUser) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    /* ======================
+       PERMISSION CHECK
+    ====================== */
+    if (currentUser.role === "super_admin") {
+      // ✅ puede convertir para cualquier company
+    } else if (currentUser.role === "admin") {
+      // ✅ solo su propia company
+      if (currentUser.company_id !== companyId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -66,7 +78,7 @@ export async function POST(req) {
     );
 
     /* ======================
-       STAFF PERMISSIONS (BASE)
+       STAFF PERMISSIONS
     ====================== */
     await supabase.from("staff_permissions").upsert(
       {

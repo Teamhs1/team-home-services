@@ -1,44 +1,38 @@
-import { getAuth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-// 🔐 Supabase service role (SERVER ONLY)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 export async function POST(req) {
   try {
     /* =========================
-       AUTH CHECK (FIX REAL)
+       AUTH
     ========================= */
-    const { userId } = getAuth(req);
+    const { userId } = await auth();
 
     if (!userId) {
-      return NextResponse.json(
-        { error: "Unauthorized: not signed in" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await currentUser();
+    /* =========================
+       ROLE FROM SUPABASE
+    ========================= */
+    const { data: currentUser } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("clerk_id", userId)
+      .single();
 
-    if (!user) {
+    if (!currentUser || currentUser.role !== "super_admin") {
       return NextResponse.json(
-        { error: "Unauthorized: user not found" },
-        { status: 401 }
-      );
-    }
-
-    const role = user.publicMetadata?.role;
-
-    if (role !== "admin") {
-      return NextResponse.json(
-        { error: "Access denied: admin only" },
-        { status: 403 }
+        { error: "Access denied: super admin only" },
+        { status: 403 },
       );
     }
 
@@ -54,7 +48,7 @@ export async function POST(req) {
         supabase
           .from("site_content")
           .update({ content: about })
-          .eq("section", "about")
+          .eq("section", "about"),
       );
     }
 
@@ -63,7 +57,7 @@ export async function POST(req) {
         supabase
           .from("site_content")
           .update({ content: { items: services } })
-          .eq("section", "services")
+          .eq("section", "services"),
       );
     }
 
@@ -72,7 +66,7 @@ export async function POST(req) {
         supabase
           .from("site_content")
           .update({ content: { items: serviceDetails } })
-          .eq("section", "service_details")
+          .eq("section", "service_details"),
       );
     }
 
@@ -85,7 +79,7 @@ export async function POST(req) {
     console.error("❌ /api/admin/content error:", err);
     return NextResponse.json(
       { error: err.message || "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

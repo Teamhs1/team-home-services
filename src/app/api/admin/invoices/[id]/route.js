@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
+import { getAllowedCompanyIds } from "@/utils/permissions/getAllowedCompanyIds";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -8,52 +9,94 @@ const supabase = createClient(
 );
 
 export async function GET(req, { params }) {
-  const { userId } = await auth();
+  try {
+    const { userId } = await auth();
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = params;
+
+    let permissions;
+
+    try {
+      permissions = await getAllowedCompanyIds(userId);
+    } catch (err) {
+      return NextResponse.json({ error: err.message }, { status: 403 });
+    }
+
+    /* =========================
+       👑 SUPER ADMIN → acceso total
+    ========================= */
+
+    if (permissions.role === "super_admin") {
+      const { data: invoice, error } = await supabase
+        .from("invoices")
+        .select(
+          `
+          id,
+          type,
+          amount_cents,
+          status,
+          notes,
+          deleted_at,
+          company_id,
+          created_at,
+          properties ( address ),
+          units ( unit )
+        `,
+        )
+        .eq("id", id)
+        .single();
+
+      if (error || !invoice) {
+        return NextResponse.json(
+          { error: "Invoice not found" },
+          { status: 404 },
+        );
+      }
+
+      return NextResponse.json({ invoice });
+    }
+
+    /* =========================
+       🔐 Acceso filtrado por company
+    ========================= */
+
+    const { data: invoice, error } = await supabase
+      .from("invoices")
+      .select(
+        `
+        id,
+        type,
+        amount_cents,
+        status,
+        notes,
+        deleted_at,
+        company_id,
+        created_at,
+        properties ( address ),
+        units ( unit )
+      `,
+      )
+      .eq("id", id)
+      .in("company_id", permissions.allowedCompanyIds)
+      .single();
+
+    if (error || !invoice) {
+      return NextResponse.json(
+        { error: "Invoice not found or not authorized" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ invoice });
+  } catch (err) {
+    console.error("Invoice GET error:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
-
-  const { id } = params;
-
-  // 🔹 Obtener perfil
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("clerk_id", userId)
-    .single();
-
-  if (profileError || !profile) {
-    return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-  }
-
-  // 🔐 Endpoint EXCLUSIVO admin
-  if (profile.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  // 🔹 Admin puede ver incluso invoices eliminadas
-  const { data: invoice, error } = await supabase
-    .from("invoices")
-    .select(
-      `
-      id,
-      type,
-      amount_cents,
-      status,
-      notes,
-      deleted_at,
-      created_at,
-      properties ( address ),
-      units ( unit )
-    `,
-    )
-    .eq("id", id)
-    .single();
-
-  if (error || !invoice) {
-    return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({ invoice });
 }

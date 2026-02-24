@@ -22,10 +22,16 @@ export async function GET() {
     .eq("clerk_id", userId)
     .single();
 
+  if (!profile) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   let query = supabase.from("owners").select("*");
 
-  if (profile.role !== "admin") {
+  if (profile.role === "admin") {
     query = query.eq("company_id", profile.company_id);
+  } else if (profile.role !== "super_admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { data, error } = await query.order("full_name");
@@ -36,7 +42,6 @@ export async function GET() {
 
   return NextResponse.json({ owners: data });
 }
-
 /* =====================
    CREATE OWNER (NUEVO)
 ===================== */

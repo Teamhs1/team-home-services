@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
+import { getAllowedCompanyIds } from "@/utils/permissions/getAllowedCompanyIds";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 export async function GET(req) {
@@ -15,31 +16,12 @@ export async function GET(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    /* =====================
-       LOAD PROFILE
-    ===================== */
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role, active_company_id")
-      .eq("clerk_id", userId)
-      .single();
+    const permissions = await getAllowedCompanyIds(userId);
 
-    if (profileError || !profile) {
-      console.error("❌ PROFILE ERROR:", profileError);
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
-
-    /* =====================
-       READ QUERY PARAMS
-    ===================== */
     const { searchParams } = new URL(req.url);
     const companyIdParam = searchParams.get("company_id");
-    const clientIdParam = searchParams.get("client_id"); // ✅ NUEVO (NO OBLIGATORIO)
+    const clientIdParam = searchParams.get("client_id");
 
-    /* =====================
-       BASE QUERY
-       (NO SE ROMPE NADA)
-    ===================== */
     let query = supabase
       .from("properties")
       .select(
@@ -59,23 +41,43 @@ export async function GET(req) {
           id,
           name
         )
-      `
+      `,
       )
       .eq("is_active", true)
       .order("address", { ascending: true })
       .order("name", { ascending: true });
 
-    /* 🔐 Non-admins → force active company */
-    if (profile.role !== "admin") {
-      query = query.eq("company_id", profile.active_company_id);
+    /* =========================
+       👑 SUPER ADMIN
+    ========================= */
+
+    if (permissions.isSuperAdmin) {
+      if (companyIdParam) {
+        query = query.eq("company_id", companyIdParam);
+      }
+    } else {
+
+    /* =========================
+       🔐 TODOS LOS DEMÁS
+    ========================= */
+      query = query.in("company_id", permissions.allowedCompanyIds);
+
+      if (companyIdParam) {
+        if (!permissions.allowedCompanyIds.includes(companyIdParam)) {
+          return NextResponse.json(
+            { error: "Not authorized for this company" },
+            { status: 403 },
+          );
+        }
+
+        query = query.eq("company_id", companyIdParam);
+      }
     }
 
-    /* 🧠 Admin filter by company (existente) */
-    if (profile.role === "admin" && companyIdParam) {
-      query = query.eq("company_id", companyIdParam);
-    }
+    /* =========================
+       🎯 CLIENT FILTER
+    ========================= */
 
-    /* 🎯 NUEVO: FILTER BY CLIENT (SOLO SI VIENE) */
     if (clientIdParam) {
       query = query.eq("client_id", clientIdParam);
     }
@@ -83,17 +85,15 @@ export async function GET(req) {
     const { data, error } = await query;
 
     if (error) {
-      console.error("❌ SUPABASE QUERY ERROR:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // ✅ Siempre devolvemos array
+    // ⚠️ Mantenemos array directo para no romper frontend
     return NextResponse.json(data ?? []);
   } catch (err) {
-    console.error("💥 API CRASH:", err);
     return NextResponse.json(
       { error: err.message || "Unexpected error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -23,6 +23,8 @@ export default function PropertiesListPage() {
   ===================== */
   const [role, setRole] = useState(null);
 
+  const isSystemAdmin = role === "admin" || role === "super_admin";
+
   const [properties, setProperties] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ export default function PropertiesListPage() {
 
   const router = useRouter();
   const goToProperty = (propertyId) => {
-    if (role === "admin") {
+    if (isSystemAdmin) {
       router.push(`/admin/properties/${propertyId}`);
     } else {
       router.push(`/dashboard/properties/${propertyId}`);
@@ -69,7 +71,7 @@ export default function PropertiesListPage() {
      LOAD COMPANIES (ADMIN ONLY)
   ===================== */
   useEffect(() => {
-    if (!isLoaded || role !== "admin") return;
+    if (!isLoaded || !isSystemAdmin) return;
 
     async function loadCompanies() {
       try {
@@ -100,7 +102,7 @@ export default function PropertiesListPage() {
 
     async function loadProperties() {
       try {
-        const res = await fetch("/api/dashboard/properties", {
+        const res = await fetch("/api/admin/properties", {
           cache: "no-store",
           credentials: "include",
         });
@@ -154,27 +156,36 @@ export default function PropertiesListPage() {
   }
 
   /* =====================
-     DERIVAR OWNERS
-  ===================== */
+   DERIVAR OWNERS DINÁMICO
+===================== */
+
   const owners = Array.from(
     new Map(
-      properties.filter((p) => p.owners).map((p) => [p.owners.id, p.owners])
-    ).values()
+      properties
+        .filter((p) => {
+          if (!isSystemAdmin || selectedCompany === "all") return true;
+
+          const companyId =
+            typeof p.company_id === "string"
+              ? p.company_id
+              : p.company_id?.id || p.companies?.id || null;
+
+          return String(companyId) === String(selectedCompany);
+        })
+        .filter((p) => p.owners)
+        .map((p) => [p.owners.id, p.owners]),
+    ).values(),
   );
 
   /* =====================
-     FILTRO COMBINADO
-  ===================== */
-  const filteredProperties = properties.filter((p) => {
-    const companyId =
-      typeof p.company_id === "string"
-        ? p.company_id
-        : p.company_id?.id || p.companies?.id || null;
+   FILTRO COMBINADO FIX
+===================== */
 
+  const filteredProperties = properties.filter((p) => {
     const companyMatch =
-      role !== "admin" || selectedCompany === "all"
+      selectedCompany === "all"
         ? true
-        : String(companyId) === String(selectedCompany);
+        : String(p.company_id) === String(selectedCompany);
 
     const ownerMatch =
       selectedOwner === "all"
@@ -188,10 +199,10 @@ export default function PropertiesListPage() {
      DELETE (ADMIN ONLY)
   ===================== */
   async function handleDeleteProperty(id, name) {
-    if (role !== "admin") return;
+    if (!isSystemAdmin) return;
 
     const confirmed = confirm(
-      `Are you sure you want to delete "${name}"?\nThis action cannot be undone.`
+      `Are you sure you want to delete "${name}"?\nThis action cannot be undone.`,
     );
     if (!confirmed) return;
 
@@ -240,7 +251,7 @@ export default function PropertiesListPage() {
             )}
           </Button>
 
-          {role === "admin" && (
+          {isSystemAdmin && (
             <Link
               href="/admin/properties/create"
               className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
@@ -252,7 +263,7 @@ export default function PropertiesListPage() {
       </div>
 
       {/* FILTERS (ADMIN) */}
-      {role === "admin" && (
+      {isSystemAdmin && (
         <div className="flex flex-col sm:flex-row gap-4 max-w-xl">
           <div className="flex-1">
             <label className="block text-sm font-medium mb-1">

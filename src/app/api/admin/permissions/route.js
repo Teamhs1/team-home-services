@@ -1,14 +1,15 @@
+// /api/admin/permissions/route.js
 import { NextResponse } from "next/server";
 import { getAuth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY, // 🔑 service role (sin RLS)
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /* ======================================================
-   CONSTANTS (WHITELISTS)
+   CONSTANTS
 ====================================================== */
 const ALLOWED_ROLES = ["admin", "staff", "client_manager", "client_basic"];
 
@@ -20,19 +21,18 @@ const ALLOWED_RESOURCES = [
   "users",
   "companies",
   "permissions",
-  "invoices", // ✅ ahora sí está permitido
+  "invoices",
 ];
 
 const ALLOWED_ACTIONS = ["view", "create", "edit", "delete"];
 
-// 🔁 Aliases frontend → backend
 const RESOURCE_ALIASES = {
   permission: "permissions",
   perms: "permissions",
   company: "companies",
   user: "users",
   property: "properties",
-  invoice: "invoices", // ✅ alias singular → plural
+  invoice: "invoices",
 };
 
 /* ======================================================
@@ -63,7 +63,7 @@ async function getProfile(userId) {
 }
 
 /* ======================================================
-   GET · READ PERMISSIONS MATRIX
+   GET · READ PERMISSIONS
 ====================================================== */
 export async function GET(req) {
   const { userId } = getAuth(req);
@@ -77,12 +77,9 @@ export async function GET(req) {
     return NextResponse.json({ error: "Profile not found" }, { status: 403 });
   }
 
-  if (profile.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const { searchParams } = new URL(req.url);
   const role = normalize(searchParams.get("role") || "staff");
+  const companyParam = searchParams.get("company_id");
 
   if (!ALLOWED_ROLES.includes(role)) {
     return NextResponse.json(
@@ -91,21 +88,40 @@ export async function GET(req) {
     );
   }
 
+  /* ================= PERMISSION LOGIC ================= */
+
+  let company_id;
+
+  // 🔥 super_admin puede elegir company
+  if (profile.role === "super_admin") {
+    company_id = companyParam;
+    if (!company_id) {
+      return NextResponse.json(
+        { error: "company_id required for super_admin" },
+        { status: 400 },
+      );
+    }
+  }
+  // 🏢 admin solo su company
+  else if (profile.role === "admin") {
+    company_id = profile.company_id;
+  } else {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { data, error } = await supabase
     .from("permissions_matrix")
     .select("resource, action, allowed")
-    .eq("company_id", profile.company_id)
+    .eq("company_id", company_id)
     .eq("role", role);
 
   if (error) {
-    console.error("LOAD PERMISSIONS ERROR:", error);
     return NextResponse.json(
       { error: "Failed to load permissions" },
       { status: 500 },
     );
   }
 
-  // 🔁 Normalizar matriz completa
   const matrix = {};
 
   for (const row of data) {
@@ -117,7 +133,7 @@ export async function GET(req) {
   }
 
   return NextResponse.json({
-    company_id: profile.company_id,
+    company_id,
     role,
     matrix,
   });
@@ -161,43 +177,37 @@ export async function POST(req) {
   }
 
   if (!ALLOWED_ROLES.includes(role)) {
-    return NextResponse.json(
-      { error: "Invalid role", role, allowed: ALLOWED_ROLES },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }
 
   if (!ALLOWED_RESOURCES.includes(resource)) {
-    return NextResponse.json(
-      {
-        error: "Invalid resource",
-        received: resource,
-        allowed: ALLOWED_RESOURCES,
-      },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid resource" }, { status: 400 });
   }
 
   if (!ALLOWED_ACTIONS.includes(action)) {
-    return NextResponse.json(
-      { error: "Invalid action", action, allowed: ALLOWED_ACTIONS },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
   const profile = await getProfile(userId);
-  if (!profile || profile.role !== "admin") {
+  if (!profile) {
+    return NextResponse.json({ error: "Profile not found" }, { status: 403 });
+  }
+
+  /* ================= PERMISSION LOGIC ================= */
+
+  // 🔥 super_admin puede modificar cualquier company
+  if (profile.role === "super_admin") {
+    // allowed
+  }
+  // 🏢 admin solo su company
+  else if (profile.role === "admin" && profile.company_id === company_id) {
+    // allowed
+  } else {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (profile.company_id !== company_id) {
-    return NextResponse.json(
-      { error: "Cross-company update forbidden" },
-      { status: 403 },
-    );
-  }
-
   /* ================= UPSERT ================= */
+
   const { error } = await supabase.from("permissions_matrix").upsert(
     {
       company_id,
@@ -212,7 +222,6 @@ export async function POST(req) {
   );
 
   if (error) {
-    console.error("PERMISSION SAVE ERROR:", error);
     return NextResponse.json(
       { error: "Failed to save permission", details: error.message },
       { status: 500 },

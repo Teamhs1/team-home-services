@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -5,31 +6,61 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    // ============ KEYS ============
-    const { data: keys, error: keysError } = await supabase
-      .from("keys")
-      .select("*");
+    // 🔎 Usuario actual
+    const { data: currentUser } = await supabase
+      .from("profiles")
+      .select("role, company_id")
+      .eq("clerk_id", userId)
+      .single();
+
+    if (!currentUser) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // 🔐 Permisos
+    if (currentUser.role !== "super_admin" && currentUser.role !== "admin") {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // =======================
+    // BASE QUERY
+    // =======================
+
+    let keysQuery = supabase.from("keys").select("*");
+    let propsQuery = supabase.from("properties").select("*");
+
+    if (currentUser.role === "admin") {
+      keysQuery = keysQuery.eq("company_id", currentUser.company_id);
+      propsQuery = propsQuery.eq("company_id", currentUser.company_id);
+    }
+
+    const { data: keys, error: keysError } = await keysQuery;
     if (keysError) throw keysError;
 
-    // ============ PROPERTIES ============
-    const { data: props, error: propsError } = await supabase
-      .from("properties")
-      .select("*");
+    const { data: props, error: propsError } = await propsQuery;
     if (propsError) throw propsError;
 
-    // ============ RECENT KEYS ============
     const { data: recent } = await supabase
       .from("keys")
       .select("tag_code, type, created_at")
       .order("created_at", { ascending: false })
       .limit(5);
 
-    // ============ WEEKLY ============
+    // =======================
+    // WEEKLY
+    // =======================
+
     const weeks = Array(4).fill(0);
 
     keys?.forEach((k) => {

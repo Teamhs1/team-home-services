@@ -14,6 +14,9 @@ export default function CompanyPortfolioPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  /* =====================
+     LOAD COMPANY DATA
+  ===================== */
   useEffect(() => {
     let mounted = true;
 
@@ -21,53 +24,49 @@ export default function CompanyPortfolioPage() {
       setLoading(true);
 
       try {
-        /* ===================== COMPANY ===================== */
+        /* ---------- COMPANY ---------- */
         const resCompany = await fetch(`/api/admin/companies/${id}`, {
           cache: "no-store",
         });
 
-        const compJson = await resCompany.json();
-
-        if (!resCompany.ok || !compJson.success) {
-          toast.error(compJson.message || "Error loading company");
+        if (!resCompany.ok) {
+          toast.error("Error loading company");
           setLoading(false);
           return;
         }
 
+        const comp = await resCompany.json();
         if (!mounted) return;
-        setCompany(compJson.data);
 
-        /* ===================== PROPERTIES ===================== */
+        setCompany(comp);
+
+        /* ---------- PROPERTIES ---------- */
         const resProps = await fetch(`/api/admin/companies/${id}/properties`, {
           cache: "no-store",
         });
 
-        const propsJson = await resProps.json();
-
+        const props = resProps.ok ? await resProps.json() : [];
         if (!mounted) return;
 
-        if (resProps.ok && propsJson.success) {
-          setProperties(Array.isArray(propsJson.data) ? propsJson.data : []);
-        } else {
-          setProperties([]);
-        }
+        setProperties(props || []);
 
-        /* ===================== USERS ===================== */
+        /* ---------- USERS (via API / service role) ---------- */
         try {
           const resUsers = await fetch(`/api/companies/${id}/members`, {
             cache: "no-store",
           });
 
-          const usersJson = await resUsers.json();
-
-          if (!resUsers.ok || !usersJson.success) {
+          if (!resUsers.ok) {
+            console.error("❌ Error fetching company members");
             setUsers([]);
           } else {
-            const normalizedUsers = (usersJson.data || [])
+            const json = await resUsers.json();
+
+            const normalizedUsers = (json.members || [])
               .map((m) => ({
-                id: m.profile?.id,
-                full_name: m.profile?.full_name || "",
-                email: m.profile?.email || "",
+                id: m.profiles?.id,
+                full_name: m.profiles?.full_name || "",
+                email: m.profiles?.email || "",
                 company_role: m.role,
               }))
               .sort((a, b) =>
@@ -79,7 +78,7 @@ export default function CompanyPortfolioPage() {
             setUsers(normalizedUsers);
           }
         } catch (err) {
-          console.error("Members fetch failed:", err);
+          console.error("❌ Members fetch failed:", err);
           setUsers([]);
         }
       } catch (err) {
@@ -91,12 +90,14 @@ export default function CompanyPortfolioPage() {
     }
 
     if (id) loadCompanyData();
-
     return () => {
       mounted = false;
     };
   }, [id]);
 
+  /* =====================
+     LOADING / ERROR
+  ===================== */
   if (loading) {
     return (
       <div className="p-10 pt-[130px] text-center text-gray-500">
@@ -115,6 +116,7 @@ export default function CompanyPortfolioPage() {
 
   return (
     <div className="p-8 pt-[130px] max-w-6xl mx-auto space-y-10">
+      {/* BREADCRUMB */}
       <div className="text-sm text-gray-500">
         <Link href="/admin/companies" className="hover:underline">
           Companies
@@ -123,8 +125,10 @@ export default function CompanyPortfolioPage() {
         <span className="text-gray-700 font-medium">{company.name}</span>
       </div>
 
+      {/* HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
         <div className="flex items-center gap-6">
+          {/* LOGO */}
           <div className="w-20 h-20 rounded-2xl border bg-white shadow-sm flex items-center justify-center overflow-hidden">
             {company.logo_url ? (
               <Image
@@ -161,33 +165,58 @@ export default function CompanyPortfolioPage() {
 
       {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <StatCard label="Properties" value={properties.length} />
-        <StatCard label="Users" value={users.length} />
-        <StatCard
-          label="Created"
-          value={new Date(company.created_at).toLocaleDateString()}
-        />
+        <div className="bg-white rounded-2xl border p-6 shadow-sm hover:shadow-md transition">
+          <p className="text-sm text-muted-foreground">Properties</p>
+          <p className="text-4xl font-semibold mt-2">{properties.length}</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border p-6 shadow-sm hover:shadow-md transition">
+          <p className="text-sm text-muted-foreground">Users</p>
+          <p className="text-4xl font-semibold mt-2">{users.length}</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border p-6 shadow-sm hover:shadow-md transition">
+          <p className="text-sm text-muted-foreground">Created</p>
+          <p className="text-xl font-medium mt-2">
+            {new Date(company.created_at).toLocaleDateString()}
+          </p>
+        </div>
       </div>
+
+      {/* COMPANY DETAILS */}
+      <Section title="Company Details">
+        <Detail label="Email" value={company.email} />
+        <Detail label="Phone" value={company.phone} />
+        <Detail
+          label="Notes"
+          value={company.notes}
+          emptyText="No notes added"
+        />
+      </Section>
 
       {/* USERS */}
       <Section title="Users in this Company">
         {users.length === 0 ? (
           <Empty text="No users assigned to this company." />
         ) : (
-          users.map((u) => (
-            <div
-              key={u.id}
-              className="flex justify-between items-center border rounded-lg p-4 bg-white hover:shadow-sm transition"
-            >
-              <div>
-                <p className="font-semibold">{u.full_name}</p>
-                <p className="text-sm text-gray-600">{u.email}</p>
-                <p className="text-xs text-gray-500 capitalize">
-                  Role: {u.company_role || "not assigned"}
-                </p>
+          <div className="space-y-3">
+            {users.map((u) => (
+              <div
+                key={u.id}
+                className="flex justify-between items-center border rounded-lg p-4 bg-white hover:shadow-sm transition"
+              >
+                <div>
+                  <p className="font-semibold">{u.full_name}</p>
+                  <p className="text-sm text-gray-600">{u.email}</p>
+                  <p className="text-xs text-gray-500 capitalize">
+                    Role: {u.company_role || "not assigned"}
+                  </p>
+                </div>
+
+                <Link href={`/admin/companies/${id}/members`}>Edit →</Link>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </Section>
 
@@ -207,6 +236,13 @@ export default function CompanyPortfolioPage() {
                 {p.unit && (
                   <p className="text-xs text-gray-500">Unit {p.unit}</p>
                 )}
+
+                <Link
+                  href={`/admin/properties/${p.id}/edit`}
+                  className="inline-block mt-3 text-blue-600 text-sm hover:underline"
+                >
+                  Edit Property →
+                </Link>
               </div>
             ))}
           </div>
@@ -216,8 +252,9 @@ export default function CompanyPortfolioPage() {
   );
 }
 
-/* ================= UI HELPERS ================= */
-
+/* =====================
+   UI HELPERS
+===================== */
 function Section({ title, children }) {
   return (
     <div className="bg-white rounded-2xl border p-8 shadow-sm space-y-6">
@@ -229,10 +266,19 @@ function Section({ title, children }) {
 
 function StatCard({ label, value }) {
   return (
-    <div className="bg-white rounded-2xl border p-6 shadow-sm">
+    <div className="border rounded-xl bg-white p-5 shadow-sm">
       <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-3xl font-semibold mt-2">{value}</p>
+      <p className="text-3xl font-bold mt-1">{value}</p>
     </div>
+  );
+}
+
+function Detail({ label, value, emptyText = "Not provided" }) {
+  return (
+    <p className="text-sm">
+      <strong>{label}:</strong>{" "}
+      {value || <span className="text-gray-500">{emptyText}</span>}
+    </p>
   );
 }
 

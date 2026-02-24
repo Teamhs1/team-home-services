@@ -149,7 +149,8 @@ SET billing_enabled = true
 WHERE name = '4 Rent Solutions';
 ------------------------
 
-Super adminupdate profiles
+
+update profiles
 set role = 'super_admin'
 where email = 'info@teamhomeservices.ca';
 

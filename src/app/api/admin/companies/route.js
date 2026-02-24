@@ -1,8 +1,28 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { supabaseServer } from "@/utils/supabase/server";
 
+async function requireSuperAdmin() {
+  const { userId } = await auth();
+  if (!userId) return false;
+
+  const { data: profile } = await supabaseServer
+    .from("profiles")
+    .select("role")
+    .eq("clerk_id", userId)
+    .single();
+
+  return profile?.role === "super_admin";
+}
+
 export async function GET() {
+  const allowed = await requireSuperAdmin();
+
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { data, error } = await supabaseServer
     .from("companies")
     .select(
@@ -33,7 +53,6 @@ export async function GET() {
     .order("name", { ascending: true });
 
   if (error) {
-    console.error("COMPANIES FETCH ERROR:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -55,8 +74,6 @@ export async function GET() {
       owner: owner?.profile ?? null,
       properties_count: c.properties?.length ?? 0,
       users_count: members.length,
-
-      // 🔥 NUEVOS CAMPOS DE CONTROL SaaS
       billing_enabled: c.billing_enabled ?? false,
       internal_company: c.internal_company ?? false,
       subscription_status: c.subscription_status ?? "inactive",

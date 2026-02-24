@@ -2,7 +2,7 @@ import { getAuth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs"; // 🔴 IMPORTANTE
+export const runtime = "nodejs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -11,32 +11,53 @@ const supabase = createClient(
 
 export async function POST(req) {
   try {
-    // 🔐 Auth Clerk (FORMA CORRECTA EN APIs)
     const { userId } = getAuth(req);
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 📦 Body
     const { profileId } = await req.json();
     if (!profileId) {
       return NextResponse.json({ error: "Missing profileId" }, { status: 400 });
     }
 
-    // 🔎 Verifica admin
-    const { data: adminProfile, error: adminError } = await supabase
+    // 🔎 Obtener perfil del usuario actual
+    const { data: currentUser, error: userError } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, company_id")
       .eq("clerk_id", userId)
       .single();
 
-    if (adminError || adminProfile?.role !== "admin") {
+    if (userError || !currentUser) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // ♻️ Reactivar usuario
-    const { error } = await supabase
+    // 🔎 Obtener perfil objetivo
+    const { data: targetProfile, error: targetError } = await supabase
+      .from("profiles")
+      .select("id, company_id")
+      .eq("id", profileId)
+      .single();
+
+    if (targetError || !targetProfile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    // 🔐 CONTROL DE PERMISOS
+    if (currentUser.role === "super_admin") {
+      // ✅ Puede reactivar cualquiera
+    } else if (currentUser.role === "admin") {
+      // ✅ Solo su propia company
+      if (currentUser.company_id !== targetProfile.company_id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // ♻️ Reactivar
+    const { error: updateError } = await supabase
       .from("profiles")
       .update({
         status: "active",
@@ -44,8 +65,8 @@ export async function POST(req) {
       })
       .eq("id", profileId);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 400 });
     }
 
     return NextResponse.json({ success: true });

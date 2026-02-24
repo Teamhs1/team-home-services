@@ -341,6 +341,11 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-2">Avatar</th>
                 <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Email</th>
+
+                {currentRole === "super_admin" && (
+                  <th className="px-4 py-2">Company</th>
+                )}
+
                 <th className="px-4 py-2">Role</th>
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Joined</th>
@@ -389,13 +394,23 @@ export default function AdminUsersPage() {
                   </td>
 
                   <td className="px-4 py-2">{user.email || "—"}</td>
-
+                  {currentRole === "super_admin" && (
+                    <td className="px-4 py-2">
+                      <span className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-md font-medium">
+                        {user.companies?.name || "No company"}
+                      </span>
+                    </td>
+                  )}
                   <td className="px-4 py-2">
                     <div className="flex flex-col text-sm leading-tight">
                       {/* Rol principal */}
                       <span className="capitalize font-medium">
-                        {currentRole === "admin" ||
-                        currentRole === "super_admin" ? (
+                        {user.role === "super_admin" ? (
+                          <span className="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-700 rounded-md">
+                            Super Admin
+                          </span>
+                        ) : currentRole === "admin" ||
+                          currentRole === "super_admin" ? (
                           <select
                             value={user.role || "client"}
                             onClick={(e) => e.stopPropagation()}
@@ -405,11 +420,6 @@ export default function AdminUsersPage() {
                             className="border border-gray-300 rounded-md px-2 py-1 text-sm"
                             disabled={changing}
                           >
-                            {/* Solo super_admin puede ver esta opción */}
-                            {currentRole === "super_admin" && (
-                              <option value="super_admin">Super Admin</option>
-                            )}
-
                             <option value="admin">Admin</option>
                             <option value="staff">Staff</option>
                             <option value="client">Client</option>
@@ -425,11 +435,6 @@ export default function AdminUsersPage() {
                           {user.is_property_manager && user.company_id
                             ? "Company client"
                             : "Individual owner"}
-                        </span>
-                      )}
-                      {currentRole === "admin" && user.role === "staff" && (
-                        <span className="text-xs text-gray-500">
-                          Company: {user.companies?.name || "—"}
                         </span>
                       )}
                     </div>

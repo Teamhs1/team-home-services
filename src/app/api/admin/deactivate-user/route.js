@@ -2,7 +2,7 @@ import { getAuth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs"; // 👈 importante
+export const runtime = "nodejs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -11,7 +11,6 @@ const supabase = createClient(
 
 export async function POST(req) {
   try {
-    // ✅ NO REDIRECTS
     const { userId } = getAuth(req);
 
     if (!userId) {
@@ -24,18 +23,48 @@ export async function POST(req) {
       return NextResponse.json({ error: "Missing profileId" }, { status: 400 });
     }
 
-    // 🔐 validar admin
-    const { data: adminProfile, error: adminError } = await supabase
+    // 🔎 Usuario actual
+    const { data: currentUser, error: currentError } = await supabase
       .from("profiles")
-      .select("role")
+      .select("id, role, company_id")
       .eq("clerk_id", userId)
-      .maybeSingle();
+      .single();
 
-    if (adminError || adminProfile?.role !== "admin") {
+    if (currentError || !currentUser) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // 🧊 soft delete
+    // 🔎 Usuario objetivo
+    const { data: targetUser, error: targetError } = await supabase
+      .from("profiles")
+      .select("id, company_id")
+      .eq("id", profileId)
+      .single();
+
+    if (targetError || !targetUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // 🚫 No permitir desactivarse a sí mismo
+    if (targetUser.id === currentUser.id) {
+      return NextResponse.json(
+        { error: "You cannot deactivate yourself" },
+        { status: 400 },
+      );
+    }
+
+    // 🔐 Control jerárquico
+    if (currentUser.role === "super_admin") {
+      // ✅ Puede desactivar cualquiera
+    } else if (currentUser.role === "admin") {
+      if (currentUser.company_id !== targetUser.company_id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // 🧊 Soft delete
     const { error } = await supabase
       .from("profiles")
       .update({

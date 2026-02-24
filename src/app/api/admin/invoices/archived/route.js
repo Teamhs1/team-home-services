@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY, // 🔐 service role
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 export async function GET() {
@@ -14,18 +14,16 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1️⃣ Verificar que sea admin
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("clerk_id", userId)
       .single();
 
-    if (profileError || profile?.role !== "admin") {
+    if (profileError || !["admin", "super_admin"].includes(profile?.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // 2️⃣ Traer invoices archivadas
     const { data: invoices, error } = await supabase
       .from("invoices")
       .select(

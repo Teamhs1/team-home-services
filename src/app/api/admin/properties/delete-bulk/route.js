@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
+import { getAllowedCompanyIds } from "@/utils/permissions/getAllowedCompanyIds";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /* =========================
-   BULK HARD DELETE (ADMIN)
+   BULK HARD DELETE (SECURE)
 ========================= */
 export async function POST(req) {
   try {
@@ -24,26 +25,45 @@ export async function POST(req) {
       return NextResponse.json({ error: "No IDs provided" }, { status: 400 });
     }
 
-    /* =====================
-       VALIDATE ADMIN
-    ===================== */
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("clerk_id", userId)
-      .single();
+    let permissions;
 
-    if (profileError || profile?.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    try {
+      permissions = await getAllowedCompanyIds(userId);
+    } catch (err) {
+      return NextResponse.json({ error: err.message }, { status: 403 });
     }
 
-    /* =====================
-       HARD DELETE
-    ===================== */
-    const { error } = await supabase.from("properties").delete().in("id", ids);
+    /* =========================
+       👑 SUPER ADMIN
+    ========================= */
+
+    if (permissions.role === "super_admin") {
+      const { error } = await supabase
+        .from("properties")
+        .delete()
+        .in("id", ids);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        deleted: ids.length,
+      });
+    }
+
+    /* =========================
+       🔐 DELETE PROTECTED
+    ========================= */
+
+    const { error } = await supabase
+      .from("properties")
+      .delete()
+      .in("id", ids)
+      .in("company_id", permissions.allowedCompanyIds);
 
     if (error) {
-      console.error("❌ BULK DELETE ERROR:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -55,7 +75,7 @@ export async function POST(req) {
     console.error("❌ BULK DELETE FATAL:", err);
     return NextResponse.json(
       { error: "Failed to delete properties" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -27,7 +27,7 @@ export async function GET(req, context) {
 
     if (!companyId) {
       return NextResponse.json(
-        { error: "Missing company id" },
+        { success: false, message: "Missing company id" },
         { status: 400 },
       );
     }
@@ -38,7 +38,7 @@ export async function GET(req, context) {
         `
         id,
         role,
-        profiles:profile_id (
+        profile:profile_id (
           id,
           full_name,
           email,
@@ -51,13 +51,22 @@ export async function GET(req, context) {
 
     if (error) {
       console.error("GET MEMBERS ERROR:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { success: false, message: error.message },
+        { status: 500 },
+      );
     }
 
-    return NextResponse.json({ members: data || [] });
+    return NextResponse.json({
+      success: true,
+      data: data || [],
+    });
   } catch (err) {
     console.error("SERVER ERROR:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: "Server error" },
+      { status: 500 },
+    );
   }
 }
 /* =========================

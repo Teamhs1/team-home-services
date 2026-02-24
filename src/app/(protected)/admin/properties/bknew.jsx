@@ -34,6 +34,29 @@ export default function PropertiesListPage() {
 
   console.log("COMPANIES STATE:", companies);
 
+  useEffect(() => {
+    console.log("Selected company:", selectedCompany);
+
+    const company = companies.find(
+      (c) => String(c.id) === String(selectedCompany),
+    );
+
+    console.log("Matched company:", company);
+
+    if (selectedCompany === "all") {
+      setSelectedOwner("all");
+      return;
+    }
+
+    if (company?.owner?.id) {
+      console.log("Setting owner to:", company.owner.id);
+      setSelectedOwner(String(company.owner.id));
+    } else {
+      console.log("No owner found");
+      setSelectedOwner("all");
+    }
+  }, [selectedCompany, companies]);
+
   /* =====================
      LOAD COMPANIES (API)
   ===================== */
@@ -76,8 +99,8 @@ export default function PropertiesListPage() {
           return;
         }
 
-const result = await res.json();
-if (mounted) setProperties(result.properties || []);
+        const data = await res.json();
+        if (mounted) setProperties(data || []);
       } catch (err) {
         console.error("LOAD PROPERTIES ERROR:", err);
         if (mounted) setProperties([]);
@@ -112,57 +135,35 @@ if (mounted) setProperties(result.properties || []);
   /* =====================
      🔎 DERIVAR OWNERS (SIN ENDPOINT EXTRA)
   ===================== */
-  const owners =
-    selectedCompany === "all"
-      ? Array.from(
-          new Map(
-            properties
-              .filter((p) => p.owners)
-              .map((p) => [String(p.owner_id), p.owners]),
-          ).values(),
-        )
-      : (() => {
-          const companyProperties = properties.filter(
-            (p) => String(p.company_id) === String(selectedCompany),
-          );
+  const owners = Array.from(
+    new Map(
+      properties
+        .filter((p) => {
+          if (!p.owners) return false;
 
-          const uniqueOwners = Array.from(
-            new Map(
-              companyProperties
-                .filter((p) => p.owners)
-                .map((p) => [String(p.owner_id), p.owners]),
-            ).values(),
-          );
+          if (selectedCompany === "all") return true;
 
-          return uniqueOwners;
-        })();
-
-  // 🔥 Asegurar que el owner principal de la company esté incluido
-  if (selectedCompany !== "all") {
-    const company = companies.find(
-      (c) => String(c.id) === String(selectedCompany),
-    );
-
-    if (
-      company?.owner &&
-      !owners.find((o) => String(o.id) === String(company.owner.id))
-    ) {
-      owners.push(company.owner);
-    }
-  }
+          return String(p.company_id) === String(selectedCompany);
+        })
+        .map((p) => [String(p.owners.id), p.owners]),
+    ).values(),
+  );
 
   /* =====================
    ✅ FILTRO COMBINADO
    Company + Owner
 ===================== */
   const filteredProperties = properties.filter((p) => {
+    // ✅ Company filter (simple y seguro)
     const companyMatch =
       selectedCompany === "all" ||
       String(p.company_id) === String(selectedCompany);
 
+    // ✅ Owner filter
     const ownerMatch =
-      selectedOwner === "all" || String(p.owner_id) === String(selectedOwner);
+      selectedOwner === "all" || String(p.owners?.id) === String(selectedOwner);
 
+    // ✅ Search filter
     const query = search.trim().toLowerCase();
 
     const searchMatch =
@@ -170,6 +171,7 @@ if (mounted) setProperties(result.properties || []);
       p.name?.toLowerCase().includes(query) ||
       p.address?.toLowerCase().includes(query);
 
+    // ✅ Excluir archivadas
     return companyMatch && ownerMatch && searchMatch && p.is_active !== false;
   });
 
@@ -408,25 +410,7 @@ if (mounted) setProperties(result.properties || []);
           </label>
           <select
             value={selectedCompany}
-            onChange={(e) => {
-              const companyId = e.target.value;
-              setSelectedCompany(companyId);
-
-              if (companyId === "all") {
-                setSelectedOwner("all");
-                return;
-              }
-
-              const companyProperties = properties.filter(
-                (p) => String(p.company_id) === String(companyId),
-              );
-
-              if (companyProperties.length > 0) {
-                setSelectedOwner(String(companyProperties[0].owner_id));
-              } else {
-                setSelectedOwner("all");
-              }
-            }}
+            onChange={(e) => setSelectedCompany(e.target.value)}
             className="w-full border rounded-lg px-3 py-2 bg-white"
           >
             <option value="all">All Companies</option>
@@ -444,21 +428,20 @@ if (mounted) setProperties(result.properties || []);
             Filter by Owner
           </label>
           <select
-            value={String(selectedOwner)}
+            value={selectedOwner}
             onChange={(e) => setSelectedOwner(e.target.value)}
             disabled={selectedCompany !== "all"}
-            className={`w-full border rounded-lg px-3 py-2 ${
-              selectedCompany !== "all"
-                ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                : "bg-white"
-            }`}
+            className={`w-full border rounded-lg px-3 py-2 transition
+      ${
+        selectedCompany !== "all"
+          ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+          : "bg-white"
+      }
+    `}
           >
-            {selectedCompany === "all" && (
-              <option value="all">All Owners</option>
-            )}
-
+            <option value="all">All Owners</option>
             {owners.map((o) => (
-              <option key={String(o.id)} value={String(o.id)}>
+              <option key={o.id} value={o.id}>
                 {o.full_name}
               </option>
             ))}

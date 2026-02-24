@@ -8,7 +8,9 @@ const supabase = createClient(
 );
 
 /* =========================
-   GET OWNER (ADMIN / CLIENT)
+   GET OWNER
+   super_admin → all
+   admin/client → own company only
 ========================= */
 export async function GET(req, { params }) {
   try {
@@ -35,18 +37,18 @@ export async function GET(req, { params }) {
       .from("owners")
       .select(
         `
-    *,
-    companies (
-      id,
-      name,
-      email
-    )
-  `,
+        *,
+        companies (
+          id,
+          name,
+          email
+        )
+      `,
       )
       .eq("id", ownerId);
 
-    // 🔒 Client solo puede ver owners de su company
-    if (profile.role !== "admin") {
+    // 🔒 Solo limitar si NO es super_admin
+    if (profile.role !== "super_admin") {
       query = query.eq("company_id", profile.company_id);
     }
 
@@ -67,7 +69,9 @@ export async function GET(req, { params }) {
 }
 
 /* =========================
-   PATCH OWNER (ADMIN / CLIENT)
+   PATCH OWNER
+   super_admin → all
+   admin/client → own company only
 ========================= */
 export async function PATCH(req, { params }) {
   try {
@@ -80,7 +84,6 @@ export async function PATCH(req, { params }) {
 
     const body = await req.json();
 
-    // 🧑 Perfil
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role, company_id")
@@ -91,7 +94,7 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: "Profile not found" }, { status: 403 });
     }
 
-    // 🛑 Campos permitidos (evita updates peligrosos)
+    // 🛑 Campos permitidos
     const allowedFields = ["full_name", "email", "phone", "notes"];
 
     const updates = {};
@@ -106,11 +109,10 @@ export async function PATCH(req, { params }) {
       );
     }
 
-    // 🔧 Update base
     let query = supabase.from("owners").update(updates).eq("id", ownerId);
 
-    // 🔒 Client → solo su compañía
-    if (profile.role !== "admin") {
+    // 🔒 Limitar si NO es super_admin
+    if (profile.role !== "super_admin") {
       query = query.eq("company_id", profile.company_id);
     }
 
@@ -131,7 +133,9 @@ export async function PATCH(req, { params }) {
 }
 
 /* =========================
-   DELETE OWNER (ADMIN ONLY)
+   DELETE OWNER
+   super_admin → all
+   admin → own company only
 ========================= */
 export async function DELETE(req, { params }) {
   try {
@@ -144,15 +148,26 @@ export async function DELETE(req, { params }) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, company_id")
       .eq("clerk_id", userId)
       .single();
 
-    if (!profile || profile.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 403 });
     }
 
-    const { error } = await supabase.from("owners").delete().eq("id", ownerId);
+    let query = supabase.from("owners").delete().eq("id", ownerId);
+
+    // 🔒 Si NO es super_admin → limitar por company
+    if (profile.role !== "super_admin") {
+      if (profile.role !== "admin") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      query = query.eq("company_id", profile.company_id);
+    }
+
+    const { error } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
