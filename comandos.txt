@@ -156,3 +156,6 @@ where email = 'info@teamhomeservices.ca';
 
 
 ------------------------
+Ver archivos no sados 
+npx knip
+-----------------------

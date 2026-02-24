@@ -1,0 +1,13 @@
+{
+  "entry": [
+    "src/app/layout.{js,jsx,ts,tsx}",
+    "src/app/page.{js,jsx,ts,tsx}",
+    "src/app/**/page.{js,jsx,ts,tsx}",
+    "src/app/**/layout.{js,jsx,ts,tsx}",
+    "src/app/api/**/*.{js,ts}"
+  ],
+  "project": ["src/**/*.{js,jsx,ts,tsx}"],
+  "paths": {
+    "@/*": ["src/*"]
+  }
+}

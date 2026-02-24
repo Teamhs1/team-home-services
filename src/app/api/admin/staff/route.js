@@ -43,7 +43,8 @@ export async function GET() {
     let query = supabase
       .from("profiles")
       .select("id, clerk_id, full_name, email, role, company_id")
-      .in("role", ["staff", "admin"])
+      .not("role", "eq", "client")
+      .is("deleted_at", null)
       .order("full_name");
 
     /* =========================
@@ -53,8 +54,7 @@ export async function GET() {
     if (permissions.role === "super_admin") {
       // acceso total
     } else {
-
-    /* =========================
+      /* =========================
        🏢 ADMIN NORMAL
     ========================= */
       query = query.in("company_id", permissions.allowedCompanyIds);
