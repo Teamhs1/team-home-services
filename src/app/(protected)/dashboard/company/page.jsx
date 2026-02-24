@@ -1,84 +1,50 @@
 "use client";
-import { useUser } from "@clerk/nextjs";
-
+import { useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import CompanySection from "@/components/company/CompanySection";
 import { createClient } from "@supabase/supabase-js";
-import { useAuth } from "@clerk/nextjs";
 import Image from "next/image";
 
 export default function CompanyPage() {
   const { getToken } = useAuth();
 
   const [propertyCount, setPropertyCount] = useState("—");
+  const [memberCount, setMemberCount] = useState("—");
   const [logo, setLogo] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [companyId, setCompanyId] = useState(null);
-  const { user } = useUser();
 
   /* =========================
-     LOAD COMPANY + PROPERTY COUNT
+     LOAD OVERVIEW FROM API
   ========================= */
   useEffect(() => {
     let mounted = true;
 
     async function init() {
       try {
-        const token = await getToken({ template: "supabase" });
-        if (!token) return;
-
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-          {
-            global: {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          },
-        );
-
-        // 🔹 Get profile → company_id
-        if (!user) return;
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("company_id")
-          .eq("clerk_id", user.id)
-          .single();
-
-        if (!profile?.company_id) return;
-
-        if (mounted) setCompanyId(profile.company_id);
-
-        // 🔹 Get company logo
-        const { data: company } = await supabase
-          .from("companies")
-          .select("logo_url")
-          .eq("id", profile.company_id)
-          .single();
-
-        if (company?.logo_url && mounted) {
-          setLogo(company.logo_url);
-        }
-
-        // 🔹 Property count
-        const res = await fetch("/api/dashboard/properties", {
+        const res = await fetch("/api/company/overview", {
           cache: "no-store",
-          credentials: "include",
         });
 
-        if (res.ok) {
-          const json = await res.json();
-          const list = Array.isArray(json) ? json : json.data || [];
-          if (mounted) setPropertyCount(list.length);
-        } else {
-          if (mounted) setPropertyCount(0);
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error(data.error);
+          return;
+        }
+
+        if (mounted) {
+          setCompanyId(data.company_id);
+          setMemberCount(data.members);
+          setPropertyCount(data.properties);
+          setLogo(data.logo);
         }
       } catch (err) {
         console.error("COMPANY INIT ERROR:", err);
-        if (mounted) setPropertyCount(0);
+        if (mounted) {
+          setPropertyCount(0);
+          setMemberCount(0);
+        }
       }
     }
 
@@ -87,10 +53,10 @@ export default function CompanyPage() {
     return () => {
       mounted = false;
     };
-  }, [getToken]);
+  }, []);
 
   /* =========================
-     UPLOAD LOGO
+     UPLOAD LOGO (SIN CAMBIOS)
   ========================= */
   async function uploadLogo(file) {
     try {
@@ -144,7 +110,6 @@ export default function CompanyPage() {
 
   return (
     <CompanySection>
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
           Company Overview
@@ -154,7 +119,7 @@ export default function CompanyPage() {
         </p>
       </div>
 
-      {/* Logo Upload */}
+      {/* Logo */}
       <div className="mt-8 flex items-center gap-6">
         {logo ? (
           <Image
@@ -189,7 +154,7 @@ export default function CompanyPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 mt-10">
         <div className="rounded-xl border bg-background p-4">
           <p className="text-sm text-muted-foreground">Members</p>
-          <p className="text-2xl font-semibold mt-1">2</p>
+          <p className="text-2xl font-semibold mt-1">{memberCount}</p>
         </div>
 
         <div className="rounded-xl border bg-background p-4">

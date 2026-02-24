@@ -14,7 +14,7 @@ export default function CompanyMembersPage() {
   const [members, setMembers] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState("");
-  const [role, setRole] = useState("staff");
+  const [role, setRole] = useState("viewer");
   const [loading, setLoading] = useState(true);
   const [updatingRoleId, setUpdatingRoleId] = useState(null);
 
@@ -49,32 +49,38 @@ export default function CompanyMembersPage() {
       const res = await fetch(`/api/companies/${companyId}/members`, {
         cache: "no-store",
       });
-      const data = await res.json();
+
+      const json = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Failed to load members");
+        toast.error(json.message || "Failed to load members");
         return;
       }
 
-      setMembers(data.members || []);
+      setMembers(json.data || []);
     } catch {
       toast.error("Error loading members");
     }
   }
-
   /* =====================
      LOAD USERS
   ===================== */
   async function loadUsers() {
-    const res = await fetch("/api/admin/profiles", {
-      cache: "no-store",
-    });
+    try {
+      const res = await fetch("/api/admin/profiles", {
+        cache: "no-store",
+      });
 
-    const json = await res.json();
-    +setUsers(json.users || []);
+      const json = await res.json();
+      setUsers(json.users || []);
+    } catch {
+      toast.error("Error loading users");
+    }
   }
 
   useEffect(() => {
+    if (!companyId) return;
+
     Promise.all([loadCompany(), loadMembers(), loadUsers()]).finally(() =>
       setLoading(false),
     );
@@ -93,27 +99,29 @@ export default function CompanyMembersPage() {
       const res = await fetch(`/api/companies/${companyId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile_id: selectedUser, role }),
+        body: JSON.stringify({
+          profile_id: selectedUser,
+          role,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Failed to add member");
+        toast.error(data.message || "Failed to add member");
         return;
       }
 
       toast.success("Member added");
       setSelectedUser("");
-      setRole("staff");
+      setRole("viewer");
       loadMembers();
     } catch {
       toast.error("Server error");
     }
   }
-
   /* =====================
-     UPDATE ROLE (INLINE)
+     UPDATE ROLE
   ===================== */
   async function updateRole(profileId, newRole, prevRole) {
     if (!profileId || newRole === prevRole) return;
@@ -133,14 +141,7 @@ export default function CompanyMembersPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Failed to update role");
-
-        // rollback visual
-        setMembers((prev) =>
-          prev.map((m) =>
-            m.profiles?.id === profileId ? { ...m, role: prevRole } : m,
-          ),
-        );
+        toast.error(data.message || "Failed to update role");
         return;
       }
 
@@ -152,7 +153,6 @@ export default function CompanyMembersPage() {
       setUpdatingRoleId(null);
     }
   }
-
   /* =====================
      REMOVE MEMBER
   ===================== */
@@ -164,13 +164,15 @@ export default function CompanyMembersPage() {
       const res = await fetch(`/api/companies/${companyId}/members`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile_id: profileId }),
+        body: JSON.stringify({
+          profile_id: profileId,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Failed to remove member");
+        toast.error(data.message || "Failed to remove member");
         return;
       }
 
@@ -191,7 +193,6 @@ export default function CompanyMembersPage() {
 
   return (
     <div className="p-8 pt-[130px] max-w-5xl mx-auto space-y-8">
-      {/* HEADER */}
       <div className="flex items-center gap-4">
         <div className="h-12 w-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
           <Users className="w-6 h-6" />
@@ -258,25 +259,20 @@ export default function CompanyMembersPage() {
 
           <tbody>
             {members.map((m) => {
-              const profileId = m.profiles?.id;
+              const profile = m;
+
               return (
-                <tr
-                  key={m.id}
-                  className="border-t border-gray-100 hover:bg-gray-50 transition"
-                >
-                  {/* AVATAR */}
+                <tr key={m.id} className="border-t hover:bg-gray-50 transition">
                   <td className="px-5 py-4">
                     <div className="relative w-10 h-10">
                       <Image
                         src={
-                          m.profiles?.avatar_url ||
+                          profile.avatar_url ||
                           `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                            m.profiles?.full_name ||
-                              m.profiles?.email ||
-                              "User",
+                            profile.full_name || profile.email || "User",
                           )}&background=2563eb&color=fff`
                         }
-                        alt={m.profiles?.full_name || "User"}
+                        alt={profile.full_name || "User"}
                         fill
                         sizes="40px"
                         className="rounded-full object-cover border"
@@ -284,42 +280,34 @@ export default function CompanyMembersPage() {
                     </div>
                   </td>
 
-                  {/* NAME */}
-                  <td className="px-5 py-4 font-medium text-blue-600 hover:underline">
-                    {m.profiles?.full_name || "—"}
+                  <td className="px-5 py-4 font-medium">
+                    {profile.full_name || "—"}
                   </td>
 
                   <td className="px-5 py-4 text-gray-600">
-                    {m.profiles?.email || "—"}
+                    {profile.email || "—"}
                   </td>
 
-                  {/* 🔥 CHANGE ROLE INLINE (UX mejorado) */}
                   <td className="px-5 py-4 text-center">
-                    <div className="relative inline-flex items-center">
-                      <select
-                        value={m.role}
-                        disabled={updatingRoleId === profileId}
-                        onChange={(e) =>
-                          updateRole(profileId, e.target.value, m.role)
-                        }
-                        className="border rounded-md px-2 py-1 text-xs capitalize bg-white pr-7"
-                      >
-                        {COMPANY_ROLES.map((r) => (
-                          <option key={r.value} value={r.value}>
-                            {r.label}
-                          </option>
-                        ))}
-                      </select>
-
-                      {updatingRoleId === profileId && (
-                        <Loader2 className="absolute right-2 h-3 w-3 animate-spin text-gray-400" />
-                      )}
-                    </div>
+                    <select
+                      value={m.role}
+                      disabled={updatingRoleId === profile.profile_id}
+                      onChange={(e) =>
+                        updateRole(profile.profile_id, e.target.value, m.role)
+                      }
+                      className="border rounded-md px-2 py-1 text-xs capitalize"
+                    >
+                      {COMPANY_ROLES.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
                   </td>
 
                   <td className="px-5 py-4 text-right">
                     <button
-                      onClick={() => removeMember(profileId)}
+                      onClick={() => removeMember(profile.profile_id)}
                       className="text-red-600 hover:text-red-800 text-sm font-medium"
                     >
                       Remove

@@ -1,4 +1,3 @@
-//api/companies/[id]/members/route.js
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -19,12 +18,12 @@ const BASE_STAFF_PERMISSIONS = [
   "company",
 ];
 
-/* =====================================================
+/* =========================
    GET · LIST MEMBERS
-===================================================== */
-export async function GET(req, { params }) {
+========================= */
+export async function GET(req, context) {
   try {
-    const companyId = params.id;
+    const { id: companyId } = context.params;
 
     if (!companyId) {
       return NextResponse.json(
@@ -39,8 +38,7 @@ export async function GET(req, { params }) {
         `
         id,
         role,
-        profile_id,
-        profiles:profile_id (
+        profile:profile_id (
           id,
           full_name,
           email,
@@ -59,17 +57,10 @@ export async function GET(req, { params }) {
       );
     }
 
-    const formatted =
-      data?.map((m) => ({
-        id: m.id,
-        profile_id: m.profile_id,
-        role: m.role,
-        full_name: m.profiles?.full_name ?? null,
-        email: m.profiles?.email ?? null,
-        avatar_url: m.profiles?.avatar_url ?? null,
-      })) || [];
-
-    return NextResponse.json({ success: true, data: formatted });
+    return NextResponse.json({
+      success: true,
+      data: data || [],
+    });
   } catch (err) {
     console.error("SERVER ERROR:", err);
     return NextResponse.json(
@@ -78,20 +69,16 @@ export async function GET(req, { params }) {
     );
   }
 }
-
-/* =====================================================
-   POST · ADD MEMBER
-===================================================== */
-export async function POST(req, { params }) {
+/* =========================
+   POST · ADD MEMBER ✅
+========================= */
+export async function POST(req, context) {
   try {
-    const companyId = params.id;
+    const { id: companyId } = context.params;
     const { profile_id, role } = await req.json();
 
     if (!companyId || !profile_id || !role) {
-      return NextResponse.json(
-        { success: false, message: "Missing fields" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
     // ⛔ evitar duplicados
@@ -104,12 +91,12 @@ export async function POST(req, { params }) {
 
     if (exists) {
       return NextResponse.json(
-        { success: false, message: "User already belongs to this company" },
+        { error: "User already belongs to this company" },
         { status: 409 },
       );
     }
 
-    // 1️⃣ Insertar membresía
+    // 1️⃣ insertar membresía
     const { error: insertError } = await supabaseAdmin
       .from("company_members")
       .insert({
@@ -120,13 +107,10 @@ export async function POST(req, { params }) {
 
     if (insertError) {
       console.error("ADD MEMBER ERROR:", insertError);
-      return NextResponse.json(
-        { success: false, message: insertError.message },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    // 2️⃣ Activar contexto
+    // 2️⃣ activar contexto
     await supabaseAdmin
       .from("profiles")
       .update({
@@ -135,7 +119,7 @@ export async function POST(req, { params }) {
       })
       .eq("id", profile_id);
 
-    // 3️⃣ Crear permisos base si no es owner
+    // 3️⃣ 🔥 CREAR PERMISOS BASE (solo si no es owner)
     if (role !== "owner") {
       const permissionsPayload = BASE_STAFF_PERMISSIONS.map((resource) => ({
         staff_profile_id: profile_id,
@@ -148,32 +132,27 @@ export async function POST(req, { params }) {
 
       if (permError) {
         console.error("STAFF PERMISSIONS ERROR:", permError);
+        // ⚠️ NO rompe el flujo
       }
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("SERVER ERROR:", err);
-    return NextResponse.json(
-      { success: false, message: "Server error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 
-/* =====================================================
+/* =========================
    PATCH · UPDATE MEMBER ROLE
-===================================================== */
-export async function PATCH(req, { params }) {
+========================= */
+export async function PATCH(req, context) {
   try {
-    const companyId = params.id;
+    const { id: companyId } = context.params;
     const { profile_id, role } = await req.json();
 
     if (!companyId || !profile_id || !role) {
-      return NextResponse.json(
-        { success: false, message: "Missing fields" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
     const { error } = await supabaseAdmin
@@ -184,35 +163,26 @@ export async function PATCH(req, { params }) {
 
     if (error) {
       console.error("UPDATE ROLE ERROR:", error);
-      return NextResponse.json(
-        { success: false, message: error.message },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("SERVER ERROR:", err);
-    return NextResponse.json(
-      { success: false, message: "Server error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 
-/* =====================================================
-   DELETE · REMOVE MEMBER
-===================================================== */
-export async function DELETE(req, { params }) {
+/* =========================
+   DELETE · REMOVE MEMBER ✅
+========================= */
+export async function DELETE(req, context) {
   try {
-    const companyId = params.id;
+    const { id: companyId } = context.params;
     const { profile_id } = await req.json();
 
     if (!companyId || !profile_id) {
-      return NextResponse.json(
-        { success: false, message: "Missing fields" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
     // 1️⃣ eliminar permisos
@@ -230,10 +200,7 @@ export async function DELETE(req, { params }) {
 
     if (deleteError) {
       console.error("REMOVE MEMBER ERROR:", deleteError);
-      return NextResponse.json(
-        { success: false, message: deleteError.message },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
     // 3️⃣ limpiar contexto
@@ -248,9 +215,6 @@ export async function DELETE(req, { params }) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("SERVER ERROR:", err);
-    return NextResponse.json(
-      { success: false, message: "Server error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

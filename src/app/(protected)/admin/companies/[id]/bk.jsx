@@ -45,10 +45,24 @@ export default function CompanyPortfolioPage() {
           cache: "no-store",
         });
 
-        const props = resProps.ok ? await resProps.json() : [];
-        if (!mounted) return;
+        if (!resProps.ok) {
+          console.error("❌ Error loading properties");
+          setProperties([]);
+        } else {
+          const json = await resProps.json();
 
-        setProperties(props || []);
+          let normalized = [];
+
+          if (Array.isArray(json)) {
+            normalized = json;
+          } else if (Array.isArray(json.data)) {
+            normalized = json.data;
+          } else if (Array.isArray(json.properties)) {
+            normalized = json.properties;
+          }
+
+          setProperties(normalized);
+        }
 
         /* ---------- USERS (via API / service role) ---------- */
         try {

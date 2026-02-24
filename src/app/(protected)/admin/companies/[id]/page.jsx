@@ -21,67 +21,94 @@ export default function CompanyPortfolioPage() {
       setLoading(true);
 
       try {
-        /* ===================== COMPANY ===================== */
+        /* =========================
+         COMPANY
+      ========================== */
         const resCompany = await fetch(`/api/admin/companies/${id}`, {
           cache: "no-store",
         });
 
-        const compJson = await resCompany.json();
+        if (!resCompany.ok) {
+          toast.error("Error loading company");
+          return;
+        }
 
-        if (!resCompany.ok || !compJson.success) {
-          toast.error(compJson.message || "Error loading company");
-          setLoading(false);
+        const companyJson = await resCompany.json();
+
+        const companyData =
+          companyJson?.data ??
+          (companyJson?.success ? companyJson?.data : null);
+
+        if (!companyData) {
+          toast.error("Company not found");
           return;
         }
 
         if (!mounted) return;
-        setCompany(compJson.data);
+        setCompany(companyData);
 
-        /* ===================== PROPERTIES ===================== */
+        /* =========================
+   PROPERTIES
+========================= */
         const resProps = await fetch(`/api/admin/companies/${id}/properties`, {
           cache: "no-store",
         });
 
-        const propsJson = await resProps.json();
+        let normalizedProperties = [];
+
+        if (resProps.ok) {
+          const propsJson = await resProps.json();
+
+          if (propsJson.success && Array.isArray(propsJson.data)) {
+            normalizedProperties = propsJson.data;
+          }
+        }
 
         if (!mounted) return;
+        setProperties(normalizedProperties);
 
-        if (resProps.ok && propsJson.success) {
-          setProperties(Array.isArray(propsJson.data) ? propsJson.data : []);
-        } else {
-          setProperties([]);
-        }
+        /* =========================
+         USERS
+      ========================== */
+        const resUsers = await fetch(`/api/companies/${id}/members`, {
+          cache: "no-store",
+        });
 
-        /* ===================== USERS ===================== */
-        try {
-          const resUsers = await fetch(`/api/companies/${id}/members`, {
-            cache: "no-store",
-          });
+        let normalizedUsers = [];
 
+        if (resUsers.ok) {
           const usersJson = await resUsers.json();
 
-          if (!resUsers.ok || !usersJson.success) {
-            setUsers([]);
-          } else {
-            const normalizedUsers = (usersJson.data || [])
-              .map((m) => ({
-                id: m.profile?.id,
-                full_name: m.profile?.full_name || "",
-                email: m.profile?.email || "",
-                company_role: m.role,
-              }))
-              .sort((a, b) =>
-                a.full_name.localeCompare(b.full_name, undefined, {
-                  sensitivity: "base",
-                }),
-              );
+          let rawMembers = [];
 
-            setUsers(normalizedUsers);
+          if (Array.isArray(usersJson)) {
+            rawMembers = usersJson;
+          } else if (Array.isArray(usersJson?.members)) {
+            rawMembers = usersJson.members;
+          } else if (Array.isArray(usersJson?.data)) {
+            rawMembers = usersJson.data;
           }
-        } catch (err) {
-          console.error("Members fetch failed:", err);
-          setUsers([]);
+
+          normalizedUsers = rawMembers.map((m) => ({
+            id: m.profiles?.id || m.profile?.id || m.id,
+            full_name:
+              m.profiles?.full_name ||
+              m.profile?.full_name ||
+              m.full_name ||
+              "",
+            email: m.profiles?.email || m.profile?.email || m.email || "",
+            company_role: m.role,
+          }));
+
+          normalizedUsers.sort((a, b) =>
+            a.full_name.localeCompare(b.full_name, undefined, {
+              sensitivity: "base",
+            }),
+          );
         }
+
+        if (!mounted) return;
+        setUsers(normalizedUsers);
       } catch (err) {
         console.error("LOAD COMPANY ERROR:", err);
         toast.error("Unexpected error loading company");
@@ -97,6 +124,9 @@ export default function CompanyPortfolioPage() {
     };
   }, [id]);
 
+  /* =========================
+     LOADING
+  ========================== */
   if (loading) {
     return (
       <div className="p-10 pt-[130px] text-center text-gray-500">
@@ -115,6 +145,7 @@ export default function CompanyPortfolioPage() {
 
   return (
     <div className="p-8 pt-[130px] max-w-6xl mx-auto space-y-10">
+      {/* Breadcrumb */}
       <div className="text-sm text-gray-500">
         <Link href="/admin/companies" className="hover:underline">
           Companies
@@ -123,6 +154,7 @@ export default function CompanyPortfolioPage() {
         <span className="text-gray-700 font-medium">{company.name}</span>
       </div>
 
+      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-2xl border bg-white shadow-sm flex items-center justify-center overflow-hidden">
@@ -159,7 +191,7 @@ export default function CompanyPortfolioPage() {
         </Link>
       </div>
 
-      {/* STATS */}
+      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <StatCard label="Properties" value={properties.length} />
         <StatCard label="Users" value={users.length} />
@@ -169,29 +201,44 @@ export default function CompanyPortfolioPage() {
         />
       </div>
 
-      {/* USERS */}
+      {/* Company Details */}
+      <Section title="Company Details">
+        <Detail label="Email" value={company.email} />
+        <Detail label="Phone" value={company.phone} />
+        <Detail
+          label="Notes"
+          value={company.notes}
+          emptyText="No notes added"
+        />
+      </Section>
+
+      {/* Users */}
       <Section title="Users in this Company">
         {users.length === 0 ? (
           <Empty text="No users assigned to this company." />
         ) : (
-          users.map((u) => (
-            <div
-              key={u.id}
-              className="flex justify-between items-center border rounded-lg p-4 bg-white hover:shadow-sm transition"
-            >
-              <div>
-                <p className="font-semibold">{u.full_name}</p>
-                <p className="text-sm text-gray-600">{u.email}</p>
-                <p className="text-xs text-gray-500 capitalize">
-                  Role: {u.company_role || "not assigned"}
-                </p>
+          <div className="space-y-3">
+            {users.map((u) => (
+              <div
+                key={u.id}
+                className="flex justify-between items-center border rounded-lg p-4 bg-white hover:shadow-sm transition"
+              >
+                <div>
+                  <p className="font-semibold">{u.full_name}</p>
+                  <p className="text-sm text-gray-600">{u.email}</p>
+                  <p className="text-xs text-gray-500 capitalize">
+                    Role: {u.company_role || "not assigned"}
+                  </p>
+                </div>
+
+                <Link href={`/admin/companies/${id}/members`}>Edit →</Link>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </Section>
 
-      {/* PROPERTIES */}
+      {/* Properties */}
       <Section title="Properties">
         {properties.length === 0 ? (
           <Empty text="This company has no properties." />
@@ -207,6 +254,13 @@ export default function CompanyPortfolioPage() {
                 {p.unit && (
                   <p className="text-xs text-gray-500">Unit {p.unit}</p>
                 )}
+
+                <Link
+                  href={`/admin/properties/${p.id}/edit`}
+                  className="inline-block mt-3 text-blue-600 text-sm hover:underline"
+                >
+                  Edit Property →
+                </Link>
               </div>
             ))}
           </div>
@@ -216,8 +270,7 @@ export default function CompanyPortfolioPage() {
   );
 }
 
-/* ================= UI HELPERS ================= */
-
+/* UI Helpers */
 function Section({ title, children }) {
   return (
     <div className="bg-white rounded-2xl border p-8 shadow-sm space-y-6">
@@ -229,10 +282,19 @@ function Section({ title, children }) {
 
 function StatCard({ label, value }) {
   return (
-    <div className="bg-white rounded-2xl border p-6 shadow-sm">
+    <div className="border rounded-xl bg-white p-5 shadow-sm">
       <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-3xl font-semibold mt-2">{value}</p>
+      <p className="text-3xl font-bold mt-1">{value}</p>
     </div>
+  );
+}
+
+function Detail({ label, value, emptyText = "Not provided" }) {
+  return (
+    <p className="text-sm">
+      <strong>{label}:</strong>{" "}
+      {value || <span className="text-gray-500">{emptyText}</span>}
+    </p>
   );
 }
 

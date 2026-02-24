@@ -1,3 +1,4 @@
+///api/admin/companies/[id]/properties/route.js
 import "server-only";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
