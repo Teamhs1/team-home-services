@@ -38,6 +38,7 @@ export default function AdminKeysList() {
   const [selectedCompany, setSelectedCompany] = useState("all");
   const [selectedProperty, setSelectedProperty] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const showCompanyColumn = companies.length > 1;
 
   /* =====================
      LOAD KEYS (NO TOCAR)
@@ -139,7 +140,7 @@ export default function AdminKeysList() {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         if (!res.ok) throw new Error("Failed to load properties");
@@ -373,6 +374,10 @@ export default function AdminKeysList() {
               <tr>
                 <th className="px-4 py-3 text-left">Tag</th>
                 <th className="px-4 py-3 text-left">Property</th>
+
+                {showCompanyColumn && (
+                  <th className="px-4 py-3 text-left">Company</th>
+                )}
                 <th className="px-4 py-3 text-left">Unit</th>
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Status</th>
@@ -387,7 +392,7 @@ export default function AdminKeysList() {
                     (window.location.href = `/admin/keys/${k.tag_code}`)
                   }
                   className={`border-t hover:bg-gray-50 cursor-pointer ${getRowStyles(
-                    k.is_reported
+                    k.is_reported,
                   )}`}
                 >
                   <td className="px-4 py-2">
@@ -412,12 +417,18 @@ export default function AdminKeysList() {
                     </div>
                   </td>
 
+                  {showCompanyColumn && (
+                    <td className="px-4 py-2">
+                      {k.properties?.companies?.name || "—"}
+                    </td>
+                  )}
+
                   <td className="px-4 py-2">{k.unit || "—"}</td>
                   <td className="px-4 py-2">{k.type || "—"}</td>
                   <td className="px-4 py-2">
                     <span
                       className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusStyles(
-                        k.status
+                        k.status,
                       )}`}
                     >
                       {k.status}

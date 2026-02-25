@@ -6,10 +6,18 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useRouter } from "next/navigation";
 import ExpenseForm from "@/components/expenses/ExpenseForm";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 import { useEffect, useState } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
-import { createClient } from "@supabase/supabase-js";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -47,7 +55,11 @@ export default function ExpensesPage() {
   const [role, setRole] = useState(null);
   const [profileId, setProfileId] = useState(null);
 
+  const [showMetrics, setShowMetrics] = useState(false);
+  const [showChart, setShowChart] = useState(false);
+
   const [expenses, setExpenses] = useState([]);
+  const totalExpenses = expenses.length;
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState(null);
@@ -62,6 +74,94 @@ export default function ExpensesPage() {
   const [tax, setTax] = useState(0);
   const [finalCost, setFinalCost] = useState(0);
   const [openNewExpense, setOpenNewExpense] = useState(false);
+  const [companies, setCompanies] = useState([]);
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const [selectedCompany, setSelectedCompany] = useState("all");
+
+  const isAdminLike = role === "admin" || role === "super_admin";
+  const filteredExpenses =
+    role === "super_admin" && selectedCompany !== "all"
+      ? expenses.filter((e) => e.company_id === selectedCompany)
+      : expenses;
+
+  const monthlyExpenses = filteredExpenses.filter((e) => {
+    if (!e.expense_date) return false;
+    const d = new Date(e.expense_date);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+
+  const yearlyExpenses = filteredExpenses.filter((e) => {
+    if (!e.expense_date) return false;
+    const d = new Date(e.expense_date);
+    return d.getFullYear() === currentYear;
+  });
+
+  const monthlyChartData = Array.from({ length: 12 }, (_, i) => {
+    const monthTotal = filteredExpenses
+      .filter((e) => {
+        if (!e.expense_date) return false;
+        const d = new Date(e.expense_date);
+        return d.getMonth() === i && d.getFullYear() === currentYear;
+      })
+      .reduce((sum, e) => sum + Number(e.final_cost || e.amount || 0), 0);
+
+    return {
+      month: new Date(0, i).toLocaleString("default", { month: "short" }),
+      total: monthTotal,
+    };
+  });
+  const totalThisMonth = monthlyExpenses.reduce(
+    (sum, e) => sum + Number(e.final_cost || e.amount || 0),
+    0,
+  );
+
+  const totalThisYear = yearlyExpenses.reduce(
+    (sum, e) => sum + Number(e.final_cost || e.amount || 0),
+    0,
+  );
+
+  /* ===== LAST MONTH ===== */
+  const lastMonthDate = new Date();
+  lastMonthDate.setMonth(currentMonth - 1);
+
+  const lastMonthExpenses = filteredExpenses.filter((e) => {
+    if (!e.expense_date) return false;
+    const d = new Date(e.expense_date);
+    return (
+      d.getMonth() === lastMonthDate.getMonth() &&
+      d.getFullYear() === lastMonthDate.getFullYear()
+    );
+  });
+
+  const totalLastMonth = lastMonthExpenses.reduce(
+    (sum, e) => sum + Number(e.final_cost || e.amount || 0),
+    0,
+  );
+
+  const growth =
+    totalLastMonth === 0
+      ? totalThisMonth > 0
+        ? 100
+        : 0
+      : ((totalThisMonth - totalLastMonth) / totalLastMonth) * 100;
+
+  /* =====================
+   Cargar companies si es super_admin
+===================== */
+
+  useEffect(() => {
+    if (role !== "super_admin") return;
+
+    async function loadCompanies() {
+      const res = await fetch("/api/admin/companies");
+      const data = await res.json();
+      if (res.ok) setCompanies(data);
+    }
+
+    loadCompanies();
+  }, [role]);
 
   /* =====================
    BULK SELECTION
@@ -108,19 +208,25 @@ export default function ExpensesPage() {
   useEffect(() => {
     if (!role || !profileId) return;
 
-    // 🟢 Admin siempre puede
-    if (role === "admin") {
+    // 👑 SUPER ADMIN → siempre puede
+    if (role === "super_admin") {
       setCanViewExpenses(true);
       return;
     }
 
-    // 🟢 Client NO usa staff permissions
+    // 🧑‍💼 ADMIN → siempre puede
+    if (role === "admin" || role === "super_admin") {
+      setCanViewExpenses(true);
+      return;
+    }
+
+    // 🏢 CLIENT → puede ver sus expenses
     if (role === "client") {
       setCanViewExpenses(true);
       return;
     }
 
-    // 🟡 Staff: validar permiso real (staff_permissions)
+    // 👷 STAFF → validar permiso real
     async function checkPermission() {
       try {
         const res = await fetch("/api/permissions/me", {
@@ -157,39 +263,27 @@ export default function ExpensesPage() {
   }, [amount]);
 
   /* =====================
-     SUPABASE CLIENT
-  ===================== */
-  async function getSupabase() {
-    const token = await getToken({ template: "supabase" });
-    if (!token) throw new Error("No Supabase token");
-
-    return createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-      },
-    );
-  }
-
-  /* =====================
      LOAD PROPERTIES
   ===================== */
   async function loadProperties() {
-    const supabase = await getSupabase();
+    try {
+      const res = await fetch("/api/properties", {
+        credentials: "include",
+      });
 
-    const { data, error } = await supabase
-      .from("properties")
-      .select("id, address")
-      .order("address");
+      const data = await res.json();
 
-    if (error) {
-      console.error(error);
+      if (!res.ok) {
+        console.error(data);
+        toast.error("Failed to load properties");
+        return;
+      }
+
+      setProperties(Array.isArray(data.properties) ? data.properties : []);
+    } catch (err) {
+      console.error(err);
       toast.error("Failed to load properties");
-      return;
     }
-
-    setProperties(data || []);
   }
   async function loadUnits(propertyId) {
     if (!propertyId) {
@@ -230,17 +324,6 @@ export default function ExpensesPage() {
 
     loadExpenses();
   }, [isLoaded, profileId, role, canViewExpenses]);
-  async function loadExpenses() {
-    console.log("🟢 Loading expenses...");
-    const res = await fetch("/api/expenses/list", {
-      credentials: "include",
-    });
-
-    const data = await res.json();
-    console.log("🟢 Expenses data:", data);
-
-    setExpenses(data ?? []);
-  }
 
   async function loadExpenses() {
     try {
@@ -429,8 +512,8 @@ export default function ExpensesPage() {
 
   const expensesToExport =
     selectedExpenses.size > 0
-      ? expenses.filter((e) => selectedExpenses.has(e.id))
-      : expenses;
+      ? filteredExpenses.filter((e) => selectedExpenses.has(e.id))
+      : filteredExpenses;
 
   /* ===== EXCEL ===== */
   async function exportToExcel() {
@@ -608,14 +691,35 @@ export default function ExpensesPage() {
       <main className="mt-16 px-4 sm:px-6 py-6 sm:py-10 max-w-[1400px] mx-auto space-y-8">
         {/* HEADER */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <h1 className="text-3xl font-bold">💸 Expenses</h1>
+          {/* Title */}
+          <div>
+            <h1 className="text-3xl font-bold">💸 Expenses</h1>
+            <p className="text-sm text-muted-foreground">
+              {totalExpenses} expense{totalExpenses !== 1 && "s"}
+            </p>
+          </div>
 
-          <div className="flex gap-2">
+          {/* Actions */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowMetrics((prev) => !prev)}
+            >
+              {showMetrics ? "Hide Metrics" : "Show Metrics"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => setShowChart((prev) => !prev)}
+            >
+              {showChart ? "Hide Chart" : "Show Chart"}
+            </Button>
+
             {canViewExpenses && (
               <Button onClick={() => setOpenNewExpense(true)}>➕ New</Button>
             )}
 
-            {expenses.length > 0 && (
+            {filteredExpenses.length > 0 && (
               <>
                 <Button variant="outline" onClick={exportToExcel}>
                   📊 Export Excel
@@ -629,6 +733,99 @@ export default function ExpensesPage() {
           </div>
         </div>
 
+        {/* FINANCIAL STATS */}
+        {showMetrics && filteredExpenses.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>💰 This Month</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-bold">
+                ${totalThisMonth.toFixed(2)}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>📅 This Year</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-bold">
+                ${totalThisYear.toFixed(2)}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>📈 Growth vs Last Month</CardTitle>
+              </CardHeader>
+              <CardContent
+                className={`text-2xl font-bold ${
+                  growth >= 0 ? "text-green-600" : "text-red-600"
+                }`}
+              >
+                {growth.toFixed(1)}%
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        {/* STATS CARDS */}
+        {expenses.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Total Expenses</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-bold">
+                {expenses.length}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Total Amount</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-bold">
+                $
+                {expenses
+                  .reduce((sum, e) => sum + Number(e.amount || 0), 0)
+                  .toFixed(2)}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Total Final Cost</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-bold">
+                $
+                {expenses
+                  .reduce(
+                    (sum, e) => sum + Number(e.final_cost || e.amount || 0),
+                    0,
+                  )
+                  .toFixed(2)}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        {/* MONTHLY CHART */}
+        {showChart && filteredExpenses.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Monthly Expenses ({currentYear})</CardTitle>
+            </CardHeader>
+            <CardContent className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyChartData}>
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="total" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
         {/* EMPTY STATE */}
         {expenses.length === 0 && (
           <div className="text-center text-gray-500 py-20">
@@ -636,7 +833,7 @@ export default function ExpensesPage() {
           </div>
         )}
         {/* BULK ACTION BAR */}
-        {role === "admin" && selectedExpenses.size > 0 && (
+        {isAdminLike && selectedExpenses.size > 0 && (
           <div className="sticky top-2 z-20 bg-white border shadow-sm rounded-lg px-4 py-2 flex items-center justify-between">
             <span className="text-sm font-medium">
               {selectedExpenses.size} expense(s) selected
@@ -665,7 +862,7 @@ export default function ExpensesPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
-                  {role === "admin" && (
+                  {isAdminLike && (
                     <th className="px-4 py-2 w-10">
                       <input
                         type="checkbox"
@@ -701,12 +898,12 @@ export default function ExpensesPage() {
               </thead>
 
               <tbody>
-                {expenses.map((e) => (
+                {filteredExpenses.map((e) => (
                   <tr
                     key={e.id}
                     className="border-t hover:bg-gray-50 transition-colors"
                   >
-                    {role === "admin" && (
+                    {isAdminLike && (
                       <td
                         className="px-4 py-3"
                         onClick={(ev) => ev.stopPropagation()}
@@ -728,7 +925,7 @@ export default function ExpensesPage() {
 
                     {/* PROPERTY */}
                     <td className="px-4 py-3 text-left text-sm text-gray-700 max-w-xs truncate">
-                      {propertyMap[e.property_id] || "—"}
+                      {e.property?.address || "—"}
                     </td>
                     {/* UNIT */}
                     <td className="px-4 py-3 text-left text-sm text-gray-700">

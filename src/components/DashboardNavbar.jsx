@@ -37,7 +37,6 @@ export default function DashboardNavbar() {
      RESOLVER SECCIÓN (FIX REAL)
   ========================= */
   const getSection = () => {
-    // 👇 USERS (AISLADO)
     if (pathname === "/admin/users") return "admin_users";
     if (pathname.startsWith("/admin/users/")) return "admin_users";
 
@@ -46,12 +45,14 @@ export default function DashboardNavbar() {
     if (pathname.startsWith("/admin/profiles/")) return "admin_profile";
     if (pathname.startsWith("/admin/properties")) return "admin_properties";
     if (pathname.startsWith("/admin/keys")) return "admin_keys";
+    if (pathname === "/admin/features") return "admin_features";
+    if (pathname === "/admin/permissions") return "admin_permissions";
+
+    // 👇 RESTO DE ADMIN (fallback)
     if (pathname.startsWith("/admin")) return "admin";
 
-    // 👇 CLIENT COMPANY
     if (pathname.startsWith("/dashboard/company")) return "dashboard_company";
 
-    // 👇 INVOICES
     if (pathname === "/dashboard/invoices") return "invoices";
     if (pathname.startsWith("/dashboard/invoices/")) return "invoices";
 
@@ -73,6 +74,10 @@ export default function DashboardNavbar() {
 ========================= */
   const subNav = {
     dashboard: [],
+
+    admin_features: [{ label: "Features", href: "/admin/features" }],
+
+    admin_permissions: [{ label: "Permissions", href: "/admin/permissions" }],
 
     dashboard_company: [
       { label: "Overview", href: "/dashboard/company" },
@@ -116,8 +121,6 @@ export default function DashboardNavbar() {
     admin: [
       { label: "Theme Preview", href: "/admin/theme-preview" },
       { label: "Staff Applications", href: "/admin/staff-applications" },
-      { label: "Properties", href: "/admin/properties" },
-      { label: "Keys", href: "/admin/keys" },
     ],
 
     admin_properties: [

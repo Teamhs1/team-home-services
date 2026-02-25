@@ -1,28 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
-import { createClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
 import { toast } from "sonner";
 
 const TAX_RATE = 0.15;
 
 export default function ExpenseForm({ mode = "staff", onSuccess }) {
-  const { getToken } = useAuth();
-
   const [properties, setProperties] = useState([]);
   const [units, setUnits] = useState([]);
   const [staff, setStaff] = useState([]);
+  const [companies, setCompanies] = useState([]);
 
+  const [selectedCompany, setSelectedCompany] = useState("");
   const [selectedProperty, setSelectedProperty] = useState("");
   const [selectedUnit, setSelectedUnit] = useState("");
   const [selectedStaff, setSelectedStaff] = useState("");
@@ -36,7 +27,7 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
 
   /* =====================
-     TAX
+     TAX CALC
   ===================== */
   useEffect(() => {
     const amt = Number(amount) || 0;
@@ -44,54 +35,103 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
     setFinalCost(amt + amt * TAX_RATE);
   }, [amount]);
 
-  async function getSupabase() {
-    const token = await getToken({ template: "supabase" });
-    return createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      { global: { headers: { Authorization: `Bearer ${token}` } } },
-    );
-  }
-
   /* =====================
-     LOAD INITIAL DATA
-  ===================== */
+   LOAD INITIAL DATA
+===================== */
   useEffect(() => {
     async function load() {
       try {
-        const supabase = await getSupabase();
+        /* ===== PROPERTIES ===== */
+        const propsRes = await fetch("/api/properties", {
+          credentials: "include",
+          cache: "no-store",
+        });
 
-        // PROPERTIES
-        const { data: props } = await supabase
-          .from("properties")
-          .select("id, address")
-          .order("address");
+        if (!propsRes.ok) {
+          toast.error("Failed to load properties");
+          return;
+        }
 
-        setProperties(props || []);
+        const propsJson = await propsRes.json();
+        const props = propsJson?.properties || propsJson;
+        setProperties(Array.isArray(props) ? props : []);
 
-        // STAFF
+        /* =========================================
+         SUPER ADMIN → LOAD ALL COMPANIES
+      ========================================= */
+        if (mode === "super_admin") {
+          const companiesRes = await fetch("/api/admin/companies", {
+            credentials: "include",
+            cache: "no-store",
+          });
+
+          if (!companiesRes.ok) {
+            toast.error("Failed to load companies");
+            return;
+          }
+
+          const companiesData = await companiesRes.json();
+          const safeCompanies = Array.isArray(companiesData)
+            ? companiesData
+            : companiesData?.companies || [];
+
+          setCompanies(safeCompanies);
+
+          if (safeCompanies.length > 0) {
+            setSelectedCompany(safeCompanies[0].id);
+          }
+
+          // Now load all staff separately
+          const staffRes = await fetch("/api/admin/staff", {
+            credentials: "include",
+            cache: "no-store",
+          });
+
+          const staffData = await staffRes.json();
+          setStaff(Array.isArray(staffData) ? staffData : []);
+
+          return;
+        }
+
+        /* =========================================
+         ADMIN / CLIENT → LOAD STAFF-BASED
+      ========================================= */
         if (mode === "admin" || mode === "client") {
-          const meRes = await fetch("/api/me", { credentials: "include" });
-          const me = await meRes.json();
+          const staffRes = await fetch("/api/admin/staff", {
+            credentials: "include",
+            cache: "no-store",
+          });
 
-          if (!me.active_company_id) return;
+          if (!staffRes.ok) {
+            toast.error("Failed to load staff");
+            return;
+          }
 
-          const res = await fetch(
-            `/api/companies/${me.active_company_id}/members`,
-            { credentials: "include" },
-          );
+          const staffData = await staffRes.json();
+          const safeStaff = Array.isArray(staffData) ? staffData : [];
+          setStaff(safeStaff);
 
-          const json = await res.json();
+          const uniqueCompanies = [
+            ...new Map(
+              safeStaff.map((m) => [
+                m.company_id,
+                {
+                  id: m.company_id,
+                  name: m.company_name || "Unnamed Company",
+                },
+              ]),
+            ).values(),
+          ];
 
-          const members = Array.isArray(json.members) ? json.members : [];
+          setCompanies(uniqueCompanies);
 
-          const staffOnly = members.filter((m) => m.role === "staff");
-
-          setStaff(staffOnly);
+          if (uniqueCompanies.length > 0) {
+            setSelectedCompany(uniqueCompanies[0].id);
+          }
         }
       } catch (err) {
-        console.error(err);
-        toast.error("Failed to load data");
+        console.error("LOAD FORM ERROR:", err);
+        toast.error("Failed to load form data");
       }
     }
 
@@ -104,23 +144,45 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
   async function loadUnits(propertyId) {
     if (!propertyId) return setUnits([]);
 
-    const res = await fetch(`/api/units/list?property_id=${propertyId}`, {
-      credentials: "include",
-    });
+    try {
+      const res = await fetch(`/api/units/list?property_id=${propertyId}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
 
-    const data = await res.json();
-    setUnits(data || []);
+      if (!res.ok) {
+        toast.error("Failed to load units");
+        return;
+      }
+
+      const data = await res.json();
+      setUnits(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("LOAD UNITS ERROR:", err);
+      toast.error("Failed to load units");
+    }
   }
 
   /* =====================
-   SUBMIT
-===================== */
+     FILTERED STAFF
+  ===================== */
+  const filteredStaff =
+    companies.length > 1
+      ? staff.filter((m) => m.company_id === selectedCompany)
+      : staff;
+
+  const filteredProperties =
+    companies.length > 1
+      ? properties.filter((p) => p.company_id === selectedCompany)
+      : properties;
+  /* =====================
+     SUBMIT
+  ===================== */
   async function submitExpense() {
     if (submitting) return;
     setSubmitting(true);
 
     try {
-      // 🔒 VALIDACIÓN GENERAL
       if (
         !amount ||
         !description ||
@@ -132,8 +194,10 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
         return;
       }
 
-      // 🔑 SOLO admin / client deben asignar staff
-      if ((mode === "admin" || mode === "client") && !selectedStaff) {
+      if (
+        (mode === "admin" || mode === "client" || mode === "super_admin") &&
+        !selectedStaff
+      ) {
         toast.error("Please select a staff member");
         return;
       }
@@ -147,12 +211,10 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
       formData.append("unit_id", selectedUnit);
       formData.append("file", file);
 
-      // 🔑 contractor_id SOLO cuando aplica
-      if (mode === "admin" || mode === "client") {
+      if (mode === "admin" || mode === "client" || mode === "super_admin") {
         formData.append("contractor_id", selectedStaff);
       }
 
-      // 🎯 ENDPOINT CORRECTO SEGÚN ROL
       const endpoint =
         mode === "staff"
           ? "/api/expenses/create"
@@ -174,13 +236,14 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
       toast.success("Expense created");
       onSuccess?.();
 
-      // 🔄 RESET
       setAmount("");
       setDescription("");
       setFile(null);
       setSelectedProperty("");
       setSelectedUnit("");
       setSelectedStaff("");
+      setSelectedProperty(""); // 👈 RESET
+      setSelectedUnit(""); // 👈 RESET
       setUnits([]);
       setTax(0);
       setFinalCost(0);
@@ -194,8 +257,31 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
   ===================== */
   return (
     <div className="space-y-5">
+      {/* COMPANY */}
+      {companies.length > 1 && (
+        <div>
+          <label className="text-sm font-medium text-muted-foreground">
+            Company
+          </label>
+          <select
+            value={selectedCompany}
+            onChange={(e) => {
+              setSelectedCompany(e.target.value);
+              setSelectedStaff("");
+            }}
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+          >
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* STAFF */}
-      {mode !== "staff" && (
+      {(mode === "admin" || mode === "client" || mode === "super_admin") && (
         <div>
           <label className="text-sm font-medium text-muted-foreground">
             Staff
@@ -203,12 +289,12 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
           <select
             value={selectedStaff}
             onChange={(e) => setSelectedStaff(e.target.value)}
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
           >
             <option value="">Select staff</option>
-            {staff.map((m) => (
-              <option key={m.profiles.id} value={m.profiles.id}>
-                {m.profiles.full_name}
+            {filteredStaff.map((m) => (
+              <option key={`${m.id}-${m.company_id}`} value={m.id}>
+                {m.full_name}
               </option>
             ))}
           </select>
@@ -230,7 +316,7 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
           className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
         >
           <option value="">Select property</option>
-          {properties.map((p) => (
+          {filteredProperties.map((p) => (
             <option key={p.id} value={p.id}>
               {p.address}
             </option>
@@ -277,7 +363,6 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
           <span>Tax (15%)</span>
           <span>${tax.toFixed(2)}</span>
         </div>
-
         <div className="flex justify-between font-semibold text-base">
           <span>Final Cost</span>
           <span>${finalCost.toFixed(2)}</span>
@@ -305,7 +390,7 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
         <Input
           className="mt-1"
           type="file"
-          onChange={(e) => setFile(e.target.files[0])}
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
         />
       </div>
 
@@ -315,15 +400,7 @@ export default function ExpenseForm({ mode = "staff", onSuccess }) {
           size="lg"
           className="px-8"
           onClick={submitExpense}
-          disabled={
-            submitting ||
-            !amount ||
-            !description ||
-            !file ||
-            !selectedProperty ||
-            !selectedUnit ||
-            ((mode === "admin" || mode === "client") && !selectedStaff)
-          }
+          disabled={submitting}
         >
           {submitting ? "Submitting..." : "Submit Expense"}
         </Button>

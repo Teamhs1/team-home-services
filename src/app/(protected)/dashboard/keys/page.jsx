@@ -1,4 +1,5 @@
 "use client";
+import { Building2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import {
@@ -83,11 +84,22 @@ export default function DashboardKeysList() {
       new Map(
         keys
           .filter((k) => k.properties)
-          .map((k) => [k.properties.id, k.properties])
-      ).values()
+          .map((k) => [k.properties.id, k.properties]),
+      ).values(),
     );
   }, [keys]);
 
+  const companies = useMemo(() => {
+    return Array.from(
+      new Map(
+        keys
+          .filter((k) => k.properties?.companies)
+          .map((k) => [k.properties.companies.id, k.properties.companies]),
+      ).values(),
+    );
+  }, [keys]);
+
+  const showCompanyColumn = companies.length > 1;
   /* =====================
      FILTERED KEYS
   ===================== */
@@ -95,7 +107,7 @@ export default function DashboardKeysList() {
     selectedProperty === "all"
       ? keys
       : keys.filter(
-          (k) => String(k.properties?.id) === String(selectedProperty)
+          (k) => String(k.properties?.id) === String(selectedProperty),
         );
 
   if (loading) {
@@ -180,7 +192,7 @@ export default function DashboardKeysList() {
 
                   <span
                     className={`text-xs px-3 py-1 rounded-full ${getStatusStyles(
-                      key.status
+                      key.status,
                     )}`}
                   >
                     {key.status}
@@ -226,6 +238,10 @@ export default function DashboardKeysList() {
               <tr>
                 <th className="px-4 py-3 text-left">Tag</th>
                 <th className="px-4 py-3 text-left">Address</th>
+
+                {showCompanyColumn && (
+                  <th className="px-4 py-3 text-left">Company</th>
+                )}
                 <th className="px-4 py-3 text-left">Unit</th>
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Status</th>
@@ -239,17 +255,29 @@ export default function DashboardKeysList() {
                     (window.location.href = `/dashboard/keys/${k.tag_code}`)
                   }
                   className={`border-t hover:bg-gray-50 cursor-pointer ${getReportedStyle(
-                    k.is_reported
+                    k.is_reported,
                   )}`}
                 >
                   <td className="px-4 py-2 font-medium">{k.tag_code}</td>
                   <td className="px-4 py-2">{k.properties?.address || "—"}</td>
+                  {showCompanyColumn && (
+                    <td className="px-4 py-2">
+                      {k.properties?.companies?.name ? (
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          <Building2 size={14} />
+                          {k.properties.companies.name}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-2">{k.unit || "—"}</td>
                   <td className="px-4 py-2">{k.type || "—"}</td>
                   <td className="px-4 py-2">
                     <span
                       className={`text-xs px-3 py-1 rounded-full inline-block ${getStatusStyles(
-                        k.status
+                        k.status,
                       )}`}
                     >
                       {k.status}

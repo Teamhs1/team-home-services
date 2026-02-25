@@ -55,11 +55,14 @@ export default function PermissionsPage() {
       try {
         const token = await getToken({ template: "supabase" });
 
-        const res = await fetch(`/api/admin/permissions?role=${role}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const res = await fetch(
+          `/api/admin/permissions?role=${role}&company_id=${companyId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
 
         if (!res.ok) {
           const text = await res.text();
@@ -164,9 +167,7 @@ export default function PermissionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Permissions</h1>
-          <p className="text-gray-500 mt-1">
-            Manage role-based access (Buildium style)
-          </p>
+          <p className="text-gray-500 mt-1">Manage role-based access</p>
         </div>
 
         <Select value={role} onValueChange={setRole}>

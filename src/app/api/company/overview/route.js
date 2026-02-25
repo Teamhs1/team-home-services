@@ -90,13 +90,14 @@ export async function GET(req) {
     =============================== */
     const { data: company } = await supabase
       .from("companies")
-      .select("logo_url, name")
+      .select("logo_url, name, created_at")
       .eq("id", companyId)
       .single();
 
     return NextResponse.json({
       company_id: companyId,
       company_name: company?.name || null,
+      created_at: company?.created_at || null,
       logo: company?.logo_url || null,
       members: memberCount || 0,
       properties: propertyCount || 0,

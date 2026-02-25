@@ -13,7 +13,8 @@ export default function CompanyPage() {
   const [logo, setLogo] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [companyId, setCompanyId] = useState(null);
-
+  const [companyName, setCompanyName] = useState("");
+  const [createdAt, setCreatedAt] = useState(null);
   /* =========================
      LOAD OVERVIEW FROM API
   ========================= */
@@ -35,6 +36,8 @@ export default function CompanyPage() {
 
         if (mounted) {
           setCompanyId(data.company_id);
+          setCompanyName(data.company_name);
+          setCreatedAt(data.created_at);
           setMemberCount(data.members);
           setPropertyCount(data.properties);
           setLogo(data.logo);
@@ -112,8 +115,15 @@ export default function CompanyPage() {
     <CompanySection>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Company Overview
+          {companyName || "Company Overview"}
         </h1>
+
+        {createdAt && (
+          <p className="text-sm text-muted-foreground mt-1">
+            Created on {new Date(createdAt).toLocaleDateString("en-CA")}
+          </p>
+        )}
+
         <p className="text-muted-foreground mt-2">
           Manage company information and settings.
         </p>

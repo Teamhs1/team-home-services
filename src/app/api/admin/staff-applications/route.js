@@ -16,27 +16,25 @@ export async function GET() {
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
+    /* =========================
+       🔐 GET PERMISSIONS
+    ========================= */
     const permissions = await getAllowedCompanyIds(userId);
 
-    // 🔎 Perfil actual
-    const { data: currentProfile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("clerk_id", userId)
-      .single();
-
-    if (!currentProfile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
-
-    // ❌ Solo admin o super_admin
-    if (
-      currentProfile.role !== "admin" &&
-      currentProfile.role !== "super_admin"
-    ) {
+    if (!permissions) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    /* =========================
+       👮 ROLE CHECK
+    ========================= */
+    if (permissions.role !== "admin" && permissions.role !== "super_admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    /* =========================
+       📊 QUERY
+    ========================= */
     let query = supabase
       .from("staff_applications")
       .select("*")
@@ -45,13 +43,15 @@ export async function GET() {
     /* =========================
        👑 SUPER ADMIN
     ========================= */
-    if (permissions.isSuperAdmin) {
-      // acceso total
-    } else {
+    if (!permissions.isSuperAdmin) {
+      // Admin normal → solo sus compañías
+      if (
+        !permissions.allowedCompanyIds ||
+        permissions.allowedCompanyIds.length === 0
+      ) {
+        return NextResponse.json({ applications: [] });
+      }
 
-    /* =========================
-       🏢 ADMIN NORMAL
-    ========================= */
       query = query.in("company_id", permissions.allowedCompanyIds);
     }
 
@@ -61,7 +61,12 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data || []);
+    /* =========================
+       ✅ RESPONSE FORMAT
+    ========================= */
+    return NextResponse.json({
+      applications: data || [],
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err.message || "Server error" },

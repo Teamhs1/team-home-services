@@ -20,12 +20,11 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
 
   useEffect(() => {
     setShowHint(true);
-
     const timer = setTimeout(() => setShowHint(false), 3000);
     return () => clearTimeout(timer);
   }, [currentIndex]);
 
-  // 🔥 RESET SLIDER POSITION CUANDO CAMBIA LA COMPARACIÓN
+  // Reset slider when changing comparison
   useEffect(() => {
     setPosition(0.5);
   }, [currentIndex]);
@@ -38,10 +37,9 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
     );
   }
 
-  // 🔥 EMPAREJAR DIRECTAMENTE POR ÍNDICE (SIN CATEGORÍAS)
-  const pairs = [];
-
+  // Pair by index
   const minLength = Math.min(beforePhotos.length, afterPhotos.length);
+  const pairs = [];
 
   for (let i = 0; i < minLength; i++) {
     pairs.push({
@@ -94,9 +92,6 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
     isDraggingRef.current = false;
   };
 
-  const width = containerRef.current?.offsetWidth || 0;
-  const lineX = width * position;
-
   return (
     <>
       <motion.div
@@ -112,12 +107,12 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
             exit={{ opacity: 0, x: -60 }}
             className="relative w-full"
           >
-            {/* CATEGORY */}
+            {/* TITLE */}
             <div className="text-center text-sm font-medium bg-gray-900 text-white py-1 rounded-md mb-4 uppercase tracking-wide shadow-sm">
               {current.label.replaceAll("_", " ")}
             </div>
 
-            {/* COMPARE */}
+            {/* COMPARE CONTAINER */}
             <div
               ref={containerRef}
               onPointerDown={handlePointerDown}
@@ -128,32 +123,32 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
               h-[300px] sm:h-[380px] md:h-[460px] lg:h-[520px]
               select-none cursor-col-resize"
             >
-              {/* BEFORE IMAGE */}
+              {/* AFTER BASE IMAGE */}
               <img
-                src={publicUrl(current.before.image_url)}
+                src={publicUrl(current.after.image_url)}
                 className="absolute inset-0 w-full h-full object-cover"
                 draggable={false}
               />
 
-              {/* AFTER IMAGE */}
+              {/* BEFORE OVERLAY (LEFT SIDE) */}
               <div
                 className="absolute inset-0 overflow-hidden"
                 style={{
-                  clipPath: `inset(0 ${width - lineX}px 0 0)`,
+                  clipPath: `inset(0 ${100 - position * 100}% 0 0)`,
                 }}
               >
                 <img
-                  src={publicUrl(current.after.image_url)}
+                  src={publicUrl(current.before.image_url)}
                   className="w-full h-full object-cover"
                   draggable={false}
                 />
               </div>
 
-              {/* LINE */}
+              {/* DIVIDER LINE */}
               <div
                 className="absolute top-0 bottom-0 w-[2px] bg-white shadow-lg"
                 style={{
-                  left: `${lineX}px`,
+                  left: `${position * 100}%`,
                 }}
               />
 
@@ -163,7 +158,7 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
                 w-8 h-8 rounded-full bg-white shadow-lg
                 flex items-center justify-center pointer-events-none"
                 style={{
-                  left: `${lineX - 16}px`,
+                  left: `calc(${position * 100}% - 16px)`,
                 }}
               >
                 <ArrowLeft className="w-4 h-4 text-gray-700" />

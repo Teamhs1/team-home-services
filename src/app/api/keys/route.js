@@ -11,49 +11,75 @@ export async function GET(req) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  // 1️⃣ Load profile (CORRECT user)
+  // 🔐 Load profile
   const { data: profile } = await supabase
     .from("profiles")
-    .select("active_company_id")
+    .select("id, role")
     .eq("clerk_id", userId)
     .single();
 
-  if (!profile?.active_company_id) {
+  if (!profile) {
     return NextResponse.json({ data: [] });
   }
 
-  // 2️⃣ Load properties of company
-  const { data: properties } = await supabase
-    .from("properties")
-    .select("id")
-    .eq("company_id", profile.active_company_id);
+  let propertyIds = [];
 
-  if (!properties?.length) {
+  // 👑 SUPER ADMIN → ve todo
+  if (profile.role === "super_admin") {
+    const { data: allProperties } = await supabase
+      .from("properties")
+      .select("id");
+
+    propertyIds = allProperties?.map((p) => p.id) || [];
+  }
+
+  // 🔐 ADMIN → solo sus companies
+  else {
+    const { data: memberships } = await supabase
+      .from("company_members")
+      .select("company_id")
+      .eq("profile_id", profile.id);
+
+    const companyIds = memberships?.map((m) => m.company_id) || [];
+
+    const { data: properties } = await supabase
+      .from("properties")
+      .select("id")
+      .in("company_id", companyIds);
+
+    propertyIds = properties?.map((p) => p.id) || [];
+  }
+
+  if (!propertyIds.length) {
     return NextResponse.json({ data: [] });
   }
 
-  const propertyIds = properties.map((p) => p.id);
-
-  // 3️⃣ Load keys
+  // 🔑 Load keys
   const { data: keys } = await supabase
     .from("keys")
     .select(
       `
+  id,
+  tag_code,
+  unit,
+  type,
+  status,
+  is_reported,
+  property_id,
+  properties:property_id (
+    id,
+    name,
+    address,
+    company_id,
+    companies:company_id (
       id,
-      tag_code,
-      unit,
-      type,
-      status,
-      is_reported,
-      properties (
-        id,
-        name,
-        address
-      )
-    `
+      name
+    )
+  )
+`,
     )
     .in("property_id", propertyIds)
     .order("tag_code");

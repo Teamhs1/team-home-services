@@ -8,60 +8,70 @@ const supabase = createClient(
 );
 
 export async function GET(req, { params }) {
-  const { userId } = await auth();
+  try {
+    const { userId } = await auth();
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = params;
+
+    // 🔹 Obtener perfil
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("clerk_id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    // 🔹 Query base con foreign keys explícitas
+    let query = supabase
+      .from("invoices")
+      .select(
+        `
+        id,
+        type,
+        amount_cents,
+        status,
+        notes,
+        deleted_at,
+        created_at,
+        created_by,
+        property_id,
+        unit_id,
+        properties!invoices_property_id_fkey ( address ),
+        units!invoices_unit_id_fkey ( unit ),
+        creator:profiles!invoices_created_by_fkey (
+          id,
+          full_name,
+          email
+        )
+      `,
+      )
+      .eq("id", id);
+
+    // 🔐 Solo los NO admin filtran deleted_at
+    if (profile.role !== "admin") {
+      query = query.is("deleted_at", null);
+    }
+
+    const { data: invoice, error } = await query.single();
+
+    if (error || !invoice) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ invoice });
+  } catch (err) {
+    console.error("Get invoice error:", err);
+
+    return NextResponse.json(
+      { error: "Failed to fetch invoice" },
+      { status: 500 },
+    );
   }
-
-  const { id } = params;
-
-  // 🔹 Obtener perfil
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("clerk_id", userId)
-    .single();
-
-  if (profileError || !profile) {
-    return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-  }
-
-  // 🔹 Query base
-  let query = supabase
-    .from("invoices")
-    .select(
-      `
-  id,
-  type,
-  amount_cents,
-  status,
-  notes,
-  deleted_at,
-  created_at,
-  created_by,
-  properties ( address ),
-  units ( unit ),
-  creator:profiles!invoices_created_by_fkey (
-    id,
-    full_name,
-    email
-  )
-`,
-    )
-
-    .eq("id", id);
-
-  // 🔐 Solo los NO admin filtran deleted_at
-  if (profile.role !== "admin") {
-    query = query.is("deleted_at", null);
-  }
-
-  const { data: invoice, error } = await query.single();
-
-  if (error || !invoice) {
-    return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({ invoice });
 }

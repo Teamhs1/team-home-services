@@ -62,6 +62,16 @@ async function getProfile(userId) {
   };
 }
 
+async function getFirstCompanyId() {
+  const { data } = await supabase
+    .from("companies")
+    .select("id")
+    .limit(1)
+    .single();
+
+  return data?.id || null;
+}
+
 /* ======================================================
    GET · READ PERMISSIONS
 ====================================================== */
@@ -79,31 +89,30 @@ export async function GET(req) {
 
   const { searchParams } = new URL(req.url);
   const role = normalize(searchParams.get("role") || "staff");
-  const companyParam = searchParams.get("company_id");
 
   if (!ALLOWED_ROLES.includes(role)) {
-    return NextResponse.json(
-      { error: "Invalid role", role, allowed: ALLOWED_ROLES },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid role", role }, { status: 400 });
   }
-
-  /* ================= PERMISSION LOGIC ================= */
 
   let company_id;
 
-  // 🔥 super_admin puede elegir company
   if (profile.role === "super_admin") {
-    company_id = companyParam;
-    if (!company_id) {
+    // 👇 super admin toma la primera company del sistema
+    const { data: company } = await supabase
+      .from("companies")
+      .select("id")
+      .limit(1)
+      .single();
+
+    if (!company) {
       return NextResponse.json(
-        { error: "company_id required for super_admin" },
+        { error: "No companies found" },
         { status: 400 },
       );
     }
-  }
-  // 🏢 admin solo su company
-  else if (profile.role === "admin") {
+
+    company_id = company.id;
+  } else if (profile.role === "admin") {
     company_id = profile.company_id;
   } else {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -116,20 +125,14 @@ export async function GET(req) {
     .eq("role", role);
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to load permissions" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   const matrix = {};
 
   for (const row of data) {
-    const resource = normalize(row.resource);
-    const action = normalize(row.action);
-
-    if (!matrix[resource]) matrix[resource] = {};
-    matrix[resource][action] = Boolean(row.allowed);
+    if (!matrix[row.resource]) matrix[row.resource] = {};
+    matrix[row.resource][row.action] = Boolean(row.allowed);
   }
 
   return NextResponse.json({
@@ -162,7 +165,6 @@ export async function POST(req) {
   action = normalize(action);
   resource = normalizeResource(resource);
 
-  /* ================= VALIDATION ================= */
   if (
     !company_id ||
     !role ||
@@ -193,16 +195,12 @@ export async function POST(req) {
     return NextResponse.json({ error: "Profile not found" }, { status: 403 });
   }
 
-  /* ================= PERMISSION LOGIC ================= */
+  /* ================= PERMISSION CHECK ================= */
 
-  // 🔥 super_admin puede modificar cualquier company
-  if (profile.role === "super_admin") {
-    // allowed
-  }
-  // 🏢 admin solo su company
-  else if (profile.role === "admin" && profile.company_id === company_id) {
-    // allowed
-  } else {
+  if (
+    profile.role !== "super_admin" &&
+    !(profile.role === "admin" && profile.company_id === company_id)
+  ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

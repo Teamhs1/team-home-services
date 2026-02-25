@@ -7,35 +7,60 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
-export async function GET() {
+export async function GET(req) {
   try {
     const { userId } = await auth();
+
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const companyFilter = searchParams.get("company_id");
+
+    // 🔎 Obtener perfil
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("active_company_id")
+      .select("role, active_company_id")
       .eq("clerk_id", userId)
       .single();
 
-    if (profileError || !profile?.active_company_id) {
-      return NextResponse.json(
-        { error: "Profile or company not found" },
-        { status: 403 },
-      );
+    if (profileError || !profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    const { data: properties, error } = await supabase
+    let query = supabase
       .from("properties")
-      .select("id, address")
-      .eq("company_id", profile.active_company_id)
+      .select("id, address, company_id")
       .order("address");
+
+    /* =========================
+       👑 SUPER ADMIN
+    ========================= */
+    if (profile.role === "super_admin") {
+      // Si envían filtro por company → aplicar
+      if (companyFilter && companyFilter !== "all") {
+        query = query.eq("company_id", companyFilter);
+      }
+    } else {
+      /* =========================
+         🏢 OTROS ROLES
+      ========================= */
+      if (!profile.active_company_id) {
+        return NextResponse.json(
+          { error: "No active company" },
+          { status: 403 },
+        );
+      }
+
+      query = query.eq("company_id", profile.active_company_id);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
-    return NextResponse.json({ properties });
+    return NextResponse.json(data || []);
   } catch (err) {
     console.error("Load properties error:", err);
     return NextResponse.json(

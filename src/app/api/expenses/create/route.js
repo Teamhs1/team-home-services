@@ -64,7 +64,9 @@ export async function POST(req) {
       return NextResponse.json({ error: "Profile not found" }, { status: 403 });
     }
 
-    if (profile.role !== "staff") {
+    const allowedRoles = ["staff", "admin", "super_admin"];
+
+    if (!allowedRoles.includes(profile.role)) {
       return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
 

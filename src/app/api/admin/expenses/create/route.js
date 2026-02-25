@@ -35,7 +35,7 @@ export async function POST(req) {
     const unit_id = formData.get("unit_id");
     const contractor_id = formData.get("contractor_id");
     const file = formData.get("file");
-
+    const allowedRoles = ["admin", "client", "super_admin"];
     /* =====================
        VALIDATION
     ===================== */
@@ -82,7 +82,7 @@ export async function POST(req) {
       .eq("clerk_id", userId)
       .single();
 
-    if (!creator || !["admin", "client"].includes(creator.role)) {
+    if (!creator || !allowedRoles.includes(creator.role)) {
       return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
 

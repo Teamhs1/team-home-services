@@ -10,17 +10,44 @@ const supabase = createClient(
 export async function GET() {
   try {
     const { userId } = await auth();
+
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
+    // 🔎 Obtener perfil
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("active_company_id")
+      .select("role, active_company_id")
       .eq("clerk_id", userId)
       .single();
 
-    const { data: properties, error } = await supabase
+    if (profileError || !profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    /* =========================
+       👑 SUPER ADMIN → VE TODO
+    ========================= */
+    if (profile.role === "super_admin") {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("id, address, company_id")
+        .order("address");
+
+      if (error) throw error;
+
+      return NextResponse.json(data || []);
+    }
+
+    /* =========================
+       🏢 OTROS ROLES
+    ========================= */
+    if (!profile.active_company_id) {
+      return NextResponse.json({ error: "No active company" }, { status: 403 });
+    }
+
+    const { data, error } = await supabase
       .from("properties")
       .select("id, address")
       .eq("company_id", profile.active_company_id)
@@ -28,7 +55,7 @@ export async function GET() {
 
     if (error) throw error;
 
-    return NextResponse.json({ properties });
+    return NextResponse.json(data || []);
   } catch (err) {
     console.error("Load properties error:", err);
     return NextResponse.json(

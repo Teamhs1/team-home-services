@@ -3,7 +3,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
-import { getAllowedCompanyIds } from "@/utils/permissions/getAllowedCompanyIds";
 
 export async function GET() {
   try {
@@ -18,46 +17,50 @@ export async function GET() {
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    // 🔐 Obtener permisos
-    const permissions = await getAllowedCompanyIds(userId);
-
-    // 🔎 Perfil actual
-    const { data: currentProfile } = await supabase
+    // 🔎 Obtener perfil actual
+    const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, company_id")
       .eq("clerk_id", userId)
       .single();
 
-    if (!currentProfile) {
+    if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // ❌ Staff no puede acceder
-    if (
-      currentProfile.role !== "admin" &&
-      currentProfile.role !== "super_admin"
-    ) {
+    if (profile.role === "staff") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    /* =====================================
+       🔥 CONSULTA REAL
+    ===================================== */
+
     let query = supabase
-      .from("profiles")
-      .select("id, clerk_id, full_name, email, role, company_id")
-      .not("role", "eq", "client")
-      .is("deleted_at", null)
-      .order("full_name");
+      .from("company_members")
+      .select(
+        `
+        id,
+        role,
+        company_id,
+        companies (
+          id,
+          name
+        ),
+        profiles (
+          id,
+          full_name,
+          email,
+          clerk_id
+        )
+      `,
+      )
+      .in("role", ["staff", "maintenance_staff", "leasing_manager"])
+      .order("profiles(full_name)");
 
-    /* =========================
-       👑 SUPER ADMIN
-    ========================= */
-
-    if (permissions.role === "super_admin") {
-      // acceso total
-    } else {
-      /* =========================
-       🏢 ADMIN NORMAL
-    ========================= */
-      query = query.in("company_id", permissions.allowedCompanyIds);
+    // 👑 SUPER ADMIN → ve todo
+    if (profile.role !== "super_admin") {
+      query = query.eq("company_id", profile.company_id);
     }
 
     const { data, error } = await query;
@@ -66,7 +69,16 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data || []);
+    const members = (data || []).map((m) => ({
+      id: m.profiles?.id,
+      full_name: m.profiles?.full_name,
+      email: m.profiles?.email,
+      role: m.role,
+      company_id: m.company_id,
+      company_name: m.companies?.name,
+    }));
+
+    return NextResponse.json(members);
   } catch (err) {
     return NextResponse.json(
       { error: err.message || "Server error" },

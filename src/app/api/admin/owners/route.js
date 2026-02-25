@@ -16,22 +16,72 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role, company_id")
+    .select("id, role")
     .eq("clerk_id", userId)
     .single();
 
-  if (!profile) {
+  if (profileError || !profile) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let query = supabase.from("owners").select("*");
 
-  if (profile.role === "admin") {
-    query = query.eq("company_id", profile.company_id);
-  } else if (profile.role !== "super_admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  /* =========================
+     SUPER ADMIN → ve todo
+  ========================= */
+  if (profile.role === "super_admin") {
+    // no filter
+  } else {
+    /* =========================
+       MULTI-TENANT VIA company_members
+    ========================= */
+
+    const { data: memberships, error: membershipError } = await supabase
+      .from("company_members")
+      .select("company_id")
+      .eq("profile_id", profile.id);
+
+    if (membershipError) {
+      return NextResponse.json(
+        { error: "Failed to load memberships" },
+        { status: 500 },
+      );
+    }
+
+    let companyIds = memberships?.map((m) => m.company_id) || [];
+
+    if (companyIds.length === 0) {
+      return NextResponse.json({ owners: [] });
+    }
+
+    /* =========================
+       SERVICE PROVIDER SUPPORT
+    ========================= */
+
+    const { data: companies } = await supabase
+      .from("companies")
+      .select("id, company_type")
+      .in("id", companyIds);
+
+    const serviceProviders =
+      companies?.filter((c) => c.company_type === "service_provider") || [];
+
+    if (serviceProviders.length > 0) {
+      const providerIds = serviceProviders.map((c) => c.id);
+
+      const { data: managedCompanies } = await supabase
+        .from("companies")
+        .select("id")
+        .in("service_provider_id", providerIds);
+
+      const managedIds = managedCompanies?.map((c) => c.id) || [];
+
+      companyIds = [...new Set([...companyIds, ...managedIds])];
+    }
+
+    query = query.in("company_id", companyIds);
   }
 
   const { data, error } = await query.order("full_name");
@@ -57,7 +107,10 @@ export async function POST(req) {
     .eq("clerk_id", userId)
     .single();
 
-  if (!profile || profile.role !== "admin") {
+  if (
+    !profile ||
+    (profile.role !== "admin" && profile.role !== "super_admin")
+  ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

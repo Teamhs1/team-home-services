@@ -4,51 +4,82 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { CheckCircle, Clock, RefreshCcw } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
 
 export default function StaffApplicationsPage() {
+  const { user, isLoaded } = useUser();
+
   const [applications, setApplications] = useState([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
 
+  const role = user?.publicMetadata?.role;
+  const isAdmin = ["admin", "super_admin"].includes(role);
+
+  /* =========================
+     FETCH APPLICATIONS
+  ========================= */
   async function fetchApplications() {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const res = await fetch("/api/admin/staff-applications", {
-      credentials: "include",
-      cache: "no-store",
-    });
+      const res = await fetch("/api/admin/staff-applications", {
+        credentials: "include",
+        cache: "no-store",
+      });
 
-    const json = await res.json();
+      const json = await res.json();
 
-    if (!res.ok) {
-      toast.error(json.error || "Error loading applications");
-    } else {
+      if (!res.ok) {
+        throw new Error(json.error || "Error loading applications");
+      }
+
       setApplications(json.applications || []);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   useEffect(() => {
+    if (!isLoaded) return;
+    if (!isAdmin) return;
+
     fetchApplications();
-  }, []);
+  }, [isLoaded]);
 
+  /* =========================
+     UPDATE STATUS
+  ========================= */
   async function markReviewed(id, reviewed) {
-    const res = await fetch("/api/admin/staff-applications/update", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, reviewed }),
-    });
+    if (!isAdmin) return;
 
-    const json = await res.json();
+    try {
+      setUpdatingId(id);
 
-    if (!res.ok) {
-      toast.error(json.error || "Error updating status");
-    } else {
+      const res = await fetch("/api/admin/staff-applications/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, reviewed }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || "Error updating status");
+      }
+
       toast.success(
-        reviewed ? "✅ Application marked as reviewed" : "↩️ Marked as pending",
+        reviewed ? "Application marked as reviewed" : "Marked as pending",
       );
+
       fetchApplications();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setUpdatingId(null);
     }
   }
 
@@ -56,6 +87,16 @@ export default function StaffApplicationsPage() {
     filter === "all"
       ? applications
       : applications.filter((a) => !!a.reviewed === (filter === "reviewed"));
+
+  if (!isLoaded) return null;
+
+  if (!isAdmin) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">Unauthorized</p>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gray-50 p-6 pt-[140px]">
@@ -65,39 +106,20 @@ export default function StaffApplicationsPage() {
             Staff Applications
           </h1>
 
-          <div className="flex gap-3">
-            <button
-              onClick={() => setFilter("all")}
-              className={`px-4 py-2 rounded-lg border ${
-                filter === "all"
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "border-gray-300 text-gray-700"
-              }`}
-            >
-              All
-            </button>
-
-            <button
-              onClick={() => setFilter("pending")}
-              className={`px-4 py-2 rounded-lg border ${
-                filter === "pending"
-                  ? "bg-yellow-500 text-white border-yellow-500"
-                  : "border-gray-300 text-gray-700"
-              }`}
-            >
-              Pending
-            </button>
-
-            <button
-              onClick={() => setFilter("reviewed")}
-              className={`px-4 py-2 rounded-lg border ${
-                filter === "reviewed"
-                  ? "bg-green-600 text-white border-green-600"
-                  : "border-gray-300 text-gray-700"
-              }`}
-            >
-              Reviewed
-            </button>
+          <div className="flex gap-3 flex-wrap">
+            {["all", "pending", "reviewed"].map((type) => (
+              <button
+                key={type}
+                onClick={() => setFilter(type)}
+                className={`px-4 py-2 rounded-lg border capitalize ${
+                  filter === type
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "border-gray-300 text-gray-700"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
 
             <button
               onClick={fetchApplications}
@@ -147,10 +169,13 @@ export default function StaffApplicationsPage() {
                     </td>
 
                     <td className="p-3 text-gray-600">{app.email}</td>
+
                     <td className="p-3 text-gray-600">{app.phone}</td>
+
                     <td className="p-3 text-gray-600">
                       {app.availability || "—"}
                     </td>
+
                     <td className="p-3 text-gray-600 max-w-xs truncate">
                       {app.message || "—"}
                     </td>
@@ -158,17 +183,21 @@ export default function StaffApplicationsPage() {
                     <td className="p-3 text-center">
                       {app.reviewed ? (
                         <button
+                          disabled={updatingId === app.id}
                           onClick={() => markReviewed(app.id, false)}
-                          className="text-green-600 hover:text-green-700 flex items-center gap-1 mx-auto"
+                          className="text-green-600 hover:text-green-700 flex items-center gap-1 mx-auto disabled:opacity-50"
                         >
-                          <CheckCircle size={18} /> Reviewed
+                          <CheckCircle size={18} />
+                          Reviewed
                         </button>
                       ) : (
                         <button
+                          disabled={updatingId === app.id}
                           onClick={() => markReviewed(app.id, true)}
-                          className="text-yellow-600 hover:text-yellow-700 flex items-center gap-1 mx-auto"
+                          className="text-yellow-600 hover:text-yellow-700 flex items-center gap-1 mx-auto disabled:opacity-50"
                         >
-                          <Clock size={18} /> Pending
+                          <Clock size={18} />
+                          Pending
                         </button>
                       )}
                     </td>
