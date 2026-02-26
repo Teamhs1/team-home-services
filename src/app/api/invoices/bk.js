@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
-import { checkBillingForCompany } from "@/lib/server/checkBilling";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
-/* =====================================================
+/* =========================
    CREATE INVOICE (POST)
-===================================================== */
+========================= */
 export async function POST(req) {
   try {
     const { userId } = await auth();
-
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -29,18 +28,6 @@ export async function POST(req) {
       notes,
     } = body;
 
-    if (!property_id) {
-      return NextResponse.json(
-        { error: "Property is required" },
-        { status: 400 },
-      );
-    }
-
-    if (Number.isNaN(Number(amount_cents)) || Number(amount_cents) <= 0) {
-      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
-    }
-
-    // 🔎 Obtener profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("id")
@@ -49,6 +36,13 @@ export async function POST(req) {
 
     if (profileError || !profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 403 });
+    }
+
+    if (!property_id) {
+      return NextResponse.json(
+        { error: "Property is required" },
+        { status: 400 },
+      );
     }
 
     // 🔥 Obtener company REAL desde property
@@ -62,25 +56,6 @@ export async function POST(req) {
       return NextResponse.json({ error: "Invalid property" }, { status: 400 });
     }
 
-    /* =========================
-   🔒 CHECK BILLING ENABLED
-========================= */
-
-    const billingCheck = await checkBillingForCompany(
-      supabase,
-      property.company_id,
-    );
-
-    if (!billingCheck.ok) {
-      return NextResponse.json(
-        { error: billingCheck.error },
-        { status: billingCheck.status },
-      );
-    }
-
-    /* =========================
-       🧾 CREATE INVOICE
-    ========================= */
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
       .insert({
@@ -113,13 +88,12 @@ export async function POST(req) {
   }
 }
 
-/* =====================================================
+/* =========================
    LIST INVOICES (GET)
-===================================================== */
+========================= */
 export async function GET() {
   try {
     const { userId } = await auth();
-
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -163,6 +137,7 @@ export async function GET() {
       /* =========================
          🔐 Obtener companies desde company_members
       ========================= */
+
       const { data: memberships, error: membershipError } = await supabase
         .from("company_members")
         .select("company_id")
@@ -184,6 +159,8 @@ export async function GET() {
       /* =========================
          🏗 SERVICE PROVIDER LOGIC
       ========================= */
+
+      // Buscar si alguna de sus companies es service_provider
       const { data: companies } = await supabase
         .from("companies")
         .select("id, company_type")

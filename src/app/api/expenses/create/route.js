@@ -1,16 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAuth } from "@clerk/nextjs/server";
+import { checkBillingForCompany } from "@/lib/server/checkBilling";
 
 export async function POST(req) {
   try {
-    // 🔐 Clerk auth SIN middleware
+    /* =====================================================
+       🔐 AUTH
+    ===================================================== */
     const { userId } = getAuth(req);
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    /* =====================================================
+       📦 FORM DATA
+    ===================================================== */
     const formData = await req.formData();
 
     const amount = Number(formData.get("amount"));
@@ -21,16 +27,9 @@ export async function POST(req) {
     const tax = Number(formData.get("tax"));
     const final_cost = Number(formData.get("final_cost"));
 
-    console.log("EXPENSE CREATE INPUT:", {
-      amount,
-      description,
-      property_id,
-      unit_id,
-      fileName: file?.name,
-      fileType: file?.type,
-    });
-
-    // ✅ Validación extendida (NO rompe nada)
+    /* =====================================================
+       ✅ VALIDATION
+    ===================================================== */
     if (
       Number.isNaN(amount) ||
       amount <= 0 ||
@@ -47,13 +46,17 @@ export async function POST(req) {
       );
     }
 
-    // 🔑 Supabase SERVICE ROLE
+    /* =====================================================
+       🔑 SUPABASE SERVICE ROLE
+    ===================================================== */
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    // 🔎 Obtener profile
+    /* =====================================================
+       🔎 GET PROFILE
+    ===================================================== */
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("id, role, full_name")
@@ -70,29 +73,60 @@ export async function POST(req) {
       return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
 
-    // 1️⃣ Insert expense (unit_id agregado)
+    /* =====================================================
+       🔥 GET REAL COMPANY FROM PROPERTY
+    ===================================================== */
+    const { data: property, error: propertyError } = await supabase
+      .from("properties")
+      .select("company_id")
+      .eq("id", property_id)
+      .single();
+
+    if (propertyError || !property) {
+      return NextResponse.json({ error: "Invalid property" }, { status: 400 });
+    }
+
+    /* =====================================================
+       🔒 BILLING CHECK (CENTRALIZED)
+    ===================================================== */
+    const billingCheck = await checkBillingForCompany(
+      supabase,
+      property.company_id,
+    );
+
+    if (!billingCheck.ok) {
+      return NextResponse.json(
+        { error: billingCheck.error },
+        { status: billingCheck.status },
+      );
+    }
+
+    /* =====================================================
+       💾 INSERT EXPENSE
+    ===================================================== */
     const { data: expense, error: insertError } = await supabase
       .from("expenses")
       .insert({
         contractor_id: profile.id,
         contractor_name: profile.full_name,
         property_id,
-        unit_id, // ✅ FALTABA
+        unit_id,
         description,
         amount,
-        tax, // ✅ FALTABA
-        final_cost, // ✅ FALTABA
+        tax,
+        final_cost,
         expense_date: new Date().toISOString().slice(0, 10),
       })
       .select()
       .single();
 
     if (insertError) {
-      console.error("INSERT EXPENSE ERROR:", insertError);
       return NextResponse.json({ error: insertError.message }, { status: 400 });
     }
 
-    // 2️⃣ Upload invoice
+    /* =====================================================
+       📂 UPLOAD FILE
+    ===================================================== */
     const ext = file.name.split(".").pop();
     const path = `expenses/${profile.id}/${expense.id}.${ext}`;
 
@@ -100,9 +134,13 @@ export async function POST(req) {
       .from("expense-invoices")
       .upload(path, file, { upsert: true });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    }
 
-    // 3️⃣ Update invoice_url
+    /* =====================================================
+       🔄 UPDATE FILE URL
+    ===================================================== */
     await supabase
       .from("expenses")
       .update({ invoice_url: path })

@@ -158,7 +158,6 @@ export default function Sidebar() {
   const [permissionsReady, setPermissionsReady] = useState(false);
   const fetchPermissionsRef = useRef(null);
   const { getToken } = useAuth();
-  const effectiveRole = staffType ? staffType : role;
 
   /* =========================
      THEME
@@ -277,7 +276,7 @@ export default function Sidebar() {
           }
 
           // 🧑‍🔧 STAFF con compañía → permisos base
-          else if (effectiveRole === "staff") {
+          else if (role === "staff") {
             if (staffType === "leasing_manager") {
               setAllowedResources([
                 "jobs",
@@ -357,7 +356,7 @@ export default function Sidebar() {
 
     // 🔑 Ejecutar normal
     fetchPermissions();
-  }, [user?.id, role]);
+  }, [user?.id, role, staffType]);
 
   /* =========================
    REALTIME STAFF PERMISSIONS
@@ -408,7 +407,7 @@ export default function Sidebar() {
    REALTIME COMPANY ROLE 🔥
 ========================= */
   useEffect(() => {
-    if (!user?.id || effectiveRole !== "staff") return;
+    if (!user?.id || role !== "staff") return;
 
     let channel;
 
@@ -434,7 +433,6 @@ export default function Sidebar() {
             filter: `profile_id=eq.${profile.id}`,
           },
           () => {
-            // 🔥 fuerza re-fetch completo
             fetchPermissionsRef.current?.();
           },
         )
@@ -702,6 +700,8 @@ export default function Sidebar() {
     );
   }
 
+  console.log("ROLE:", role);
+  console.log("STAFF TYPE:", staffType);
   /* =========================
      RENDER
   ========================= */
@@ -863,26 +863,30 @@ export default function Sidebar() {
 
         <div className="flex flex-col items-center pt-2 gap-1">
           {/* ROLE BADGE */}
-          <span
-            className={`text-[10px] font-semibold px-3 py-1 rounded-full ${
-              role === "super_admin"
-                ? "bg-purple-600/20 text-purple-400"
-                : role === "admin"
-                  ? "bg-blue-600/20 text-blue-400"
-                  : role === "staff"
-                    ? "bg-green-600/20 text-green-400"
-                    : "bg-gray-600/20 text-gray-300"
-            }`}
-          >
-            {role.replace(/_/g, " ").toUpperCase()}
-          </span>
+          {(() => {
+            const displayRole = isSuperAdmin
+              ? "super_admin"
+              : (staffType ?? role);
 
-          {/* STAFF SUBROLE BADGE */}
-          {effectiveRole === "staff" && staffType && (
-            <span className="text-[9px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300">
-              {staffType.replace(/_/g, " ")}
-            </span>
-          )}
+            const color =
+              displayRole === "super_admin"
+                ? "bg-purple-600/20 text-purple-400"
+                : displayRole === "admin"
+                  ? "bg-blue-600/20 text-blue-400"
+                  : displayRole?.includes("leasing")
+                    ? "bg-emerald-600/20 text-emerald-400"
+                    : displayRole === "staff"
+                      ? "bg-green-600/20 text-green-400"
+                      : "bg-gray-600/20 text-gray-300";
+
+            return (
+              <span
+                className={`text-[10px] font-semibold px-3 py-1 rounded-full ${color}`}
+              >
+                {displayRole?.replace(/_/g, " ").toUpperCase()}
+              </span>
+            );
+          })()}
         </div>
       </div>
     </aside>

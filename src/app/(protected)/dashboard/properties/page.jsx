@@ -102,7 +102,11 @@ export default function PropertiesListPage() {
 
     async function loadProperties() {
       try {
-        const res = await fetch("/api/admin/properties", {
+        const endpoint = isSystemAdmin
+          ? "/api/admin/properties"
+          : "/api/properties";
+
+        const res = await fetch(endpoint, {
           cache: "no-store",
           credentials: "include",
         });
@@ -182,15 +186,22 @@ export default function PropertiesListPage() {
 ===================== */
 
   const filteredProperties = properties.filter((p) => {
+    const companyId =
+      typeof p.company_id === "string"
+        ? p.company_id
+        : p.company_id?.id || p.companies?.id || null;
+
+    const ownerId = p.owners?.id || null;
+
     const companyMatch =
       selectedCompany === "all"
         ? true
-        : String(p.company_id) === String(selectedCompany);
+        : String(companyId) === String(selectedCompany);
 
     const ownerMatch =
       selectedOwner === "all"
         ? true
-        : String(p.owners?.id) === String(selectedOwner);
+        : String(ownerId) === String(selectedOwner);
 
     return companyMatch && ownerMatch;
   });
@@ -356,7 +367,7 @@ export default function PropertiesListPage() {
                           View Property
                         </DropdownMenuItem>
 
-                        {role === "admin" && (
+                        {isSystemAdmin && (
                           <>
                             <DropdownMenuItem asChild>
                               <Link href={`/admin/properties/${p.id}/edit`}>

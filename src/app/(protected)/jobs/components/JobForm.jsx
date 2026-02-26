@@ -53,6 +53,7 @@ export default function JobForm({
   const [scheduledDate, setScheduledDate] = useState("");
   const [creating, setCreating] = useState(false);
   const [serviceTypes, setServiceTypes] = useState([]);
+  const [companyStaff, setCompanyStaff] = useState([]);
 
   const isValid =
     title && scheduledDate && companyId && clientId && serviceType;
@@ -66,8 +67,8 @@ export default function JobForm({
     loadServiceTypes();
   }, []);
   /* =======================
-     LOAD CLIENTS PER COMPANY
-  ======================= */
+   LOAD CLIENTS PER COMPANY
+======================= */
   useEffect(() => {
     if (!companyId) {
       setCompanyClients([]);
@@ -80,15 +81,20 @@ export default function JobForm({
         const res = await fetch(`/api/admin/companies/${companyId}`, {
           cache: "no-store",
         });
-        const data = await res.json();
 
-        const validClients =
-          data.members?.filter(
-            (m) =>
-              m.profile?.id &&
-              isUUID(m.profile.id) &&
-              ["admin", "owner", "client"].includes(m.role),
-          ) || [];
+        const json = await res.json();
+
+        const members = json?.data?.members || [];
+
+        const validClients = members.filter((m) => {
+          const role = m.role?.toLowerCase();
+
+          return (
+            m.profile?.id &&
+            isUUID(m.profile.id) &&
+            ["admin", "owner", "client"].includes(role)
+          );
+        });
 
         setCompanyClients(validClients);
 
@@ -98,13 +104,49 @@ export default function JobForm({
           setClientId("");
         }
       } catch (err) {
-        console.error(err);
+        console.error("Error loading clients:", err);
         setCompanyClients([]);
         setClientId("");
       }
     }
 
     loadClients();
+  }, [companyId]);
+  /* =======================
+   LOAD STAFF PER COMPANY
+======================= */
+  useEffect(() => {
+    if (!companyId) {
+      setCompanyStaff([]);
+      setAssignedTo("");
+      return;
+    }
+
+    async function loadStaff() {
+      try {
+        const res = await fetch(`/api/admin/companies/${companyId}`, {
+          cache: "no-store",
+        });
+
+        const json = await res.json();
+        const members = json?.data?.members || [];
+
+        const validStaff = members.filter((m) => {
+          const role = m.role?.toLowerCase();
+
+          return (
+            m.profile?.clerk_id && ["maintenance_staff", "staff"].includes(role)
+          );
+        });
+
+        setCompanyStaff(validStaff);
+      } catch (err) {
+        console.error(err);
+        setCompanyStaff([]);
+      }
+    }
+
+    loadStaff();
   }, [companyId]);
 
   /* =======================
@@ -214,9 +256,9 @@ export default function JobForm({
           </SelectTrigger>
 
           <SelectContent className="bg-white border border-gray-200 shadow-xl">
-            {staffList.map((s) => (
-              <SelectItem key={s.clerk_id} value={s.clerk_id}>
-                {s.full_name}
+            {companyStaff.map((s) => (
+              <SelectItem key={s.profile.clerk_id} value={s.profile.clerk_id}>
+                {s.profile.full_name}
               </SelectItem>
             ))}
           </SelectContent>

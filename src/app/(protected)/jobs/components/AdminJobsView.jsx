@@ -206,7 +206,7 @@ export default function AdminJobsView({
                 <option value="">No client</option>
 
                 {loadedClients.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option key={`client-${c.id}`} value={c.id}>
                     {c.full_name || c.email}
                   </option>
                 ))}
@@ -505,7 +505,15 @@ export default function AdminJobsView({
           (s) => s.clerk_id && typeof s.clerk_id === "string",
         );
 
-        setStaffList(safeStaff);
+        const unique = new Map();
+
+        safeStaff.forEach((s) => {
+          if (!unique.has(s.clerk_id)) {
+            unique.set(s.clerk_id, s);
+          }
+        });
+
+        setStaffList(Array.from(unique.values()));
       } catch (err) {
         console.error("❌ Error loading staff:", err);
         setStaffList([]);
@@ -659,7 +667,7 @@ export default function AdminJobsView({
             >
               <option value="all">All Clients</option>
               {loadedClients.map((c) => (
-                <option key={c.id} value={c.id}>
+                <option key={`client-${c.id}`} value={c.id}>
                   {c.full_name || c.email}
                 </option>
               ))}
@@ -712,7 +720,7 @@ export default function AdminJobsView({
           >
             <option value="all">All Clients</option>
             {loadedClients.map((c) => (
-              <option key={c.id} value={c.id}>
+              <option key={`client-${c.id}`} value={c.id}>
                 {c.full_name || c.email}
               </option>
             ))}
@@ -758,7 +766,7 @@ export default function AdminJobsView({
             >
               <option value="">Assign client…</option>
               {loadedClients.map((c) => (
-                <option key={c.id} value={c.id}>
+                <option key={`client-${c.id}`} value={c.id}>
                   {c.full_name || c.email}
                 </option>
               ))}
@@ -864,7 +872,7 @@ export default function AdminJobsView({
               <tbody>
                 {paginatedJobs.map((job, index) => (
                   <tr
-                    key={`${job.id}-${job.duration_minutes}`}
+                    key={job.id}
                     className={`border-t cursor-pointer transition ${
                       isSelected(job.id) ? "bg-blue-50" : "hover:bg-gray-50"
                     }`}
@@ -932,7 +940,10 @@ export default function AdminJobsView({
                       >
                         <option value="">Unassigned</option>
                         {staffList.map((staff) => (
-                          <option key={staff.id} value={staff.clerk_id}>
+                          <option
+                            key={`staff-${staff.clerk_id}`}
+                            value={staff.clerk_id}
+                          >
                             {staff.full_name || staff.email}
                           </option>
                         ))}
@@ -952,7 +963,7 @@ export default function AdminJobsView({
                         <option value="">No client</option>
 
                         {loadedClients.map((c) => (
-                          <option key={c.id} value={c.id}>
+                          <option key={`client-${c.id}`} value={c.id}>
                             {c.full_name || c.email}
                           </option>
                         ))}
@@ -1169,7 +1180,10 @@ export default function AdminJobsView({
                   >
                     <option value="">Unassigned</option>
                     {staffList.map((staff) => (
-                      <option key={staff.id} value={staff.clerk_id}>
+                      <option
+                        key={`staff-${staff.clerk_id}`}
+                        value={staff.clerk_id}
+                      >
                         {staff.full_name || staff.email}
                       </option>
                     ))}
@@ -1190,7 +1204,7 @@ export default function AdminJobsView({
                     <option value="">No client</option>
 
                     {loadedClients.map((c) => (
-                      <option key={c.id} value={c.id}>
+                      <option key={`client-${c.id}`} value={c.id}>
                         {c.full_name || c.email}
                       </option>
                     ))}

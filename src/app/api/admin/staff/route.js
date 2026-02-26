@@ -69,16 +69,26 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const members = (data || []).map((m) => ({
-      id: m.profiles?.id,
-      full_name: m.profiles?.full_name,
-      email: m.profiles?.email,
-      role: m.role,
-      company_id: m.company_id,
-      company_name: m.companies?.name,
-    }));
+    const unique = new Map();
 
-    return NextResponse.json(members);
+    (data || []).forEach((m) => {
+      const clerkId = m.profiles?.clerk_id;
+      if (!clerkId) return;
+
+      if (!unique.has(clerkId)) {
+        unique.set(clerkId, {
+          id: m.profiles.id,
+          clerk_id: clerkId,
+          full_name: m.profiles.full_name,
+          email: m.profiles.email,
+          role: m.role,
+          company_id: m.company_id,
+          company_name: m.companies?.name,
+        });
+      }
+    });
+
+    return NextResponse.json(Array.from(unique.values()));
   } catch (err) {
     return NextResponse.json(
       { error: err.message || "Server error" },

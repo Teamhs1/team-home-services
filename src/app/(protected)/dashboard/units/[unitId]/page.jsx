@@ -36,7 +36,7 @@ export default function UnitDetailPublicPage() {
       try {
         const res = await fetch(
           `/api/dashboard/properties/${propertyId}/units/${unitId}`,
-          { cache: "no-store", credentials: "include" }
+          { cache: "no-store", credentials: "include" },
         );
 
         if (!res.ok) throw new Error("Failed to load unit");

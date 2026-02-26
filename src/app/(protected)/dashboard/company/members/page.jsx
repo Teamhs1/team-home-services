@@ -27,6 +27,12 @@ export default function CompanyMembersPage() {
   const [meRole, setMeRole] = useState(null);
   const [meProfileId, setMeProfileId] = useState(null);
 
+  const ROLES = [
+    { value: "admin", label: "Admin" },
+    { value: "leasing_manager", label: "Leasing Manager" },
+    { value: "staff", label: "Staff" },
+    { value: "client", label: "Client" },
+  ];
   /* =====================
      LOAD MEMBERS + ME
   ===================== */
@@ -126,18 +132,19 @@ export default function CompanyMembersPage() {
                 {/* 🔑 solo client puede cambiar y no a sí mismo */}
                 {meRole === "client" && meProfileId !== m.profile_id && (
                   <select
-                    value={m.role}
+                    value={m.role?.toLowerCase()}
                     onChange={async (e) => {
                       const newRole = e.target.value;
 
                       try {
-                        const res = await fetch("/api/company/members/role", {
+                        const res = await fetch("/api/company/members", {
                           method: "PATCH",
                           headers: {
                             "Content-Type": "application/json",
                           },
                           body: JSON.stringify({
-                            member_profile_id: m.profile_id,
+                            company_id: m.company_id,
+                            profile_id: m.profile_id,
                             role: newRole,
                           }),
                         });
@@ -149,7 +156,6 @@ export default function CompanyMembersPage() {
 
                         toast.success("Role updated");
 
-                        // 🔄 actualizar estado local
                         setMembers((prev) =>
                           prev.map((x) =>
                             x.profile_id === m.profile_id
@@ -163,8 +169,11 @@ export default function CompanyMembersPage() {
                     }}
                     className="text-xs border rounded px-2 py-1 bg-background"
                   >
-                    <option value="client">Client</option>
-                    <option value="staff">Staff</option>
+                    {ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
                   </select>
                 )}
               </div>

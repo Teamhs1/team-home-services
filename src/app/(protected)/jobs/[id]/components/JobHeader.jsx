@@ -62,6 +62,16 @@ export default function JobHeader({
   const [title, setTitle] = useState(job?.title || "");
   const [saving, setSaving] = useState(false);
 
+  /* =========================
+   REAL-TIME ADDRESS STATE
+========================= */
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [address, setAddress] = useState(job?.property_address || "");
+
+  useEffect(() => {
+    setAddress(job?.property_address || "");
+  }, [job?.property_address]);
+
   useEffect(() => {
     setTitle(job?.title || "");
   }, [job?.title]);
@@ -112,13 +122,42 @@ export default function JobHeader({
       if (!res.ok) throw new Error("Failed to update title");
 
       // 🔥 AQUÍ MISMO (después del PATCH exitoso)
-      onTitleUpdated?.(title);
+      onTitleUpdated?.({ title });
     } catch (err) {
       console.error(err);
       setTitle(job.title); // rollback
     } finally {
       setSaving(false);
       setEditingTitle(false);
+    }
+  }
+
+  /*============================*/
+  async function saveAddress() {
+    if (!address.trim() || address === job.property_address) {
+      setEditingAddress(false);
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const res = await fetch(`/api/jobs/${job.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ property_address: address }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update address");
+
+      // actualizar local
+      onTitleUpdated?.({ property_address: address });
+    } catch (err) {
+      console.error(err);
+      setAddress(job.property_address); // rollback
+    } finally {
+      setSaving(false);
+      setEditingAddress(false);
     }
   }
 
@@ -270,7 +309,33 @@ export default function JobHeader({
           </span>
         )}
       </h1>
-
+      {/* ADDRESS */}
+      <div className="text-sm text-gray-600 mt-1">
+        {!editingAddress ? (
+          <span
+            className={`${isAdmin ? "cursor-pointer hover:opacity-80" : ""}`}
+            onClick={() => isAdmin && setEditingAddress(true)}
+          >
+            📍 {address || "No address"}
+          </span>
+        ) : (
+          <input
+            value={address}
+            autoFocus
+            disabled={saving}
+            onChange={(e) => setAddress(e.target.value)}
+            onBlur={saveAddress}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveAddress();
+              if (e.key === "Escape") {
+                setAddress(job.property_address);
+                setEditingAddress(false);
+              }
+            }}
+            className="border rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-primary"
+          />
+        )}
+      </div>
       {/* META ROW — SaaS Style */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {/* DATE */}

@@ -80,6 +80,8 @@ export default function ExpensesPage() {
   const currentYear = now.getFullYear();
   const [selectedCompany, setSelectedCompany] = useState("all");
 
+  const [billingEnabled, setBillingEnabled] = useState(true);
+
   const isAdminLike = role === "admin" || role === "super_admin";
   const filteredExpenses =
     role === "super_admin" && selectedCompany !== "all"
@@ -202,6 +204,33 @@ export default function ExpensesPage() {
 
     fetchMe();
   }, [user?.id]);
+
+  /* =====================
+   LOAD BILLING STATUS
+===================== */
+  useEffect(() => {
+    async function loadBilling() {
+      try {
+        const res = await fetch("/api/company/billing", {
+          credentials: "include",
+        });
+
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : {};
+
+        if (!res.ok) {
+          console.error("Billing load failed:", data);
+          return;
+        }
+
+        setBillingEnabled(data.billing_enabled ?? true);
+      } catch (err) {
+        console.error("Billing error:", err);
+      }
+    }
+
+    loadBilling();
+  }, []);
   /* =====================
    CHECK EXPENSE PERMISSION
 ===================== */
@@ -420,6 +449,12 @@ export default function ExpensesPage() {
   async function submitExpense() {
     if (submitting) return;
     setSubmitting(true);
+
+    if (!billingEnabled) {
+      toast.error("Billing is disabled for this company");
+      setSubmitting(false);
+      return;
+    }
 
     try {
       if (
@@ -698,7 +733,12 @@ export default function ExpensesPage() {
               {totalExpenses} expense{totalExpenses !== 1 && "s"}
             </p>
           </div>
-
+          {!billingEnabled && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              Billing is disabled for this company. New expenses cannot be
+              created.
+            </div>
+          )}
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
             <Button
@@ -715,7 +755,7 @@ export default function ExpensesPage() {
               {showChart ? "Hide Chart" : "Show Chart"}
             </Button>
 
-            {canViewExpenses && (
+            {canViewExpenses && billingEnabled && (
               <Button onClick={() => setOpenNewExpense(true)}>➕ New</Button>
             )}
 

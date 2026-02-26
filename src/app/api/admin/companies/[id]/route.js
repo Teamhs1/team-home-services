@@ -117,6 +117,7 @@ export async function GET(req, context) {
           role: m.role,
           profile: {
             id: m.profile?.id || null,
+            clerk_id: m.profile?.clerk_id || null, //
             full_name: m.profile?.full_name || null,
             email: m.profile?.email || null,
           },

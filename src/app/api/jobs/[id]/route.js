@@ -99,16 +99,26 @@ export async function PATCH(req, context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await context.params;
-    const { title } = await req.json();
+    const { id } = context.params;
+    const body = await req.json();
 
-    if (!title || !title.trim()) {
-      return NextResponse.json({ error: "Invalid title" }, { status: 400 });
+    // 🔒 Campos permitidos
+    const allowedFields = ["title", "property_address"];
+
+    const updates = Object.fromEntries(
+      Object.entries(body).filter(([key]) => allowedFields.includes(key)),
+    );
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json(
+        { error: "No valid fields to update" },
+        { status: 400 },
+      );
     }
 
     const { error } = await supabase
       .from("cleaning_jobs")
-      .update({ title })
+      .update(updates)
       .eq("id", id);
 
     if (error) {

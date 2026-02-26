@@ -9,6 +9,7 @@ import { toast } from "sonner";
 export default function InvoicesPage() {
   const router = useRouter();
   const { getToken } = useAuth();
+  const [billingEnabled, setBillingEnabled] = useState(true);
 
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,11 +37,14 @@ export default function InvoicesPage() {
   };
 
   useEffect(() => {
-    async function loadInvoices() {
+    async function loadData() {
       try {
         const token = await getToken({ template: "supabase" });
 
-        const [invoicesRes, profileRes] = await Promise.all([
+        const [billingRes, invoicesRes, profileRes] = await Promise.all([
+          fetch("/api/company/billing", {
+            credentials: "include",
+          }),
           fetch("/api/invoices", {
             cache: "no-store",
             credentials: "include",
@@ -50,15 +54,25 @@ export default function InvoicesPage() {
           }),
         ]);
 
-        const invoicesJson = await invoicesRes.json();
-        const profileJson = await profileRes.json();
-
-        if (!invoicesRes.ok) {
-          throw new Error(invoicesJson.error || "Failed to load invoices");
+        // 🔹 Billing
+        if (billingRes.ok) {
+          const billingJson = await billingRes.json();
+          setBillingEnabled(billingJson.billing_enabled ?? true);
         }
 
+        // 🔹 Invoices
+        if (!invoicesRes.ok) {
+          throw new Error("Failed to load invoices");
+        }
+
+        const invoicesJson = await invoicesRes.json();
         setInvoices(invoicesJson.invoices || []);
-        setRole(profileJson.role || null);
+
+        // 🔹 Profile
+        if (profileRes.ok) {
+          const profileJson = await profileRes.json();
+          setRole(profileJson.role || null);
+        }
       } catch (err) {
         console.error(err);
         toast.error("Failed to load invoices");
@@ -67,7 +81,7 @@ export default function InvoicesPage() {
       }
     }
 
-    loadInvoices();
+    loadData();
   }, []);
 
   async function archiveSelected() {
@@ -99,7 +113,12 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Invoices</h1>
-
+        {!billingEnabled && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            Billing is disabled for this company. New invoices cannot be
+            created.
+          </div>
+        )}
         {isAdminLevel && selected.length > 0 && (
           <div className="flex items-center gap-4 bg-muted px-4 py-2 border rounded-lg">
             <span className="text-sm text-muted-foreground">
@@ -114,12 +133,14 @@ export default function InvoicesPage() {
           </div>
         )}
 
-        <Link
-          href="/dashboard/invoices/new"
-          className="px-4 py-2 rounded bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          New invoice
-        </Link>
+        {billingEnabled && (
+          <Link
+            href="/dashboard/invoices/new"
+            className="px-4 py-2 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            New invoice
+          </Link>
+        )}
       </div>
 
       {loading ? (

@@ -234,8 +234,11 @@ export default function JobPhotosPage() {
           job={job}
           router={router}
           openModal={openModal}
-          onTitleUpdated={(newTitle) =>
-            setJob((prev) => ({ ...prev, title: newTitle }))
+          onTitleUpdated={(patch) =>
+            setJob((prev) => ({
+              ...prev,
+              ...patch,
+            }))
           }
           onReopen={refreshJobData}
           onStart={(patch) => {
