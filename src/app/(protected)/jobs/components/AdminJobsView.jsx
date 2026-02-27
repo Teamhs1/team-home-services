@@ -833,11 +833,11 @@ export default function AdminJobsView({
           />
         ) : (
           <div className="block bg-white shadow rounded-lg border overflow-x-auto">
-            <table className="w-full text-sm min-w-[720px] table-fixed">
+            <table className="w-full text-sm min-w-[1100px]">
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
                   {/* SELECT ALL */}
-                  <th className="px-4 py-2 w-10">
+                  <th className="px-3 py-2 w-10">
                     <input
                       type="checkbox"
                       onChange={(e) => {
@@ -856,16 +856,23 @@ export default function AdminJobsView({
                     />
                   </th>
 
-                  <th className="px-4 py-2 w-[180px] text-left">Job</th>
-                  <th className="px-4 py-2 w-[320px] text-left">Address</th>
-                  <th className="px-4 py-2 w-[110px] text-left">Date</th>
-                  <th className="px-4 py-2 w-[160px] text-left">Type</th>
+                  <th className="px-3 py-2 w-[180px] text-left">Job</th>
 
-                  <th className="px-4 py-2 text-left">Staff</th>
-                  <th className="px-4 py-2 text-left">Client</th>
-                  <th className="px-4 py-2 text-left">Status</th>
-                  <th className="px-4 py-2 text-left">Duration</th>
-                  <th className="px-4 py-2 text-right">Actions</th>
+                  <th className="px-3 py-2 w-[260px] text-left">Address</th>
+
+                  <th className="px-3 py-2 w-[110px] text-left">Date</th>
+
+                  <th className="px-3 py-2 w-[150px] text-left">Type</th>
+
+                  <th className="px-3 py-2 w-[220px] text-left">Staff</th>
+
+                  <th className="px-3 py-2 w-[200px] text-left">Client</th>
+
+                  <th className="px-3 py-2 w-[130px] text-left">Status</th>
+
+                  <th className="px-3 py-2 w-[160px] text-left">Duration</th>
+
+                  <th className="px-3 py-2 w-[70px] text-right">Actions</th>
                 </tr>
               </thead>
 
@@ -907,7 +914,7 @@ export default function AdminJobsView({
                     }}
                   >
                     <td
-                      className="px-4 py-2"
+                      className="px-3 py-3 align-middle"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <input
@@ -918,18 +925,20 @@ export default function AdminJobsView({
                       />
                     </td>
 
-                    <td className="px-4 py-2">{job.title}</td>
-                    <td className="px-4 py-2 truncate whitespace-nowrap text-gray-600">
+                    <td className="px-3 py-3 align-middle">{job.title}</td>
+                    <td className="px-3 py-3 align-middle max-w-[260px] truncate text-gray-600">
                       {job.property_address || "—"}
                     </td>
 
-                    <td className="px-4 py-2">{job.scheduled_date}</td>
-                    <td className="px-4 py-2 capitalize whitespace-nowrap">
+                    <td className="px-3 py-3 align-middle">
+                      {job.scheduled_date}
+                    </td>
+                    <td className="px-3 py-3 align-middle max-w-[150px] truncate capitalize">
                       {job.service_type.replaceAll("_", " ")}
                     </td>
 
                     {/* STAFF */}
-                    <td className="px-4 py-2">
+                    <td className="px-3 py-3 align-middle w-[220px]">
                       <select
                         className="border rounded-md p-1 text-sm w-full min-w-0"
                         value={job.assigned_to || ""}
@@ -951,7 +960,7 @@ export default function AdminJobsView({
                     </td>
 
                     {/* CLIENT */}
-                    <td className="px-4 py-2">
+                    <td className="px-3 py-3 align-middle">
                       <select
                         className="border rounded-md p-1 text-sm w-full min-w-0 bg-white"
                         value={job.client_profile_id || ""}
@@ -970,7 +979,7 @@ export default function AdminJobsView({
                       </select>
                     </td>
 
-                    <td className="px-4 py-2">
+                    <td className="px-3 py-3 align-middle">
                       <span
                         className={`px-2 py-1 rounded-full text-sm font-semibold ${
                           job.status === "pending"
