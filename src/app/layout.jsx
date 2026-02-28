@@ -10,11 +10,12 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 
 export const metadata = {
   title: {
-    default: "Team Home Services | Cleaning Services in Moncton NB",
+    default:
+      "Cleaning Services in Moncton, NB | Move-Out & Deep Cleaning | Team Home Services",
     template: "%s | Team Home Services",
   },
   description:
-    "Professional cleaning services in Moncton, Dieppe and Riverview. Move-out cleaning, deep cleaning, recurring cleaning and property-ready services for property managers.",
+    "Professional cleaning services in Moncton, Dieppe and Riverview. Move-out cleaning, deep cleaning and recurring house cleaning. Trusted by homeowners and property managers. Get your free quote today.",
   icons: {
     icon: "/logo.png",
   },
@@ -87,7 +88,7 @@ export default function RootLayout({ children }) {
             dangerouslySetInnerHTML={{
               __html: JSON.stringify({
                 "@context": "https://schema.org",
-                "@type": "LocalBusiness",
+                "@type": "CleaningService",
                 name: "Team Home Services",
                 image: "https://teamhomeservices.ca/logo.png",
                 url: "https://teamhomeservices.ca",

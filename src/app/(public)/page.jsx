@@ -11,7 +11,7 @@ import Link from "next/link";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 );
 
 export default function HomePage() {
@@ -66,7 +66,7 @@ export default function HomePage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "site_content" },
-        () => fetchContent()
+        () => fetchContent(),
       )
       .subscribe();
 
@@ -130,9 +130,9 @@ export default function HomePage() {
         >
           {/* TÍTULO — más glow y más spacing */}
           <h1 className="text-4xl md:text-6xl font-extrabold mb-6 leading-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.7)]">
-            Professional Cleaning
+            Professional Cleaning Services
             <span className="block text-blue-300 drop-shadow-[0_3px_8px_rgba(0,0,0,0.9)]">
-              For Homes & Rentals
+              in Moncton, NB
             </span>
           </h1>
 
@@ -161,7 +161,23 @@ export default function HomePage() {
           </div>
         </motion.div>
       </section>
+      {/* 🔹 SEO Local Section */}
+      <section className="bg-white text-gray-800 py-16 px-6">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl font-bold mb-4">
+            Trusted Cleaning Services in Moncton, Dieppe & Riverview
+          </h2>
 
+          <p className="text-gray-600 leading-relaxed">
+            Team Home Services provides professional move-out cleaning, deep
+            cleaning, recurring house cleaning and property-ready cleaning
+            services in Moncton, Dieppe and Riverview, New Brunswick. We work
+            with homeowners, landlords, tenants and property managers to deliver
+            reliable, detailed and fast cleaning solutions tailored to every
+            property.
+          </p>
+        </div>
+      </section>
       {/* 🔹 About */}
       <section
         id="about"
@@ -228,7 +244,9 @@ export default function HomePage() {
         id="services"
         className="bg-gray-50 py-20 text-gray-800 text-center px-6"
       >
-        <h2 className="text-3xl font-bold mb-10 text-blue-600">Our Services</h2>
+        <h2 className="text-3xl font-bold mb-10 text-blue-600">
+          Cleaning Services in Moncton & Surrounding Areas
+        </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-5xl mx-auto">
           {services.map((srv, i) => {
