@@ -1,22 +1,15 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 
-export default clerkMiddleware({
-  publicRoutes: [
-    "/",
-    "/about",
-    "/services",
-    "/services/(.*)",
-    "/contact",
-
-    "/sign-in",
-    "/sign-up",
-
-    // Solo APIs realmente públicas
-    "/api/robots",
-    "/api/sitemap",
-  ],
-});
+export default clerkMiddleware();
 
 export const config = {
-  matcher: ["/((?!_next|.*\\..*).*)"],
+  matcher: [
+    // SOLO proteger rutas privadas
+    "/dashboard(.*)",
+    "/admin(.*)",
+    "/staff(.*)",
+    "/api/(.*)",
+
+    // agrega aquí lo que realmente necesita auth
+  ],
 };
