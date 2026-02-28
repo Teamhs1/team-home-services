@@ -80,15 +80,20 @@ export default function JobForm({
       try {
         const res = await fetch(`/api/admin/companies/${companyId}`, {
           cache: "no-store",
+          credentials: "include",
         });
 
-        const json = await res.json();
+        if (!res.ok) {
+          console.error("Failed to fetch company members");
+          setCompanyClients([]);
+          return;
+        }
 
+        const json = await res.json();
         const members = json?.data?.members || [];
 
         const validClients = members.filter((m) => {
           const role = m.role?.toLowerCase();
-
           return (
             m.profile?.id &&
             isUUID(m.profile.id) &&
@@ -98,6 +103,7 @@ export default function JobForm({
 
         setCompanyClients(validClients);
 
+        // 🔥 AUTO SELECT FIRST CLIENT
         if (validClients.length > 0) {
           setClientId(validClients[0].profile.id);
         } else {
@@ -106,7 +112,6 @@ export default function JobForm({
       } catch (err) {
         console.error("Error loading clients:", err);
         setCompanyClients([]);
-        setClientId("");
       }
     }
 
@@ -267,11 +272,28 @@ export default function JobForm({
 
       <div>
         <Label>Client</Label>
-        <Select value={clientId} onValueChange={setClientId}>
-          <SelectTrigger>
+
+        <Select
+          value={clientId}
+          onValueChange={setClientId}
+          disabled={!companyId || companyClients.length <= 1}
+        >
+          <SelectTrigger
+            className="bg-white border border-gray-300 shadow-sm"
+            disabled={!companyId || companyClients.length <= 1}
+          >
             <SelectValue placeholder="Select client" />
           </SelectTrigger>
-          <SelectContent>
+
+          <SelectContent position="popper" className="z-50 bg-white">
+            {/* 🔥 LOADING STATE */}
+            {companyClients.length === 0 && companyId && (
+              <SelectItem disabled value="loading">
+                Loading clients...
+              </SelectItem>
+            )}
+
+            {/* 🔥 CLIENT LIST */}
             {companyClients.map((c) => (
               <SelectItem key={c.profile.id} value={c.profile.id}>
                 {c.profile.full_name}
