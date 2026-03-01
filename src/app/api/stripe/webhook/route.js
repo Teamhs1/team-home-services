@@ -10,17 +10,29 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
+
+/* ============================================================
+   🔥 PLAN MAPPING
+============================================================ */
+
 function mapPriceToPlan(priceId) {
+  if (priceId === process.env.STRIPE_PRICE_STARTER) return "starter";
   if (priceId === process.env.STRIPE_PRICE_GROWTH) return "growth";
-  if (priceId === process.env.STRIPE_PRICE_PRO) return "pro";
-  return "unknown";
+  if (priceId === process.env.STRIPE_PRICE_SCALE) return "scale";
+  return null;
 }
 
 function mapPlanToUnits(priceId) {
-  if (priceId === process.env.STRIPE_PRICE_GROWTH) return 25;
-  if (priceId === process.env.STRIPE_PRICE_PRO) return 75;
+  if (priceId === process.env.STRIPE_PRICE_STARTER) return 10;
+  if (priceId === process.env.STRIPE_PRICE_GROWTH) return 9999;
+  if (priceId === process.env.STRIPE_PRICE_SCALE) return 9999;
   return 0;
 }
+
+/* ============================================================
+   🔥 WEBHOOK HANDLER
+============================================================ */
+
 export async function POST(req) {
   const body = await req.text();
   const sig = headers().get("stripe-signature");
@@ -40,90 +52,16 @@ export async function POST(req) {
 
   try {
     switch (event.type) {
-      /* ============================================
-         ✅ PAYMENT INTENT SUCCEEDED (FUENTE REAL)
-      ============================================ */
-      case "payment_intent.succeeded": {
-        const paymentIntent = event.data.object;
+      /* ============================================================
+         ✅ CHECKOUT COMPLETED (NEW SUBSCRIPTION)
+      ============================================================ */
 
-        if (paymentIntent.status !== "succeeded") break;
-
-        const invoiceId = paymentIntent.metadata?.invoice_id;
-
-        console.log("🔥 payment_intent.succeeded received");
-        console.log("Metadata:", paymentIntent.metadata);
-
-        if (!invoiceId) {
-          console.warn("⚠️ No invoice_id in metadata");
-          break;
-        }
-
-        // 1️⃣ Obtener invoice
-        const { data: invoiceData, error: invoiceFetchError } = await supabase
-          .from("invoices")
-          .select("company_id")
-          .eq("id", invoiceId)
-          .single();
-
-        if (invoiceFetchError || !invoiceData) {
-          console.error("❌ Could not fetch invoice:", invoiceFetchError);
-          break;
-        }
-
-        console.log("Invoice company_id:", invoiceData.company_id);
-
-        // 2️⃣ Prevent duplicate
-        const { data: existingPayment } = await supabase
-          .from("payments")
-          .select("id")
-          .eq("stripe_payment_intent_id", paymentIntent.id)
-          .maybeSingle();
-
-        if (existingPayment) {
-          console.log("⚠️ Payment already recorded. Skipping.");
-          break;
-        }
-
-        // 3️⃣ Insert payment
-        const { error: paymentError } = await supabase.from("payments").insert({
-          invoice_id: invoiceId,
-          company_id: invoiceData.company_id,
-          amount_cents: paymentIntent.amount,
-          currency: paymentIntent.currency,
-          status: "succeeded",
-          stripe_payment_intent_id: paymentIntent.id,
-          stripe_charge_id: paymentIntent.latest_charge || null,
-          stripe_event_id: event.id,
-        });
-
-        if (paymentError) {
-          console.error("❌ Payment insert failed:", paymentError);
-          break; // 🚫 no marcar invoice si falla payment
-        }
-
-        console.log("✅ Payment inserted");
-
-        // 4️⃣ Update invoice
-        const { error: invoiceError } = await supabase
-          .from("invoices")
-          .update({
-            status: "paid",
-            paid_at: new Date().toISOString(),
-          })
-          .eq("id", invoiceId);
-
-        if (invoiceError) {
-          console.error("❌ Invoice update failed:", invoiceError);
-        } else {
-          console.log("✅ Invoice marked as paid");
-        }
-
-        break;
-      }
       case "checkout.session.completed": {
         const session = event.data.object;
-
         if (session.mode !== "subscription") break;
+
+        const companyId = session.metadata?.companyId;
+        if (!companyId) break;
 
         const subscription = await stripe.subscriptions.retrieve(
           session.subscription,
@@ -134,19 +72,53 @@ export async function POST(req) {
         await supabase
           .from("companies")
           .update({
+            stripe_customer_id: session.customer,
             stripe_subscription_id: subscription.id,
             subscription_status: subscription.status,
             plan_type: mapPriceToPlan(priceId),
             max_units: mapPlanToUnits(priceId),
+            cancel_at_period_end: subscription.cancel_at_period_end,
+            subscription_current_period_end: new Date(
+              subscription.current_period_end * 1000,
+            ),
+            billing_enabled: true,
+          })
+          .eq("id", companyId);
+
+        console.log("✅ Subscription created");
+        break;
+      }
+
+      /* ============================================================
+         🔄 SUBSCRIPTION UPDATED (CANCEL SCHEDULE / PLAN CHANGE)
+      ============================================================ */
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object;
+        const priceId = subscription.items.data[0].price.id;
+
+        await supabase
+          .from("companies")
+          .update({
+            subscription_status: subscription.status,
+            plan_type: mapPriceToPlan(priceId),
+            max_units: mapPlanToUnits(priceId),
+            stripe_subscription_id: subscription.id,
+            cancel_at_period_end: subscription.cancel_at_period_end,
             subscription_current_period_end: new Date(
               subscription.current_period_end * 1000,
             ),
           })
-          .eq("stripe_customer_id", session.customer);
+          .eq("stripe_customer_id", subscription.customer);
 
-        console.log("✅ Subscription activated");
+        console.log("🔄 Subscription synced:", subscription.status);
         break;
       }
+
+      /* ============================================================
+         ❌ SUBSCRIPTION FULLY CANCELED (AFTER PERIOD ENDS)
+      ============================================================ */
+
       case "customer.subscription.deleted": {
         const subscription = event.data.object;
 
@@ -154,13 +126,21 @@ export async function POST(req) {
           .from("companies")
           .update({
             subscription_status: "canceled",
+            plan_type: null,
             max_units: 0,
+            cancel_at_period_end: false,
+            subscription_current_period_end: null,
+            billing_enabled: false,
           })
           .eq("stripe_subscription_id", subscription.id);
 
-        console.log("⚠️ Subscription canceled");
+        console.log("⚠️ Subscription fully canceled");
         break;
       }
+
+      /* ============================================================
+         💳 PAYMENT FAILED
+      ============================================================ */
 
       case "invoice.payment_failed": {
         const invoice = event.data.object;
@@ -172,26 +152,10 @@ export async function POST(req) {
           })
           .eq("stripe_customer_id", invoice.customer);
 
-        console.log("⚠️ Subscription payment failed");
+        console.log("⚠️ Payment failed");
         break;
       }
-      case "customer.subscription.updated": {
-        const subscription = event.data.object;
 
-        await supabase
-          .from("companies")
-          .update({
-            subscription_status: subscription.status,
-            subscription_current_period_end: new Date(
-              subscription.current_period_end * 1000,
-            ),
-            stripe_subscription_id: subscription.id, // ← refuerzo
-          })
-          .eq("stripe_customer_id", subscription.customer);
-
-        console.log("🔄 Subscription status synced:", subscription.status);
-        break;
-      }
       default:
         console.log(`ℹ️ Unhandled event type: ${event.type}`);
     }

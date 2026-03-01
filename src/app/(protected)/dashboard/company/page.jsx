@@ -15,6 +15,12 @@ export default function CompanyPage() {
   const [companyId, setCompanyId] = useState(null);
   const [companyName, setCompanyName] = useState("");
   const [createdAt, setCreatedAt] = useState(null);
+
+  // 🔥 NUEVO
+  const [planType, setPlanType] = useState(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+  const [billingEnabled, setBillingEnabled] = useState(false);
+
   /* =========================
      LOAD OVERVIEW FROM API
   ========================= */
@@ -41,6 +47,11 @@ export default function CompanyPage() {
           setMemberCount(data.members);
           setPropertyCount(data.properties);
           setLogo(data.logo);
+
+          // 🔥 NUEVO
+          setPlanType(data.plan_type);
+          setSubscriptionStatus(data.subscription_status);
+          setBillingEnabled(data.billing_enabled);
         }
       } catch (err) {
         console.error("COMPANY INIT ERROR:", err);
@@ -59,7 +70,26 @@ export default function CompanyPage() {
   }, []);
 
   /* =========================
-     UPLOAD LOGO (SIN CAMBIOS)
+     OPEN STRIPE CUSTOMER PORTAL
+  ========================= */
+  async function openCustomerPortal() {
+    try {
+      const res = await fetch("/api/stripe/customer-portal", {
+        method: "POST",
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error("PORTAL ERROR:", err);
+    }
+  }
+
+  /* =========================
+     UPLOAD LOGO
   ========================= */
   async function uploadLogo(file) {
     try {
@@ -160,8 +190,8 @@ export default function CompanyPage() {
         </label>
       </div>
 
-      {/* Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 mt-10">
+      {/* Overview Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-10">
         <div className="rounded-xl border bg-background p-4">
           <p className="text-sm text-muted-foreground">Members</p>
           <p className="text-2xl font-semibold mt-1">{memberCount}</p>
@@ -170,6 +200,30 @@ export default function CompanyPage() {
         <div className="rounded-xl border bg-background p-4">
           <p className="text-sm text-muted-foreground">Properties</p>
           <p className="text-2xl font-semibold mt-1">{propertyCount}</p>
+        </div>
+
+        {/* 🔥 Subscription Card */}
+        <div className="rounded-xl border bg-background p-4">
+          <p className="text-sm text-muted-foreground">Subscription</p>
+
+          <p className="text-xl font-semibold mt-2">
+            {planType
+              ? planType.charAt(0).toUpperCase() + planType.slice(1)
+              : "No Plan"}
+          </p>
+
+          <p className="text-sm text-muted-foreground mt-1">
+            Status: {subscriptionStatus || "—"}
+          </p>
+
+          {billingEnabled && (
+            <button
+              onClick={openCustomerPortal}
+              className="mt-4 px-4 py-2 rounded-lg bg-black text-white text-sm hover:opacity-90 transition"
+            >
+              Manage Subscription
+            </button>
+          )}
         </div>
       </div>
     </CompanySection>

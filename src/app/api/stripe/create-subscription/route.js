@@ -12,23 +12,25 @@ const supabase = createClient(
 
 export async function POST(req) {
   try {
-    const { userId } = auth();
+    // 🔐 1️⃣ Verificar autenticación correctamente
+    const { userId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // 📦 2️⃣ Obtener priceId del body
     const { priceId } = await req.json();
 
     if (!priceId) {
       return NextResponse.json({ error: "Missing priceId" }, { status: 400 });
     }
 
-    // 🔎 Obtener profile del usuario
+    // 🔎 3️⃣ Obtener perfil del usuario
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("company_id")
-      .eq("user_id", userId)
+      .eq("clerk_id", userId)
       .single();
 
     if (profileError || !profile) {
@@ -37,7 +39,7 @@ export async function POST(req) {
 
     const companyId = profile.company_id;
 
-    // 🔎 Obtener company
+    // 🔎 4️⃣ Obtener company
     const { data: company, error: companyError } = await supabase
       .from("companies")
       .select("*")
@@ -50,11 +52,15 @@ export async function POST(req) {
 
     let customerId = company.stripe_customer_id;
 
-    // 🧾 Crear customer si no existe
+    // 🧾 5️⃣ Crear customer si no existe
     if (!customerId) {
       const customer = await stripe.customers.create({
         name: company.name,
         email: company.email,
+        metadata: {
+          companyId: companyId,
+          clerkUserId: userId,
+        },
       });
 
       customerId = customer.id;
@@ -67,7 +73,7 @@ export async function POST(req) {
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-    // 💳 Crear checkout
+    // 💳 6️⃣ Crear Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -79,6 +85,10 @@ export async function POST(req) {
       ],
       success_url: `${baseUrl}/dashboard?subscribed=true`,
       cancel_url: `${baseUrl}/pricing`,
+      metadata: {
+        companyId: companyId,
+        clerkUserId: userId,
+      },
     });
 
     return NextResponse.json({ url: session.url });

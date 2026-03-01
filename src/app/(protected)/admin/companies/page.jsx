@@ -184,7 +184,8 @@ export default function CompaniesListPage() {
                 <th className="px-4 py-3 text-center">Users</th>
                 <th className="px-4 py-3 text-center">Type</th>
                 <th className="px-4 py-3 text-center">Billing</th>
-                <th className="px-4 py-3 text-center">Subscription</th>
+                <th className="px-4 py-3 text-center">Plan</th>
+                <th className="px-4 py-3 text-center">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -255,17 +256,53 @@ export default function CompaniesListPage() {
                     </td>
 
                     <td className="px-4 py-3 text-center">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          c.subscription_status === "active"
-                            ? "bg-green-100 text-green-700"
-                            : c.subscription_status === "past_due"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {c.subscription_status}
-                      </span>
+                      {c.plan_type ? (
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full capitalize ${
+                            c.plan_type === "starter"
+                              ? "bg-gray-100 text-gray-700"
+                              : c.plan_type === "growth"
+                                ? "bg-blue-100 text-blue-700"
+                                : c.plan_type === "scale"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {c.plan_type}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded-full">
+                          No Plan
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${
+                            c.subscription_status === "active"
+                              ? "bg-green-100 text-green-700"
+                              : c.subscription_status === "past_due"
+                                ? "bg-yellow-100 text-yellow-700"
+                                : c.subscription_status === "canceled"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          {c.subscription_status}
+                        </span>
+
+                        {c.subscription_status === "active" &&
+                          c.subscription_current_period_end && (
+                            <span className="text-[11px] text-gray-400">
+                              Renews{" "}
+                              {new Date(
+                                c.subscription_current_period_end,
+                              ).toLocaleDateString()}
+                            </span>
+                          )}
+                      </div>
                     </td>
 
                     <td

@@ -13,8 +13,10 @@ const supabase = createClient(
 export async function GET(req) {
   try {
     const { userId } = await auth();
-    if (!userId)
+
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const permissions = await getAllowedCompanyIds(userId);
 
@@ -26,21 +28,29 @@ export async function GET(req) {
     =============================== */
 
     if (!companyId) {
-      // 1️⃣ Try active_company_id
-      const { data: profile } = await supabase
+      // 1️⃣ Get full profile (needed for fallback)
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("active_company_id")
+        .select("id, active_company_id")
         .eq("clerk_id", userId)
         .single();
 
-      if (profile?.active_company_id) {
+      if (profileError || !profile) {
+        return NextResponse.json(
+          { error: "Profile not found" },
+          { status: 404 },
+        );
+      }
+
+      // 2️⃣ Use active_company_id first
+      if (profile.active_company_id) {
         companyId = profile.active_company_id;
       } else {
-        // 2️⃣ Fallback → first company_members match
+        // 3️⃣ Fallback → first membership
         const { data: membership } = await supabase
           .from("company_members")
           .select("company_id")
-          .eq("profile_id", profile?.id || null)
+          .eq("profile_id", profile.id)
           .limit(1)
           .single();
 
@@ -60,6 +70,7 @@ export async function GET(req) {
     /* ===============================
        🔒 Permission check
     =============================== */
+
     if (permissions.role !== "super_admin") {
       if (!permissions.allowedCompanyIds.includes(companyId)) {
         return NextResponse.json(
@@ -72,38 +83,72 @@ export async function GET(req) {
     /* ===============================
        📊 MEMBER COUNT
     =============================== */
-    const { count: memberCount } = await supabase
+
+    const { count: memberCount, error: memberError } = await supabase
       .from("company_members")
       .select("*", { count: "exact", head: true })
       .eq("company_id", companyId);
 
+    if (memberError) {
+      console.error("Member count error:", memberError);
+    }
+
     /* ===============================
        🏠 PROPERTY COUNT
     =============================== */
-    const { count: propertyCount } = await supabase
+
+    const { count: propertyCount, error: propertyError } = await supabase
       .from("properties")
       .select("*", { count: "exact", head: true })
       .eq("company_id", companyId);
 
+    if (propertyError) {
+      console.error("Property count error:", propertyError);
+    }
+
     /* ===============================
        🖼 COMPANY INFO
     =============================== */
-    const { data: company } = await supabase
+
+    const { data: company, error: companyError } = await supabase
       .from("companies")
-      .select("logo_url, name, created_at")
+      .select(
+        `
+        logo_url,
+        name,
+        created_at,
+        plan_type,
+        subscription_status,
+        billing_enabled
+      `,
+      )
       .eq("id", companyId)
       .single();
 
+    if (companyError || !company) {
+      return NextResponse.json({ error: "Company not found" }, { status: 404 });
+    }
+
+    /* ===============================
+       ✅ RESPONSE
+    =============================== */
+
     return NextResponse.json({
       company_id: companyId,
-      company_name: company?.name || null,
-      created_at: company?.created_at || null,
-      logo: company?.logo_url || null,
-      members: memberCount || 0,
-      properties: propertyCount || 0,
+      company_name: company.name || null,
+      created_at: company.created_at || null,
+      logo: company.logo_url || null,
+      members: memberCount ?? 0,
+      properties: propertyCount ?? 0,
+
+      // 🔥 Subscription fields
+      plan_type: company.plan_type || null,
+      subscription_status: company.subscription_status || null,
+      billing_enabled: company.billing_enabled || false,
     });
   } catch (err) {
     console.error("COMPANY OVERVIEW ERROR:", err);
+
     return NextResponse.json(
       { error: err.message || "Server error" },
       { status: 500 },
