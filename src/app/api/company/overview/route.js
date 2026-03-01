@@ -28,7 +28,6 @@ export async function GET(req) {
     =============================== */
 
     if (!companyId) {
-      // 1️⃣ Get full profile (needed for fallback)
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("id, active_company_id")
@@ -42,11 +41,9 @@ export async function GET(req) {
         );
       }
 
-      // 2️⃣ Use active_company_id first
       if (profile.active_company_id) {
         companyId = profile.active_company_id;
       } else {
-        // 3️⃣ Fallback → first membership
         const { data: membership } = await supabase
           .from("company_members")
           .select("company_id")
@@ -84,30 +81,22 @@ export async function GET(req) {
        📊 MEMBER COUNT
     =============================== */
 
-    const { count: memberCount, error: memberError } = await supabase
+    const { count: memberCount } = await supabase
       .from("company_members")
       .select("*", { count: "exact", head: true })
       .eq("company_id", companyId);
-
-    if (memberError) {
-      console.error("Member count error:", memberError);
-    }
 
     /* ===============================
        🏠 PROPERTY COUNT
     =============================== */
 
-    const { count: propertyCount, error: propertyError } = await supabase
+    const { count: propertyCount } = await supabase
       .from("properties")
       .select("*", { count: "exact", head: true })
       .eq("company_id", companyId);
 
-    if (propertyError) {
-      console.error("Property count error:", propertyError);
-    }
-
     /* ===============================
-       🖼 COMPANY INFO
+       🖼 COMPANY INFO + SUBSCRIPTION
     =============================== */
 
     const { data: company, error: companyError } = await supabase
@@ -119,7 +108,9 @@ export async function GET(req) {
         created_at,
         plan_type,
         subscription_status,
-        billing_enabled
+        billing_enabled,
+        cancel_at_period_end,
+        subscription_current_period_end
       `,
       )
       .eq("id", companyId)
@@ -145,6 +136,9 @@ export async function GET(req) {
       plan_type: company.plan_type || null,
       subscription_status: company.subscription_status || null,
       billing_enabled: company.billing_enabled || false,
+      cancel_at_period_end: company.cancel_at_period_end || false,
+      subscription_current_period_end:
+        company.subscription_current_period_end || null,
     });
   } catch (err) {
     console.error("COMPANY OVERVIEW ERROR:", err);

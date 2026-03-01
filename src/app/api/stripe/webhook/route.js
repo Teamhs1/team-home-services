@@ -67,7 +67,7 @@ export async function POST(req) {
           session.subscription,
         );
 
-        const priceId = subscription.items.data[0].price.id;
+        const priceId = subscription.items.data[0]?.price?.id;
 
         await supabase
           .from("companies")
@@ -77,11 +77,11 @@ export async function POST(req) {
             subscription_status: subscription.status,
             plan_type: mapPriceToPlan(priceId),
             max_units: mapPlanToUnits(priceId),
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            subscription_current_period_end: new Date(
-              subscription.current_period_end * 1000,
-            ),
-            billing_enabled: true,
+            cancel_at_period_end: subscription.cancel_at_period_end || false,
+            subscription_current_period_end: subscription.current_period_end
+              ? new Date(subscription.current_period_end * 1000)
+              : null,
+            billing_enabled: subscription.status === "active",
           })
           .eq("id", companyId);
 
@@ -90,12 +90,13 @@ export async function POST(req) {
       }
 
       /* ============================================================
-         🔄 SUBSCRIPTION UPDATED (CANCEL SCHEDULE / PLAN CHANGE)
+         🔄 SUBSCRIPTION UPDATED
+         (plan change, renewal, cancel scheduled)
       ============================================================ */
 
       case "customer.subscription.updated": {
         const subscription = event.data.object;
-        const priceId = subscription.items.data[0].price.id;
+        const priceId = subscription.items.data[0]?.price?.id;
 
         await supabase
           .from("companies")
@@ -104,19 +105,27 @@ export async function POST(req) {
             plan_type: mapPriceToPlan(priceId),
             max_units: mapPlanToUnits(priceId),
             stripe_subscription_id: subscription.id,
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            subscription_current_period_end: new Date(
-              subscription.current_period_end * 1000,
-            ),
+            cancel_at_period_end: subscription.cancel_at_period_end || false,
+            subscription_current_period_end: subscription.current_period_end
+              ? new Date(subscription.current_period_end * 1000)
+              : null,
+            billing_enabled:
+              subscription.status === "active" ||
+              subscription.status === "trialing",
           })
           .eq("stripe_customer_id", subscription.customer);
 
-        console.log("🔄 Subscription synced:", subscription.status);
+        console.log(
+          "🔄 Subscription synced:",
+          subscription.status,
+          "cancel_at_period_end:",
+          subscription.cancel_at_period_end,
+        );
         break;
       }
 
       /* ============================================================
-         ❌ SUBSCRIPTION FULLY CANCELED (AFTER PERIOD ENDS)
+         ❌ SUBSCRIPTION FULLY CANCELED
       ============================================================ */
 
       case "customer.subscription.deleted": {
@@ -149,6 +158,7 @@ export async function POST(req) {
           .from("companies")
           .update({
             subscription_status: "past_due",
+            billing_enabled: false,
           })
           .eq("stripe_customer_id", invoice.customer);
 
