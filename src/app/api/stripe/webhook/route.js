@@ -81,7 +81,9 @@ export async function POST(req) {
             subscription_current_period_end: subscription.current_period_end
               ? new Date(subscription.current_period_end * 1000)
               : null,
-            billing_enabled: subscription.status === "active",
+            billing_enabled:
+              subscription.status === "active" ||
+              subscription.status === "trialing",
           })
           .eq("id", companyId);
 
@@ -91,7 +93,6 @@ export async function POST(req) {
 
       /* ============================================================
          🔄 SUBSCRIPTION UPDATED
-         (plan change, renewal, cancel scheduled)
       ============================================================ */
 
       case "customer.subscription.updated": {
@@ -104,7 +105,6 @@ export async function POST(req) {
             subscription_status: subscription.status,
             plan_type: mapPriceToPlan(priceId),
             max_units: mapPlanToUnits(priceId),
-            stripe_subscription_id: subscription.id,
             cancel_at_period_end: subscription.cancel_at_period_end || false,
             subscription_current_period_end: subscription.current_period_end
               ? new Date(subscription.current_period_end * 1000)
@@ -113,13 +113,13 @@ export async function POST(req) {
               subscription.status === "active" ||
               subscription.status === "trialing",
           })
-          .eq("stripe_customer_id", subscription.customer);
+          .eq("stripe_subscription_id", subscription.id);
 
         console.log(
           "🔄 Subscription synced:",
           subscription.status,
-          "cancel_at_period_end:",
-          subscription.cancel_at_period_end,
+          "period_end:",
+          subscription.current_period_end,
         );
         break;
       }
