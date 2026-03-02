@@ -18,13 +18,11 @@ export async function GET(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const permissions = await getAllowedCompanyIds(userId);
-
     const { searchParams } = new URL(req.url);
     let companyId = searchParams.get("company_id");
 
     /* ===============================
-       🔎 Resolve company_id
+       🔎 Resolve company_id FIRST
     =============================== */
 
     if (!companyId) {
@@ -41,32 +39,21 @@ export async function GET(req) {
         );
       }
 
-      if (profile.active_company_id) {
-        companyId = profile.active_company_id;
-      } else {
-        const { data: membership } = await supabase
-          .from("company_members")
-          .select("company_id")
-          .eq("profile_id", profile.id)
-          .limit(1)
-          .single();
-
-        if (membership?.company_id) {
-          companyId = membership.company_id;
-        }
+      // 🔥 Si no tiene company activa → devolver no_company (NO ERROR)
+      if (!profile.active_company_id) {
+        return NextResponse.json({
+          no_company: true,
+        });
       }
 
-      if (!companyId) {
-        return NextResponse.json(
-          { error: "No company found for user" },
-          { status: 400 },
-        );
-      }
+      companyId = profile.active_company_id;
     }
 
     /* ===============================
-       🔒 Permission check
+       🔐 Permission check AFTER company exists
     =============================== */
+
+    const permissions = await getAllowedCompanyIds(userId);
 
     if (permissions.role !== "super_admin") {
       if (!permissions.allowedCompanyIds.includes(companyId)) {
@@ -96,7 +83,7 @@ export async function GET(req) {
       .eq("company_id", companyId);
 
     /* ===============================
-       🖼 COMPANY INFO + SUBSCRIPTION
+       🏢 COMPANY INFO + SUBSCRIPTION
     =============================== */
 
     const { data: company, error: companyError } = await supabase
@@ -110,7 +97,8 @@ export async function GET(req) {
         subscription_status,
         billing_enabled,
         cancel_at_period_end,
-        subscription_current_period_end
+        subscription_current_period_end,
+        max_units
       `,
       )
       .eq("id", companyId)
@@ -125,20 +113,24 @@ export async function GET(req) {
     =============================== */
 
     return NextResponse.json({
+      no_company: false,
+
       company_id: companyId,
-      company_name: company.name || null,
-      created_at: company.created_at || null,
-      logo: company.logo_url || null,
+      company_name: company.name,
+      created_at: company.created_at,
+      logo: company.logo_url,
+
       members: memberCount ?? 0,
       properties: propertyCount ?? 0,
 
-      // 🔥 Subscription fields
-      plan_type: company.plan_type || null,
-      subscription_status: company.subscription_status || null,
+      plan_type: company.plan_type || "free",
+      subscription_status: company.subscription_status,
       billing_enabled: company.billing_enabled || false,
       cancel_at_period_end: company.cancel_at_period_end || false,
       subscription_current_period_end:
         company.subscription_current_period_end || null,
+
+      max_units: company.max_units ?? 1,
     });
   } catch (err) {
     console.error("COMPANY OVERVIEW ERROR:", err);

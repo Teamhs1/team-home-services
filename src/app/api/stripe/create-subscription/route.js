@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -12,54 +12,72 @@ const supabase = createClient(
 
 export async function POST(req) {
   try {
-    // 🔐 1️⃣ Verificar autenticación correctamente
     const { userId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 📦 2️⃣ Obtener priceId del body
+    const clerkUser = await currentUser();
+    const userEmail = clerkUser?.emailAddresses?.[0]?.emailAddress || undefined;
+
     const { priceId } = await req.json();
 
     if (!priceId) {
       return NextResponse.json({ error: "Missing priceId" }, { status: 400 });
     }
 
-    // 🔎 3️⃣ Obtener perfil del usuario
-    const { data: profile, error: profileError } = await supabase
+    // 🔎 Buscar profile
+    const { data: profile } = await supabase
       .from("profiles")
-      .select("company_id")
+      .select("id, active_company_id")
       .eq("clerk_id", userId)
       .single();
 
-    if (profileError || !profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    if (!profile?.active_company_id) {
+      return NextResponse.json(
+        { error: "You must create a company before subscribing." },
+        { status: 400 },
+      );
     }
 
-    const companyId = profile.company_id;
+    const companyId = profile.active_company_id;
 
-    // 🔎 4️⃣ Obtener company
-    const { data: company, error: companyError } = await supabase
+    // 🔎 Validar que sea owner
+    const { data: membership } = await supabase
+      .from("company_members")
+      .select("role")
+      .eq("company_id", companyId)
+      .eq("profile_id", profile.id)
+      .single();
+
+    if (!membership || membership.role !== "owner") {
+      return NextResponse.json(
+        { error: "Only the company owner can manage billing." },
+        { status: 403 },
+      );
+    }
+
+    // 🔎 Obtener company
+    const { data: company } = await supabase
       .from("companies")
       .select("*")
       .eq("id", companyId)
       .single();
 
-    if (companyError || !company) {
+    if (!company) {
       return NextResponse.json({ error: "Company not found" }, { status: 404 });
     }
 
     let customerId = company.stripe_customer_id;
 
-    // 🧾 5️⃣ Crear customer si no existe
+    // 🧾 Crear customer si no existe
     if (!customerId) {
       const customer = await stripe.customers.create({
         name: company.name,
-        email: company.email,
+        email: userEmail,
         metadata: {
-          companyId: companyId,
-          clerkUserId: userId,
+          companyId,
         },
       });
 
@@ -73,7 +91,7 @@ export async function POST(req) {
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-    // 💳 6️⃣ Crear Checkout Session
+    // 💳 Crear Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -83,11 +101,10 @@ export async function POST(req) {
           quantity: 1,
         },
       ],
-      success_url: `${baseUrl}/dashboard?subscribed=true`,
+      success_url: `${baseUrl}/dashboard/company?subscribed=true`,
       cancel_url: `${baseUrl}/pricing`,
       metadata: {
-        companyId: companyId,
-        clerkUserId: userId,
+        companyId, // 🔥 SIEMPRE
       },
     });
 

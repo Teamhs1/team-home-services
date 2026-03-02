@@ -1,4 +1,5 @@
 // app/api/stripe/webhook/route.js
+
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { headers } from "next/headers";
@@ -12,7 +13,7 @@ const supabase = createClient(
 );
 
 /* ============================================================
-   🔥 PLAN MAPPING
+   PLAN MAPPING
 ============================================================ */
 
 function mapPriceToPlan(priceId) {
@@ -26,11 +27,11 @@ function mapPlanToUnits(priceId) {
   if (priceId === process.env.STRIPE_PRICE_STARTER) return 10;
   if (priceId === process.env.STRIPE_PRICE_GROWTH) return 9999;
   if (priceId === process.env.STRIPE_PRICE_SCALE) return 9999;
-  return 0;
+  return 1; // free fallback
 }
 
 /* ============================================================
-   🔥 WEBHOOK HANDLER
+   WEBHOOK HANDLER
 ============================================================ */
 
 export async function POST(req) {
@@ -47,57 +48,72 @@ export async function POST(req) {
     );
   } catch (err) {
     console.error("❌ Stripe signature error:", err.message);
-    return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
+    return new NextResponse(`Webhook Error: ${err.message}`, {
+      status: 400,
+    });
   }
 
   try {
     switch (event.type) {
       /* ============================================================
-         ✅ CHECKOUT COMPLETED (NEW SUBSCRIPTION)
+         CHECKOUT COMPLETED
       ============================================================ */
 
       case "checkout.session.completed": {
         const session = event.data.object;
+
         if (session.mode !== "subscription") break;
 
         const companyId = session.metadata?.companyId;
-        if (!companyId) break;
+
+        if (!companyId) {
+          console.error("❌ CRITICAL: Subscription created without companyId");
+          break;
+        }
 
         const subscription = await stripe.subscriptions.retrieve(
           session.subscription,
         );
 
-        const priceId = subscription.items.data[0]?.price?.id;
+        const priceId = subscription.items.data[0]?.price?.id || null;
+
+        const periodEndISO = subscription.current_period_end
+          ? new Date(subscription.current_period_end * 1000).toISOString()
+          : null;
 
         await supabase
           .from("companies")
           .update({
-            stripe_customer_id: session.customer,
+            stripe_customer_id: subscription.customer,
             stripe_subscription_id: subscription.id,
             subscription_status: subscription.status,
             plan_type: mapPriceToPlan(priceId),
             max_units: mapPlanToUnits(priceId),
-            cancel_at_period_end: subscription.cancel_at_period_end || false,
-            subscription_current_period_end: subscription.current_period_end
-              ? new Date(subscription.current_period_end * 1000)
-              : null,
+            cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+            subscription_current_period_end: periodEndISO,
             billing_enabled:
               subscription.status === "active" ||
               subscription.status === "trialing",
           })
           .eq("id", companyId);
 
-        console.log("✅ Subscription created");
+        console.log("✅ Subscription attached to company:", companyId);
+
         break;
       }
 
       /* ============================================================
-         🔄 SUBSCRIPTION UPDATED
+         SUBSCRIPTION UPDATED
       ============================================================ */
 
       case "customer.subscription.updated": {
         const subscription = event.data.object;
-        const priceId = subscription.items.data[0]?.price?.id;
+
+        const priceId = subscription.items.data[0]?.price?.id || null;
+
+        const periodEndISO = subscription.current_period_end
+          ? new Date(subscription.current_period_end * 1000).toISOString()
+          : null;
 
         await supabase
           .from("companies")
@@ -105,27 +121,21 @@ export async function POST(req) {
             subscription_status: subscription.status,
             plan_type: mapPriceToPlan(priceId),
             max_units: mapPlanToUnits(priceId),
-            cancel_at_period_end: subscription.cancel_at_period_end || false,
-            subscription_current_period_end: subscription.current_period_end
-              ? new Date(subscription.current_period_end * 1000)
-              : null,
+            cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+            subscription_current_period_end: periodEndISO,
             billing_enabled:
               subscription.status === "active" ||
               subscription.status === "trialing",
           })
           .eq("stripe_subscription_id", subscription.id);
 
-        console.log(
-          "🔄 Subscription synced:",
-          subscription.status,
-          "period_end:",
-          subscription.current_period_end,
-        );
+        console.log("🔄 Company subscription synced");
+
         break;
       }
 
       /* ============================================================
-         ❌ SUBSCRIPTION FULLY CANCELED
+         SUBSCRIPTION DELETED
       ============================================================ */
 
       case "customer.subscription.deleted": {
@@ -135,20 +145,21 @@ export async function POST(req) {
           .from("companies")
           .update({
             subscription_status: "canceled",
-            plan_type: null,
-            max_units: 0,
+            plan_type: "free",
+            max_units: 1,
             cancel_at_period_end: false,
             subscription_current_period_end: null,
             billing_enabled: false,
           })
           .eq("stripe_subscription_id", subscription.id);
 
-        console.log("⚠️ Subscription fully canceled");
+        console.log("⚠️ Company downgraded to free");
+
         break;
       }
 
       /* ============================================================
-         💳 PAYMENT FAILED
+         PAYMENT FAILED
       ============================================================ */
 
       case "invoice.payment_failed": {
@@ -162,16 +173,19 @@ export async function POST(req) {
           })
           .eq("stripe_customer_id", invoice.customer);
 
-        console.log("⚠️ Payment failed");
+        console.log("⚠️ Company marked as past_due");
+
         break;
       }
 
       default:
-        console.log(`ℹ️ Unhandled event type: ${event.type}`);
+        console.log("ℹ️ Unhandled event:", event.type);
     }
   } catch (err) {
     console.error("❌ Webhook handler error:", err);
-    return new NextResponse("Webhook handler failed", { status: 500 });
+    return new NextResponse("Webhook handler failed", {
+      status: 500,
+    });
   }
 
   return NextResponse.json({ received: true });

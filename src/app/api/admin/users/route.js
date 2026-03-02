@@ -27,20 +27,23 @@ export async function GET() {
     }
 
     const baseSelect = `
+  id,
+  clerk_id,
+  full_name,
+  email,
+  avatar_url,
+  role,
+  status,
+  created_at,
+  company_members (
+    role,
+    company_id,
+    companies (
       id,
-      clerk_id,
-      full_name,
-      email,
-      avatar_url,
-      role,
-      status,
-      created_at,
-      company_id,
-      companies:company_id (
-        id,
-        name
-      )
-    `;
+      name
+    )
+  )
+`;
 
     /* =========================
        👑 SUPER ADMIN → ve TODO
@@ -107,7 +110,7 @@ export async function GET() {
       const { data, error } = await supabaseAdmin
         .from("profiles")
         .select(baseSelect)
-        .in("company_id", allowedCompanyIds)
+        .in("company_members.company_id", allowedCompanyIds)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -125,7 +128,7 @@ export async function GET() {
       const { data, error } = await supabaseAdmin
         .from("profiles")
         .select(baseSelect)
-        .eq("company_id", currentCompany.id)
+        .eq("company_members.company_id", currentCompany.id)
         .order("created_at", { ascending: false });
 
       if (error) {

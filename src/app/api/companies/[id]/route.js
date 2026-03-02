@@ -40,7 +40,23 @@ export async function DELETE(req, { params }) {
       );
     }
 
-    /* ---------- DELETE ---------- */
+    /* ---------- GET LOGO ---------- */
+    const { data: company } = await supabase
+      .from("companies")
+      .select("logo_url")
+      .eq("id", companyId)
+      .single();
+
+    if (company?.logo_url) {
+      const urlParts = company.logo_url.split("/company-logos/");
+      const filePath = urlParts[1];
+
+      if (filePath) {
+        await supabase.storage.from("company-logos").remove([filePath]);
+      }
+    }
+
+    /* ---------- DELETE COMPANY ---------- */
     const { error } = await supabase
       .from("companies")
       .delete()

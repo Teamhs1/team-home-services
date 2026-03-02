@@ -397,7 +397,8 @@ export default function AdminUsersPage() {
                   {currentRole === "super_admin" && (
                     <td className="px-4 py-2">
                       <span className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-md font-medium">
-                        {user.companies?.name || "No company"}
+                        {user.company_members?.[0]?.companies?.name ||
+                          "No company"}
                       </span>
                     </td>
                   )}
@@ -432,7 +433,7 @@ export default function AdminUsersPage() {
                       {/* Contexto SOLO para clientes */}
                       {user.role === "client" && (
                         <span className="text-xs text-gray-500">
-                          {user.is_property_manager && user.company_id
+                          {user.company_members?.length > 0
                             ? "Company client"
                             : "Individual owner"}
                         </span>

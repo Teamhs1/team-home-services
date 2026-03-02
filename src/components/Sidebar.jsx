@@ -156,6 +156,7 @@ export default function Sidebar() {
   const [sidebarTheme, setSidebarTheme] = useState("dark");
   const [allowedResources, setAllowedResources] = useState([]);
   const [permissionsReady, setPermissionsReady] = useState(false);
+  const [hasCompany, setHasCompany] = useState(false);
   const fetchPermissionsRef = useRef(null);
   const { getToken } = useAuth();
 
@@ -224,11 +225,14 @@ export default function Sidebar() {
           .maybeSingle();
 
         if (profileError || !profile?.id) {
+          setHasCompany(false);
           setAllowedResources(ALL_RESOURCES);
           setStaffType(null);
           setPermissionsReady(true);
           return;
         }
+
+        setHasCompany(!!profile.active_company_id);
 
         /* =========================
          🧩 ROL DE COMPAÑÍA (NUEVO)
@@ -298,7 +302,8 @@ export default function Sidebar() {
 
           // 👻 STAFF sin compañía
           else {
-            setAllowedResources(["jobs"]);
+            // Si no tiene compañía aún, permitir acceso a company para onboarding
+            setAllowedResources(["jobs", "company"]);
           }
 
           setPermissionsReady(true);
