@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default function NewInvoicePage() {
   const router = useRouter();
@@ -13,6 +15,10 @@ export default function NewInvoicePage() {
   const [role, setRole] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState("all");
+
+  const [billingEnabled, setBillingEnabled] = useState(true);
+  const [loadingContext, setLoadingContext] = useState(true);
+  const isAdmin = role === "admin" || role === "super_admin";
 
   const [form, setForm] = useState({
     type: "cleaning",
@@ -27,13 +33,30 @@ export default function NewInvoicePage() {
      LOAD ROLE
   ========================= */
   useEffect(() => {
-    async function loadMe() {
-      const res = await fetch("/api/me", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      setRole(data.role);
+    async function loadContext() {
+      try {
+        const [billingRes, meRes] = await Promise.all([
+          fetch("/api/company/billing", { credentials: "include" }),
+          fetch("/api/me", { cache: "no-store" }),
+        ]);
+
+        if (billingRes.ok) {
+          const billing = await billingRes.json();
+          setBillingEnabled(billing.billing_enabled ?? true);
+        }
+
+        if (meRes.ok) {
+          const data = await meRes.json();
+          setRole(data.role);
+        }
+      } catch (err) {
+        console.error("Failed to load context", err);
+      } finally {
+        setLoadingContext(false);
+      }
     }
-    loadMe();
+
+    loadContext();
   }, []);
 
   /* =========================
@@ -138,6 +161,32 @@ export default function NewInvoicePage() {
     }
   }
 
+  if (loadingContext) {
+    return (
+      <section className="pt-20 px-6 text-center text-gray-500">
+        Loading...
+      </section>
+    );
+  }
+
+  if (!billingEnabled && !isAdmin) {
+    return (
+      <section className="pt-28 px-6">
+        <div className="max-w-xl mx-auto flex flex-col items-center text-center">
+          <div className="w-full bg-red-50 border border-red-200 text-red-700 px-6 py-5 rounded-xl">
+            Billing is disabled for this company. New invoices cannot be
+            created.
+          </div>
+
+          <Link href="/dashboard/invoices" className="mt-6">
+            <Button variant="outline" className="px-6">
+              Back to invoices
+            </Button>
+          </Link>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="pt-20 px-6">
       <div className="max-w-2xl mx-auto space-y-6">

@@ -25,7 +25,7 @@ export default function UnitImageUploader({
         const formData = new FormData();
         formData.append("file", file);
 
-        const res = await fetch(`/api/units/${unitId}/images`, {
+        const res = await fetch(`/api/dashboard/units/${unitId}/images`, {
           method: "POST",
           body: formData,
           credentials: "include",

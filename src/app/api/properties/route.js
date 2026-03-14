@@ -31,7 +31,24 @@ export async function GET(req) {
 
     let query = supabase
       .from("properties")
-      .select("id, address, company_id")
+      .select(
+        `
+    id,
+    name,
+    address,
+    unit,
+    company_id,
+    owner_id,
+    owners (
+      id,
+      full_name
+    ),
+    companies (
+      id,
+      name
+    )
+  `,
+      )
       .order("address");
 
     /* =========================

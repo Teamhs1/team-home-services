@@ -26,22 +26,29 @@ export async function GET(req) {
       .from("properties")
       .select(
         `
-        id,
-        name,
-        address,
-        unit,
-        company_id,
-        client_id,
-        owner_id,
-        owners:owner_id (
-          id,
-          full_name
-        ),
-        companies:company_id (
-          id,
-          name
-        )
-      `,
+  id,
+  name,
+  address,
+  company_id,
+  client_id,
+  owner_id,
+  owners:owner_id (
+    id,
+    full_name
+  ),
+  companies:company_id (
+    id,
+    name
+  ),
+  units (
+    id,
+    unit,
+    bedrooms,
+    bathrooms,
+    rent_price,
+    is_for_rent
+  )
+`,
       )
       .eq("is_active", true)
       .order("address", { ascending: true })
@@ -56,8 +63,7 @@ export async function GET(req) {
         query = query.eq("company_id", companyIdParam);
       }
     } else {
-
-    /* =========================
+      /* =========================
        🔐 TODOS LOS DEMÁS
     ========================= */
       query = query.in("company_id", permissions.allowedCompanyIds);

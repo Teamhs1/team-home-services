@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -16,6 +16,43 @@ export default function DashboardCreatePropertyPage() {
   const [address, setAddress] = useState("");
   const [unit, setUnit] = useState("");
   const [saving, setSaving] = useState(false);
+
+  /* =====================
+     BILLING + ROLE
+  ===================== */
+
+  const [billingEnabled, setBillingEnabled] = useState(true);
+  const [role, setRole] = useState(null);
+  const [loadingContext, setLoadingContext] = useState(true);
+
+  const isAdmin = role === "admin" || role === "super_admin";
+
+  useEffect(() => {
+    async function loadContext() {
+      try {
+        const [billingRes, profileRes] = await Promise.all([
+          fetch("/api/company/billing", { credentials: "include" }),
+          fetch("/api/my/profile", { credentials: "include" }),
+        ]);
+
+        if (billingRes.ok) {
+          const billing = await billingRes.json();
+          setBillingEnabled(billing.billing_enabled ?? true);
+        }
+
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          setRole(profile.role ?? null);
+        }
+      } catch (err) {
+        console.error("LOAD CONTEXT ERROR:", err);
+      } finally {
+        setLoadingContext(false);
+      }
+    }
+
+    loadContext();
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -41,7 +78,11 @@ export default function DashboardCreatePropertyPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        toast.error(data?.error || "Failed to create property");
+        console.log("API ERROR:", data);
+
+        toast.error(data?.error || "Failed to create property", {
+          description: JSON.stringify(data),
+        });
         setSaving(false);
         return;
       }
@@ -54,6 +95,40 @@ export default function DashboardCreatePropertyPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  /* =====================
+     LOADING
+  ===================== */
+
+  if (loadingContext) {
+    return (
+      <main className="px-4 sm:px-6 pt-[130px] max-w-3xl mx-auto text-center text-gray-500">
+        Loading...
+      </main>
+    );
+  }
+
+  /* =====================
+     BILLING DISABLED
+  ===================== */
+
+  if (!billingEnabled && !isAdmin) {
+    return (
+      <main className="px-4 sm:px-6 pt-[150px] max-w-xl mx-auto">
+        <div className="flex flex-col items-center text-center space-y-6">
+          <div className="w-full bg-red-50 border border-red-200 text-red-700 px-6 py-5 rounded-xl">
+            Billing is disabled for this company. Properties cannot be created.
+          </div>
+
+          <Link href="/dashboard/properties">
+            <Button variant="outline" className="px-6">
+              Back to properties
+            </Button>
+          </Link>
+        </div>
+      </main>
+    );
   }
 
   return (

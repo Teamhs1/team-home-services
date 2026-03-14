@@ -25,6 +25,7 @@ export default function UnitDetailPublicPage() {
 
   const [unit, setUnit] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [savingLocation, setSavingLocation] = useState(false);
 
   /* =======================
      LOAD UNIT (NON ADMIN)
@@ -69,6 +70,45 @@ export default function UnitDetailPublicPage() {
     typeof unit.longitude === "number"
       ? unit.longitude
       : unit.property?.longitude;
+
+  /* =======================
+     UPDATE LOCATION
+  ======================= */
+
+  async function handleLocationChange({ lat, lng }) {
+    if (!propertyId || !unitId) return;
+
+    try {
+      setSavingLocation(true);
+
+      const res = await fetch(
+        `/api/dashboard/properties/${propertyId}/units/${unitId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            latitude: lat,
+            longitude: lng,
+          }),
+        },
+      );
+
+      if (!res.ok) throw new Error("Failed to update location");
+
+      setUnit((prev) => ({
+        ...prev,
+        latitude: lat,
+        longitude: lng,
+      }));
+
+      toast.success("Location updated");
+    } catch {
+      toast.error("Failed to update location");
+    } finally {
+      setSavingLocation(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-6 pt-[120px]">
@@ -142,10 +182,31 @@ export default function UnitDetailPublicPage() {
       )}
 
       {/* MAP */}
-      <PropertyMap lat={lat ?? null} lng={lng ?? null} />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-primary">Location</h3>
+
+          {savingLocation && (
+            <span className="text-sm text-muted-foreground">
+              Saving location…
+            </span>
+          )}
+        </div>
+
+        <p className="text-sm text-muted-foreground">
+          Drag the pin to adjust the exact unit location.
+        </p>
+
+        <PropertyMap
+          lat={lat ?? null}
+          lng={lng ?? null}
+          editable
+          onChange={handleLocationChange}
+        />
+      </div>
 
       {/* INFO */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <InfoCard
           icon={<Home className="h-5 w-5 text-primary" />}
           label="Property"

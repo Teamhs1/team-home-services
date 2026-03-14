@@ -1,6 +1,6 @@
 "use client";
 import PropertyMap from "@/components/PropertyMap";
-
+import UnitImageUploader from "@/components/UnitImageUploader";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -42,9 +42,10 @@ export default function UnitDetailPage() {
   const permissions = {
     canEditUnit: role === "admin" || role === "client",
     canDeleteUnit: role === "admin" || role === "client",
+    canUploadImages: role === "admin" || role === "client",
     readOnly: role === "staff",
   };
-
+  const [unitImages, setUnitImages] = useState([]);
   /* =======================
      LOAD UNIT
   ======================= */
@@ -68,6 +69,7 @@ export default function UnitDetailPage() {
         if (!res.ok) throw new Error(json.error || "Failed to load unit");
 
         setUnit(json.unit);
+        setUnitImages(json.unit.images || []);
         setPostalDraft(
           json.unit.postal_code ?? json.unit.property?.postal_code ?? "",
         );
@@ -148,6 +150,10 @@ export default function UnitDetailPage() {
     typeof unit.latitude !== "number" || typeof unit.longitude !== "number";
   const displayedPostal = unit.postal_code ?? unit.property?.postal_code;
 
+  const sliderImages = (
+    unitImages.length ? unitImages : unit?.property?.images || []
+  ).map((img) => (typeof img === "string" ? { url: img } : img));
+
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-6 pt-[120px]">
       {/* TOP BAR */}
@@ -164,7 +170,18 @@ export default function UnitDetailPage() {
 
       {/* HERO / SLIDER */}
       <div className="overflow-hidden rounded-2xl border shadow-sm">
-        <Slider images={unit.property?.images || []} />
+        <Slider
+          key={`${unitId}-${sliderImages.length}`}
+          images={sliderImages}
+        />
+
+        {permissions.canUploadImages && (
+          <UnitImageUploader
+            unitId={unitId}
+            currentImages={unitImages}
+            onUploaded={setUnitImages}
+          />
+        )}
       </div>
       {/* INFO BAR */}
       <div className="flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">

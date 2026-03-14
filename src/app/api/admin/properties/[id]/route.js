@@ -50,7 +50,7 @@ export async function GET(req, { params }) {
       )
       .eq("id", propertyId);
 
-    // 🔐 Non-super-admin → restringir por company
+    /* 🔐 Restricción solo para NO super_admin */
     if (role !== "super_admin") {
       query = query.in("company_id", allowedCompanyIds);
     }
@@ -64,18 +64,35 @@ export async function GET(req, { params }) {
       );
     }
 
-    // 🔐 Units filtradas también
-    const { data: units } = await supabase
+    /* =========================
+       UNITS
+    ========================= */
+
+    let unitsQuery = supabase
       .from("units")
       .select("*")
-      .eq("property_id", propertyId)
-      .in("company_id", allowedCompanyIds);
+      .eq("property_id", propertyId);
 
-    const { data: keys } = await supabase
+    if (role !== "super_admin") {
+      unitsQuery = unitsQuery.in("company_id", allowedCompanyIds);
+    }
+
+    const { data: units } = await unitsQuery;
+
+    /* =========================
+       KEYS
+    ========================= */
+
+    let keysQuery = supabase
       .from("keys")
       .select("*")
-      .eq("property_id", propertyId)
-      .in("company_id", allowedCompanyIds);
+      .eq("property_id", propertyId);
+
+    if (role !== "super_admin") {
+      keysQuery = keysQuery.in("company_id", allowedCompanyIds);
+    }
+
+    const { data: keys } = await keysQuery;
 
     return NextResponse.json({
       property,
@@ -109,7 +126,6 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // 🔐 Validar que property pertenezca a company permitida
     const { data: existingProperty } = await supabase
       .from("properties")
       .select("company_id")

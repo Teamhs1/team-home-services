@@ -8,27 +8,27 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
+/* =========================
+   GET PROPERTIES (CLIENT)
+========================= */
 export async function GET(req) {
   try {
     const { userId } = getAuth(req);
+
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const profile = await getProfileByClerkId(userId);
+
     if (!profile) {
       return NextResponse.json({ data: [] });
     }
 
-    // ✅ usar company activa o fallback a company principal
     const companyId = profile.active_company_id;
 
     if (!companyId) {
       console.warn("❌ No active company for user", userId);
-      return NextResponse.json({ data: [] });
-    }
-
-    if (!companyId) {
       return NextResponse.json({ data: [] });
     }
 
@@ -65,5 +65,75 @@ export async function GET(req) {
   } catch (err) {
     console.error("💥 API ERROR:", err);
     return NextResponse.json({ data: [] });
+  }
+}
+
+/* =========================
+   CREATE PROPERTY (CLIENT)
+========================= */
+export async function POST(req) {
+  try {
+    const { userId } = getAuth(req);
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const profile = await getProfileByClerkId(userId);
+
+    if (!profile) {
+      return NextResponse.json(
+        { error: "User profile not found" },
+        { status: 404 },
+      );
+    }
+
+    const companyId = profile.active_company_id;
+
+    if (!companyId) {
+      console.warn("❌ No active company for user", userId);
+
+      return NextResponse.json(
+        { error: "No active company for this user" },
+        { status: 400 },
+      );
+    }
+
+    const body = await req.json();
+
+    const { name, address, unit } = body;
+
+    if (!name || !address) {
+      return NextResponse.json(
+        { error: "Property name and address are required" },
+        { status: 400 },
+      );
+    }
+
+    const { data, error } = await supabase
+      .from("properties")
+      .insert({
+        name,
+        address,
+        unit: unit || null,
+        company_id: companyId,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("DB INSERT ERROR:", error);
+
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ data });
+  } catch (err) {
+    console.error("💥 CREATE PROPERTY ERROR:", err);
+
+    return NextResponse.json(
+      { error: "Unexpected server error" },
+      { status: 500 },
+    );
   }
 }

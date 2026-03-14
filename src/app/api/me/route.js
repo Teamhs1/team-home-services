@@ -53,7 +53,30 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(data);
+    /* ---------------------------
+       GET COMPANY ENABLED STATUS
+    --------------------------- */
+
+    let company_enabled = true;
+
+    if (data.active_company_id) {
+      const { data: company } = await supabase
+        .from("companies")
+        .select("enabled")
+        .eq("id", data.active_company_id)
+        .maybeSingle();
+
+      company_enabled = company?.enabled ?? true;
+    }
+
+    /* ---------------------------
+       RESPONSE
+    --------------------------- */
+
+    return NextResponse.json({
+      ...data,
+      company_enabled,
+    });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

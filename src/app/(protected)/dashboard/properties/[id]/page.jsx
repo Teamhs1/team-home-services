@@ -46,12 +46,14 @@ export default function PropertyDetailPage() {
   const [savingName, setSavingName] = useState(false);
   const { user, isLoaded } = useUser();
   const role = user?.publicMetadata?.role;
-
+  const [isEditingPostal, setIsEditingPostal] = useState(false);
+  const [postalDraft, setPostalDraft] = useState(property?.postal_code || "");
+  const [savingPostal, setSavingPostal] = useState(false);
   const permissions = {
     canEditProperty: role === "admin" || role === "client",
     canManageUnits: role === "admin" || role === "client",
     canManageKeys: role === "admin" || role === "client",
-    canSetLocation: role === "admin",
+    canSetLocation: role === "admin" || role === "client",
     canDeleteProperty: role === "admin" || role === "client",
     readOnly: role === "staff",
   };
@@ -75,6 +77,7 @@ export default function PropertyDetailPage() {
 
         setProperty(data.property || null);
         setNameDraft(data.property?.name || "");
+        setPostalDraft(data.property?.postal_code || "");
         setUnits(data.units || []);
         setKeys(data.keys || []);
       } catch (err) {
@@ -147,7 +150,43 @@ export default function PropertyDetailPage() {
       setSavingName(false);
     }
   }
+  async function savePostal() {
+    if (postalDraft === property.postal_code) {
+      setIsEditingPostal(false);
+      return;
+    }
 
+    try {
+      setSavingPostal(true);
+
+      const res = await fetch(`/api/dashboard/properties/${propertyId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          postal_code: postalDraft,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      setProperty((prev) => ({
+        ...prev,
+        postal_code: postalDraft,
+      }));
+
+      setIsEditingPostal(false);
+    } catch (err) {
+      console.error(err);
+      setPostalDraft(property.postal_code);
+      alert(err.message || "Failed to update postal code");
+    } finally {
+      setSavingPostal(false);
+    }
+  }
   return (
     <div className="p-8 pt-[130px] space-y-8 max-w-[1400px] mx-auto">
       {/* BACK */}
@@ -221,11 +260,49 @@ export default function PropertyDetailPage() {
 
             <span className="text-base font-medium">
               {property.address}
-              {property.postal_code && (
-                <span className="ml-2 font-semibold text-gray-900">
-                  {property.postal_code}
-                </span>
-              )}
+              <span className="ml-2 font-semibold text-gray-900 flex items-center gap-2 group">
+                {permissions.canEditProperty && isEditingPostal ? (
+                  <input
+                    autoFocus
+                    value={postalDraft || ""}
+                    onChange={(e) => setPostalDraft(e.target.value)}
+                    onBlur={savePostal}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") savePostal();
+                      if (e.key === "Escape") {
+                        setPostalDraft(property.postal_code || "");
+                        setIsEditingPostal(false);
+                      }
+                    }}
+                    disabled={savingPostal}
+                    className="border-b border-gray-300 focus:outline-none focus:border-primary bg-transparent"
+                  />
+                ) : (
+                  <>
+                    <span
+                      onClick={() =>
+                        permissions.canEditProperty && setIsEditingPostal(true)
+                      }
+                      className={`${
+                        permissions.canEditProperty
+                          ? "cursor-text hover:text-primary"
+                          : ""
+                      }`}
+                    >
+                      {property.postal_code || "—"}
+                    </span>
+
+                    {permissions.canEditProperty && (
+                      <button
+                        onClick={() => setIsEditingPostal(true)}
+                        className="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-primary"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    )}
+                  </>
+                )}
+              </span>
             </span>
           </p>
 

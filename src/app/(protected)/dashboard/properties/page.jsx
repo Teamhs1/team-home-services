@@ -21,14 +21,18 @@ export default function PropertiesListPage() {
   /* =====================
      ROLE REAL (SUPABASE)
   ===================== */
+  const [billingEnabled, setBillingEnabled] = useState(true);
+
   const [role, setRole] = useState(null);
 
   const isSystemAdmin = role === "admin" || role === "super_admin";
 
+  const canCreateProperty =
+    role === "super_admin" || role === "admin" || billingEnabled;
+
   const [properties, setProperties] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
-
   // 🔒 EXISTENTE (no romper)
   const [selectedCompany, setSelectedCompany] = useState("all");
   const [viewMode, setViewMode] = useState("list");
@@ -37,11 +41,19 @@ export default function PropertiesListPage() {
   const [selectedOwner, setSelectedOwner] = useState("all");
 
   const router = useRouter();
-  const goToProperty = (propertyId) => {
+  const goToProperty = (propertyId, unitId = null) => {
     if (isSystemAdmin) {
-      router.push(`/admin/properties/${propertyId}`);
+      router.push(
+        unitId
+          ? `/admin/properties/${propertyId}/units/${unitId}`
+          : `/admin/properties/${propertyId}`,
+      );
     } else {
-      router.push(`/dashboard/properties/${propertyId}`);
+      router.push(
+        unitId
+          ? `/dashboard/properties/${propertyId}/units/${unitId}`
+          : `/dashboard/properties/${propertyId}`,
+      );
     }
   };
 
@@ -49,24 +61,31 @@ export default function PropertiesListPage() {
      LOAD ROLE (SOURCE OF TRUTH)
   ===================== */
   useEffect(() => {
-    async function loadRole() {
+    if (!isLoaded) return;
+
+    async function loadUserContext() {
       try {
-        const res = await fetch("/api/me", {
-          credentials: "include",
-        });
+        const [billingRes, profileRes] = await Promise.all([
+          fetch("/api/company/billing", { credentials: "include" }),
+          fetch("/api/my/profile", { credentials: "include" }),
+        ]);
 
-        if (!res.ok) return;
+        if (billingRes.ok) {
+          const billing = await billingRes.json();
+          setBillingEnabled(billing.billing_enabled ?? true);
+        }
 
-        const json = await res.json();
-        setRole(json.role);
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          setRole(profile.role ?? null);
+        }
       } catch (err) {
-        console.error("LOAD ROLE ERROR:", err);
+        console.error("LOAD USER CONTEXT ERROR:", err);
       }
     }
 
-    if (isLoaded) loadRole();
+    loadUserContext();
   }, [isLoaded]);
-
   /* =====================
      LOAD COMPANIES (ADMIN ONLY)
   ===================== */
@@ -93,47 +112,35 @@ export default function PropertiesListPage() {
   }, [isLoaded, role]);
 
   /* =====================
-     LOAD PROPERTIES (ROLE AWARE)
-  ===================== */
+   LOAD PROPERTIES
+===================== */
   useEffect(() => {
-    if (!isLoaded || !role) return;
-
-    let mounted = true;
+    if (!isLoaded || role === null) return;
 
     async function loadProperties() {
       try {
-        const endpoint = isSystemAdmin
-          ? "/api/admin/properties"
-          : "/api/properties";
+        setLoading(true);
 
-        const res = await fetch(endpoint, {
+        const res = await fetch("/api/properties", {
           cache: "no-store",
           credentials: "include",
         });
 
         if (!res.ok) {
-          console.error("API ERROR:", await res.text());
-          if (mounted) setProperties([]);
+          console.error("Failed to load properties");
           return;
         }
 
         const json = await res.json();
-        const list = Array.isArray(json) ? json : json.data || [];
-
-        if (mounted) setProperties(list);
+        setProperties(Array.isArray(json) ? json : (json.properties ?? []));
       } catch (err) {
         console.error("LOAD PROPERTIES ERROR:", err);
-        if (mounted) setProperties([]);
       } finally {
-        if (mounted) setLoading(false);
+        setLoading(false);
       }
     }
 
     loadProperties();
-
-    return () => {
-      mounted = false;
-    };
   }, [isLoaded, role]);
 
   // 📱 grid automático mobile
@@ -249,6 +256,13 @@ export default function PropertiesListPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Billing disabled warning (igual que invoices) */}
+          {!billingEnabled && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              Billing is disabled for this company. New properties cannot be
+              created.
+            </div>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -262,9 +276,14 @@ export default function PropertiesListPage() {
             )}
           </Button>
 
-          {isSystemAdmin && (
+          {/* Create property */}
+          {billingEnabled && (
             <Link
-              href="/admin/properties/create"
+              href={
+                isSystemAdmin
+                  ? "/admin/properties/create"
+                  : "/dashboard/properties/create"
+              }
               className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
             >
               + Add Property
