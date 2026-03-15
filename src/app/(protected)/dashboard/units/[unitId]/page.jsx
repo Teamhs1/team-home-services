@@ -28,8 +28,9 @@ export default function UnitDetailPublicPage() {
   const [savingLocation, setSavingLocation] = useState(false);
 
   /* =======================
-     LOAD UNIT (NON ADMIN)
+     LOAD UNIT
   ======================= */
+
   useEffect(() => {
     if (!propertyId || !unitId) return;
 
@@ -55,21 +56,47 @@ export default function UnitDetailPublicPage() {
     loadUnit();
   }, [propertyId, unitId, router]);
 
+  /* =======================
+     LOADING
+  ======================= */
+
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl p-6 pt-[120px]">Loading unit…</div>
+      <div className="mx-auto max-w-7xl space-y-6 p-6 pt-[120px]">
+        <div className="h-[420px] w-full animate-pulse rounded-2xl bg-muted" />
+        <div className="h-6 w-1/3 animate-pulse rounded bg-muted" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="h-16 animate-pulse rounded-xl bg-muted" />
+          <div className="h-16 animate-pulse rounded-xl bg-muted" />
+          <div className="h-16 animate-pulse rounded-xl bg-muted" />
+        </div>
+      </div>
     );
   }
 
   if (!unit) return null;
 
+  /* =======================
+     LOCATION
+  ======================= */
+
   const lat =
-    typeof unit.latitude === "number" ? unit.latitude : unit.property?.latitude;
+    typeof unit.latitude === "number"
+      ? unit.latitude
+      : (unit.property?.latitude ?? null);
 
   const lng =
     typeof unit.longitude === "number"
       ? unit.longitude
-      : unit.property?.longitude;
+      : (unit.property?.longitude ?? null);
+
+  /* =======================
+     IMAGES
+  ======================= */
+
+  const sliderImages = (
+    unit.images?.length ? unit.images : unit.property?.images || []
+  ).map((img) => (typeof img === "string" ? { url: img } : img));
 
   /* =======================
      UPDATE LOCATION
@@ -110,6 +137,9 @@ export default function UnitDetailPublicPage() {
     }
   }
 
+  const displayedPostal =
+    unit.postal_code ?? unit.property?.postal_code ?? null;
+
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-6 pt-[120px]">
       {/* BACK */}
@@ -121,15 +151,24 @@ export default function UnitDetailPublicPage() {
         Back
       </button>
 
-      {/* IMAGES */}
-      <div className="overflow-hidden rounded-2xl border">
-        <Slider images={unit.property?.images || []} />
+      {/* SLIDER */}
+      <div className="overflow-hidden rounded-2xl border shadow-sm">
+        <Slider images={sliderImages} />
       </div>
 
       {/* ADDRESS */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <MapPin className="h-4 w-4 text-primary" />
-        {unit.property?.address}
+
+        <span className="flex items-center gap-2">
+          {unit.property?.address}
+
+          {displayedPostal && (
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              {displayedPostal}
+            </span>
+          )}
+        </span>
       </div>
 
       {/* TITLE */}
@@ -146,7 +185,7 @@ export default function UnitDetailPublicPage() {
       {/* PRICE */}
       {unit.rent_price && (
         <div className="text-2xl font-bold text-primary">
-          ${unit.rent_price}
+          ${Number(unit.rent_price).toLocaleString()}
           <span className="text-sm font-normal text-muted-foreground">
             {" "}
             / month
@@ -154,20 +193,33 @@ export default function UnitDetailPublicPage() {
         </div>
       )}
 
+      {/* AVAILABILITY */}
+      {unit.available_from && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Calendar className="h-4 w-4 text-primary" />
+          Available from {new Date(unit.available_from).toLocaleDateString()}
+        </div>
+      )}
+
       {/* FEATURES */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Feature icon={BedDouble} label={`${unit.bedrooms ?? "—"} Beds`} />
         <Feature icon={Bath} label={`${unit.bathrooms ?? "—"} Baths`} />
+
         <Feature
           icon={Car}
-          label={unit.parking ? "Parking available" : "No parking"}
+          label={
+            unit.parking ? `Parking (${unit.parking_spots ?? 1})` : "No parking"
+          }
         />
+
         <Feature
           icon={Ruler}
           label={
             unit.square_feet ? `${unit.square_feet} sqft` : "Size not specified"
           }
         />
+
         <Feature
           icon={Hammer}
           label={`Built ${unit.property?.year_built ?? "—"}`}
@@ -176,8 +228,29 @@ export default function UnitDetailPublicPage() {
 
       {/* DESCRIPTION */}
       {unit.description && (
-        <div className="rounded-xl bg-muted/30 p-5 text-sm">
-          {unit.description}
+        <div className="bg-gray-50 rounded-xl p-6 text-sm text-gray-700">
+          <div className="columns-1 md:columns-2 gap-10">
+            {unit.description
+              .split("\n")
+              .filter(Boolean)
+              .map((line, i) => {
+                const lower = line.toLowerCase();
+
+                const isRestricted =
+                  lower.includes("no ") ||
+                  lower.includes("not allowed") ||
+                  lower.includes("required");
+
+                return (
+                  <div key={i} className="flex items-start gap-3">
+                    <span className="mt-0.5 text-lg">
+                      {isRestricted ? "❌" : "✅"}
+                    </span>
+                    <span>{line}</span>
+                  </div>
+                );
+              })}
+          </div>
         </div>
       )}
 
@@ -198,8 +271,8 @@ export default function UnitDetailPublicPage() {
         </p>
 
         <PropertyMap
-          lat={lat ?? null}
-          lng={lng ?? null}
+          lat={lat}
+          lng={lng}
           editable
           onChange={handleLocationChange}
         />

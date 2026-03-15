@@ -57,6 +57,7 @@ export async function GET(req, { params }) {
     // 🔐 seguridad por company
     if (
       profile.role !== "admin" &&
+      profile.role !== "super_admin" &&
       unit.property.company_id !== profile.company_id
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
