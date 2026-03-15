@@ -35,7 +35,9 @@ export default function UnitDetailPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const { user } = useUser();
-  const isAdmin = user?.publicMetadata?.role === "client";
+  const role = user?.publicMetadata?.role;
+
+  const isAdmin = role === "admin" || role === "super_admin";
   const [editingPostal, setEditingPostal] = useState(false);
   const [postalDraft, setPostalDraft] = useState("");
   const [unitImages, setUnitImages] = useState([]);
@@ -49,7 +51,7 @@ export default function UnitDetailPage() {
 
     async function loadUnit() {
       try {
-        const apiBase = isAdmin ? "/api/admin" : "/api/dashboard";
+        const apiBase = "/api/admin";
 
         const res = await fetch(
           `${apiBase}/properties/${propertyId}/units/${unitId}`,
@@ -72,14 +74,16 @@ export default function UnitDetailPage() {
         );
       } catch (err) {
         toast.error(err.message);
-        router.push(`/admin/properties/${propertyId}`);
+
+        const basePath = isAdmin ? "/admin" : "/dashboard";
+        router.push(`${basePath}/properties/${propertyId}`);
       } finally {
         setLoading(false);
       }
     }
 
     loadUnit();
-  }, [propertyId, unitId, router]);
+  }, [propertyId, unitId, isAdmin, router]);
   /* =======================
    AUTO RESIZE DESCRIPTION
 ======================= */

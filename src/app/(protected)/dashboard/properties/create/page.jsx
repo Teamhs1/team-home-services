@@ -17,6 +17,8 @@ export default function DashboardCreatePropertyPage() {
   const [unit, setUnit] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [limitModal, setLimitModal] = useState(null);
+
   /* =====================
      BILLING + ROLE
   ===================== */
@@ -76,13 +78,22 @@ export default function DashboardCreatePropertyPage() {
       });
 
       const data = await res.json().catch(() => ({}));
-
+      console.log("PLAN RESPONSE:", data);
       if (!res.ok) {
         console.log("API ERROR:", data);
 
-        toast.error(data?.error || "Failed to create property", {
-          description: JSON.stringify(data),
-        });
+        if (data?.upgradeRequired) {
+          setLimitModal({
+            limit: data.limit ?? 6,
+            plan: data.plan ?? "Unknown",
+            type: "properties",
+          });
+
+          setSaving(false);
+          return;
+        }
+
+        toast.error(data?.error || "Failed to create property");
         setSaving(false);
         return;
       }
@@ -201,6 +212,39 @@ export default function DashboardCreatePropertyPage() {
           </Link>
         </div>
       </form>
+
+      {/* PLAN LIMIT MODAL */}
+
+      {limitModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl space-y-4">
+            <h2 className="text-xl font-semibold">Plan limit reached</h2>
+
+            <p className="text-sm text-gray-600">
+              Your{" "}
+              <b>
+                {limitModal.plan?.charAt(0).toUpperCase() +
+                  limitModal.plan?.slice(1)}
+              </b>{" "}
+              plan allows up to <b>{limitModal.limit}</b> {limitModal.type}.
+            </p>
+
+            <p className="text-sm text-gray-600">
+              Upgrade your plan to create more.
+            </p>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setLimitModal(null)}>
+                Close
+              </Button>
+
+              <Button onClick={() => router.push("/pricing?reason=unit-limit")}>
+                Upgrade Plan
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

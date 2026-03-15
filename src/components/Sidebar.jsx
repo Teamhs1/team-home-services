@@ -599,6 +599,12 @@ export default function Sidebar() {
           icon: ICONS.users,
         },
         {
+          id: "admin-content",
+          name: "Content",
+          href: "/admin/content",
+          icon: ICONS.content,
+        },
+        {
           id: "admin-companies",
           name: "Companies",
           href: "/admin/companies",

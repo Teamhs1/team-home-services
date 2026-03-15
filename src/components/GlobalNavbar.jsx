@@ -365,6 +365,16 @@ ${
             </Link>
           )}
 
+          <Link
+            href="/software"
+            className={`relative hover:text-blue-600 transition-colors ${
+              pathname.startsWith("/software")
+                ? "text-blue-600 font-semibold"
+                : ""
+            }`}
+          >
+            Software
+          </Link>
           <a href="/#contact" className="hover:text-blue-600 transition-colors">
             Contact
           </a>

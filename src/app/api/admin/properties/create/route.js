@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 import { getAllowedCompanyIds } from "@/utils/permissions/getAllowedCompanyIds";
+import { PLAN_LIMITS } from "@/lib/planLimits";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -82,7 +83,58 @@ export async function POST(req) {
         { status: 409 },
       );
     }
+    /* =====================
+   CHECK PLAN LIMIT
+===================== */
 
+    const { data: company } = await supabase
+      .from("companies")
+      .select("plan_type")
+      .eq("id", company_id)
+      .single();
+
+    const plan = company?.plan_type;
+
+    if (!plan) {
+      return NextResponse.json(
+        {
+          error: "Company has no active plan",
+          upgradeRequired: true,
+          plan: "none",
+          limit: 0,
+          resource: "properties",
+        },
+        { status: 403 },
+      );
+    }
+
+    const propertyLimit = PLAN_LIMITS[plan]?.properties;
+
+    if (!propertyLimit && propertyLimit !== Infinity) {
+      return NextResponse.json(
+        {
+          error: `Invalid plan configuration: ${plan}`,
+        },
+        { status: 500 },
+      );
+    }
+
+    /* contar propiedades actuales */
+
+    const { count } = await supabase
+      .from("properties")
+      .select("*", { count: "exact", head: true })
+      .eq("company_id", company_id);
+
+    if (count >= propertyLimit) {
+      return NextResponse.json(
+        {
+          error:
+            "You reached the property limit for your plan. Upgrade your plan.",
+        },
+        { status: 403 },
+      );
+    }
     /* =====================
        CREATE PROPERTY
     ===================== */

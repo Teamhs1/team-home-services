@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { getProfileByClerkId } from "@/lib/permissions";
+import { PLAN_LIMITS } from "@/lib/planLimits";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -100,7 +101,6 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-
     const { name, address, unit } = body;
 
     if (!name || !address) {
@@ -109,6 +109,59 @@ export async function POST(req) {
         { status: 400 },
       );
     }
+
+    /* =========================
+       LOAD COMPANY PLAN
+    ========================= */
+
+    const { data: company } = await supabase
+      .from("companies")
+      .select("plan_type")
+      .eq("id", companyId)
+      .single();
+
+    const plan = company?.plan_type;
+
+    if (!plan) {
+      return NextResponse.json(
+        {
+          error: "Company has no active plan",
+          upgradeRequired: true,
+          plan: "none",
+          limit: 0,
+          resource: "properties",
+        },
+        { status: 403 },
+      );
+    }
+
+    const planLimit = PLAN_LIMITS[plan]?.properties;
+
+    /* =========================
+       COUNT PROPERTIES
+    ========================= */
+
+    const { count } = await supabase
+      .from("properties")
+      .select("*", { count: "exact", head: true })
+      .eq("company_id", companyId);
+
+    if (planLimit !== Infinity && count >= planLimit) {
+      return NextResponse.json(
+        {
+          error: "Property limit reached",
+          upgradeRequired: true,
+          plan,
+          limit: planLimit,
+          resource: "properties",
+        },
+        { status: 403 },
+      );
+    }
+
+    /* =========================
+       INSERT PROPERTY
+    ========================= */
 
     const { data, error } = await supabase
       .from("properties")

@@ -27,16 +27,13 @@ export default function RootClientLayout({ children }) {
     pathname?.startsWith("/profile");
 
   return (
-    <div className="min-h-screen bg-gray-50 transition-all duration-300">
-      {/* ✅ Navbar global (ya maneja su propio marginLeft internamente) */}
+    <div className="min-h-screen bg-inherit transition-all duration-300">
       <GlobalNavbar />
 
-      {/* 🔹 Contenido principal */}
       <main
         className={`transition-all duration-300 ${
           isDashboard ? "pt-[5rem]" : "pt-[4rem]"
         }`}
-        // ❌ eliminamos marginLeft aquí, lo maneja el navbar
       >
         {children}
       </main>

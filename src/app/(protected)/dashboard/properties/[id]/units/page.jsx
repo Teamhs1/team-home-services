@@ -20,8 +20,13 @@ import {
 } from "lucide-react";
 
 export default function UnitDetailPublicPage() {
-  const { id: propertyId, unitId } = useParams();
+  const params = useParams();
   const router = useRouter();
+
+  const propertyId = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const unitId = Array.isArray(params?.unitId)
+    ? params.unitId[0]
+    : params?.unitId;
 
   const [unit, setUnit] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,22 +34,30 @@ export default function UnitDetailPublicPage() {
   /* =======================
      LOAD UNIT (NON ADMIN)
   ======================= */
+
   useEffect(() => {
     if (!propertyId || !unitId) return;
 
     async function loadUnit() {
       try {
         const res = await fetch(
-          `/api/dashboard/properties/${propertyId}/units/${unitId}`,
-          { cache: "no-store", credentials: "include" }
+          `/api/admin/properties/${propertyId}/units/${unitId}`,
+          {
+            cache: "no-store",
+            credentials: "include",
+          },
         );
 
         if (!res.ok) throw new Error("Failed to load unit");
 
         const json = await res.json();
+
+        if (!json?.unit) throw new Error("Unit not found");
+
         setUnit(json.unit);
       } catch (err) {
-        toast.error(err.message);
+        console.error("❌ Load unit error:", err);
+        toast.error(err.message || "Failed to load unit");
         router.back();
       } finally {
         setLoading(false);
@@ -56,19 +69,23 @@ export default function UnitDetailPublicPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl p-6 pt-[120px]">Loading unit…</div>
+      <div className="mx-auto max-w-7xl p-6 pt-[120px] text-center text-muted-foreground">
+        Loading unit…
+      </div>
     );
   }
 
   if (!unit) return null;
 
+  const property = unit.property || {};
+
   const lat =
-    typeof unit.latitude === "number" ? unit.latitude : unit.property?.latitude;
+    typeof unit.latitude === "number" ? unit.latitude : property?.latitude;
 
   const lng =
-    typeof unit.longitude === "number"
-      ? unit.longitude
-      : unit.property?.longitude;
+    typeof unit.longitude === "number" ? unit.longitude : property?.longitude;
+
+  const images = Array.isArray(property?.images) ? property.images : [];
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-6 pt-[120px]">
@@ -83,13 +100,13 @@ export default function UnitDetailPublicPage() {
 
       {/* IMAGES */}
       <div className="overflow-hidden rounded-2xl border">
-        <Slider images={unit.property?.images || []} />
+        <Slider images={images} />
       </div>
 
       {/* ADDRESS */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <MapPin className="h-4 w-4 text-primary" />
-        {unit.property?.address}
+        {property?.address || "Address not available"}
       </div>
 
       {/* TITLE */}
@@ -106,7 +123,7 @@ export default function UnitDetailPublicPage() {
       {/* PRICE */}
       {unit.rent_price && (
         <div className="text-2xl font-bold text-primary">
-          ${unit.rent_price}
+          ${Number(unit.rent_price).toLocaleString()}
           <span className="text-sm font-normal text-muted-foreground">
             {" "}
             / month
@@ -117,26 +134,27 @@ export default function UnitDetailPublicPage() {
       {/* FEATURES */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Feature icon={BedDouble} label={`${unit.bedrooms ?? "—"} Beds`} />
+
         <Feature icon={Bath} label={`${unit.bathrooms ?? "—"} Baths`} />
+
         <Feature
           icon={Car}
           label={unit.parking ? "Parking available" : "No parking"}
         />
+
         <Feature
           icon={Ruler}
           label={
             unit.square_feet ? `${unit.square_feet} sqft` : "Size not specified"
           }
         />
-        <Feature
-          icon={Hammer}
-          label={`Built ${unit.property?.year_built ?? "—"}`}
-        />
+
+        <Feature icon={Hammer} label={`Built ${property?.year_built ?? "—"}`} />
       </div>
 
       {/* DESCRIPTION */}
       {unit.description && (
-        <div className="rounded-xl bg-muted/30 p-5 text-sm">
+        <div className="rounded-xl bg-muted/30 p-5 text-sm whitespace-pre-line">
           {unit.description}
         </div>
       )}
@@ -149,7 +167,7 @@ export default function UnitDetailPublicPage() {
         <InfoCard
           icon={<Home className="h-5 w-5 text-primary" />}
           label="Property"
-          value={unit.property?.address || "—"}
+          value={property?.address || "—"}
         />
 
         <InfoCard

@@ -39,10 +39,20 @@ export async function POST(req) {
     /* =========================
        BODY
     ========================= */
-    const { about, services, serviceDetails } = await req.json();
+    const {
+      about,
+      services,
+      serviceDetails,
+      softwareHero,
+      softwareProblem,
+      softwareFeatures,
+      softwareSteps,
+      softwareCTA,
+    } = await req.json();
 
     const updates = [];
 
+    /* ABOUT */
     if (about) {
       updates.push(
         supabase
@@ -52,6 +62,7 @@ export async function POST(req) {
       );
     }
 
+    /* SERVICES */
     if (services) {
       updates.push(
         supabase
@@ -61,6 +72,7 @@ export async function POST(req) {
       );
     }
 
+    /* SERVICE DETAILS */
     if (serviceDetails) {
       updates.push(
         supabase
@@ -70,13 +82,69 @@ export async function POST(req) {
       );
     }
 
+    /* SOFTWARE HERO */
+    if (softwareHero) {
+      updates.push(
+        supabase
+          .from("site_content")
+          .update({ content: softwareHero })
+          .eq("section", "software_hero"),
+      );
+    }
+
+    /* SOFTWARE PROBLEM */
+    if (softwareProblem) {
+      updates.push(
+        supabase
+          .from("site_content")
+          .update({ content: softwareProblem })
+          .eq("section", "software_problem"),
+      );
+    }
+
+    /* SOFTWARE FEATURES */
+    if (softwareFeatures) {
+      updates.push(
+        supabase
+          .from("site_content")
+          .update({ content: softwareFeatures })
+          .eq("section", "software_features"),
+      );
+    }
+
+    /* SOFTWARE STEPS */
+    if (softwareSteps) {
+      updates.push(
+        supabase
+          .from("site_content")
+          .update({ content: softwareSteps })
+          .eq("section", "software_steps"),
+      );
+    }
+
+    /* SOFTWARE CTA */
+    if (softwareCTA) {
+      updates.push(
+        supabase
+          .from("site_content")
+          .update({ content: softwareCTA })
+          .eq("section", "software_cta"),
+      );
+    }
+
+    /* =========================
+       EXECUTE
+    ========================= */
     const results = await Promise.all(updates);
+
     const errors = results.map((r) => r.error).filter(Boolean);
+
     if (errors.length) throw errors[0];
 
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("❌ /api/admin/content error:", err);
+
     return NextResponse.json(
       { error: err.message || "Internal server error" },
       { status: 500 },
