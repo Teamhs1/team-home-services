@@ -725,25 +725,31 @@ export default function Sidebar() {
     >
       {/* HEADER */}
       <div className="relative">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-inherit">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700/50">
           <Link href="/dashboard" className="flex items-center gap-3">
             <motion.div animate={{ rotate: isOpen ? 0 : 360 }}>
               <Image
-                src="/logo.png"
-                alt="Team Home Services"
+                src="/Teamoslogo.png"
+                alt="TeamOS Platform"
                 width={isOpen ? 34 : 40}
                 height={isOpen ? 34 : 40}
                 className="rounded-md"
               />
             </motion.div>
             {isOpen && (
-              <motion.span
+              <motion.div
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="text-lg font-semibold"
+                className="flex flex-col leading-tight"
               >
-                Team Home Services
-              </motion.span>
+                <span className="text-base font-semibold tracking-tight">
+                  TeamOS
+                </span>
+
+                <span className="text-[10px] text-slate-400">
+                  by Team Home Services
+                </span>
+              </motion.div>
             )}
           </Link>
         </div>
