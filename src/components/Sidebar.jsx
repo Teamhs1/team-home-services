@@ -729,7 +729,7 @@ export default function Sidebar() {
           <Link href="/dashboard" className="flex items-center gap-3">
             <motion.div animate={{ rotate: isOpen ? 0 : 360 }}>
               <Image
-                src="/Teamoslogo.png"
+                src="/teamoslogo.png"
                 alt="TeamOS Platform"
                 width={isOpen ? 34 : 40}
                 height={isOpen ? 34 : 40}
