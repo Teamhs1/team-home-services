@@ -62,8 +62,12 @@ export default function StaffPermissionsPage() {
         if (!res.ok) throw new Error();
 
         const data = await res.json();
+
         const map = {};
-        data.forEach((p) => (map[p.resource] = true));
+        data.forEach((p) => {
+          map[p.resource] = p.can_view === true;
+        });
+
         setPermissions(map);
 
         // 🔍 detectar si coincide con un template

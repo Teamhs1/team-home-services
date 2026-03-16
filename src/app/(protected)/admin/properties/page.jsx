@@ -1,5 +1,5 @@
 "use client";
-
+import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -31,7 +31,8 @@ export default function PropertiesListPage() {
   const [selectedProperties, setSelectedProperties] = useState(new Set());
 
   const router = useRouter();
-
+  const { user } = useUser();
+  const role = user?.publicMetadata?.role;
   console.log("COMPANIES STATE:", companies);
 
   /* =====================
@@ -76,8 +77,8 @@ export default function PropertiesListPage() {
           return;
         }
 
-const result = await res.json();
-if (mounted) setProperties(result.properties || []);
+        const result = await res.json();
+        if (mounted) setProperties(result);
       } catch (err) {
         console.error("LOAD PROPERTIES ERROR:", err);
         if (mounted) setProperties([]);
@@ -344,12 +345,18 @@ if (mounted) setProperties(result.properties || []);
             )}
           </Button>
 
-          <Link
-            href="/admin/properties/create"
+          <button
+            onClick={() => {
+              if (role === "super_admin" || role === "admin") {
+                router.push("/admin/properties/create");
+              } else {
+                router.push("/dashboard/properties/create");
+              }
+            }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition"
           >
             + Add Property
-          </Link>
+          </button>
         </div>
       </div>
       {/* 🟡 BULK ACTION BAR */}

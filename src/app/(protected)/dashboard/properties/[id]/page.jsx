@@ -57,7 +57,26 @@ export default function PropertyDetailPage() {
     canDeleteProperty: role === "admin" || role === "client",
     readOnly: role === "staff",
   };
+  const [billingEnabled, setBillingEnabled] = useState(true);
 
+  useEffect(() => {
+    async function loadBilling() {
+      try {
+        const res = await fetch("/api/company/billing", {
+          credentials: "include",
+        });
+
+        if (!res.ok) return;
+
+        const json = await res.json();
+        setBillingEnabled(json.billing_enabled ?? true);
+      } catch (err) {
+        console.error("Billing load error:", err);
+      }
+    }
+
+    loadBilling();
+  }, []);
   /* =====================
      LOAD PROPERTY DATA
   ===================== */
@@ -354,10 +373,17 @@ export default function PropertyDetailPage() {
         <div className="flex flex-wrap gap-2">
           {permissions.canManageUnits && (
             <button
-              onClick={() =>
-                router.push(`/dashboard/properties/${propertyId}/units/create`)
-              }
-              className="flex items-center gap-2 border px-4 py-2 rounded-lg hover:bg-gray-50"
+              title={!billingEnabled ? "Upgrade your plan to add units" : ""}
+              onClick={() => {
+                if (!billingEnabled) return;
+                router.push(`/dashboard/properties/${propertyId}/units/create`);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition
+    ${
+      billingEnabled
+        ? "border hover:bg-gray-50"
+        : "bg-gray-200 text-gray-500 cursor-not-allowed"
+    }`}
             >
               <Plus size={16} /> Add Unit
             </button>
@@ -365,10 +391,17 @@ export default function PropertyDetailPage() {
 
           {permissions.canManageKeys && (
             <button
-              onClick={() =>
-                router.push(`/dashboard/keys/create?property_id=${propertyId}`)
-              }
-              className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90"
+              title={!billingEnabled ? "Upgrade your plan to add keys" : ""}
+              onClick={() => {
+                if (!billingEnabled) return;
+                router.push(`/dashboard/keys/create?property_id=${propertyId}`);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition
+    ${
+      billingEnabled
+        ? "bg-primary text-white hover:bg-primary/90"
+        : "bg-gray-200 text-gray-500 cursor-not-allowed"
+    }`}
             >
               <Plus size={16} /> Add Key
             </button>

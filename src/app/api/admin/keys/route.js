@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /* =========================
@@ -15,9 +15,31 @@ const supabase = createClient(
 ========================= */
 export async function GET(req) {
   try {
+    const { userId } = getAuth(req);
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const companyId = searchParams.get("company_id");
 
+    /* =========================
+       LOAD USER PROFILE
+    ========================= */
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, role, company_id")
+      .eq("clerk_id", userId)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    /* =========================
+       BASE QUERY
+    ========================= */
     let query = supabase
       .from("keys")
       .select(
@@ -35,10 +57,59 @@ export async function GET(req) {
           company_id,
           address
         )
-      `
+      `,
       )
       .order("unit", { ascending: true });
 
+    /* =========================
+       ROLE FILTER
+    ========================= */
+
+    // super_admin → ve todo
+    if (profile.role === "super_admin") {
+      // no filtro
+    }
+
+    // admin → solo properties de su company
+    else if (profile.role === "admin") {
+      const { data: propertyIds, error } = await supabase
+        .from("properties")
+        .select("id")
+        .eq("company_id", profile.company_id);
+
+      if (error) throw error;
+
+      const ids = propertyIds.map((p) => p.id);
+
+      if (!ids.length) {
+        return NextResponse.json({ keys: [] });
+      }
+
+      query = query.in("property_id", ids);
+    }
+
+    // client → solo sus properties
+    else if (profile.role === "client") {
+      const { data: propertyIds, error } = await supabase
+        .from("properties")
+        .select("id")
+        .eq("client_id", profile.id);
+
+      if (error) throw error;
+
+      const ids = propertyIds.map((p) => p.id);
+
+      if (!ids.length) {
+        return NextResponse.json({ keys: [] });
+      }
+
+      query = query.in("property_id", ids);
+    }
+
+    /* =========================
+       OPTIONAL COMPANY FILTER
+       (UI filter)
+    ========================= */
     if (companyId) {
       const { data: propertyIds, error } = await supabase
         .from("properties")
@@ -48,6 +119,7 @@ export async function GET(req) {
       if (error) throw error;
 
       const ids = propertyIds.map((p) => p.id);
+
       if (!ids.length) {
         return NextResponse.json({ keys: [] });
       }
@@ -56,6 +128,7 @@ export async function GET(req) {
     }
 
     const { data, error } = await query;
+
     if (error) throw error;
 
     return NextResponse.json({ keys: data });
@@ -83,7 +156,10 @@ export async function POST(req) {
       .eq("clerk_id", userId)
       .single();
 
-    if (profileError || profile?.role !== "admin") {
+    if (
+      profileError ||
+      (profile?.role !== "admin" && profile?.role !== "super_admin")
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -92,7 +168,7 @@ export async function POST(req) {
     if (!property_id || !type || !tag_code) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

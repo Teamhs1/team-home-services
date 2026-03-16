@@ -150,7 +150,7 @@ export default function Sidebar() {
 
   const [role, setRole] = useState("user");
   const isSuperAdmin = role === "super_admin";
-  const isCompanyAdmin = role === "admin";
+  const isCompanyAdmin = role === "admin" || role === "client";
   const [staffType, setStaffType] = useState(null);
   const [hasSyncError, setHasSyncError] = useState(false);
   const [sidebarTheme, setSidebarTheme] = useState("dark");
@@ -549,29 +549,27 @@ export default function Sidebar() {
     },
 
     {
-      id: "properties-dashboard",
+      id: "properties",
       name: "Properties",
       href: "/dashboard/properties",
       icon: ICONS.properties,
       resource: "properties",
-      hideForAdmin: true,
     },
     {
       id: "owners",
       name: "Owners",
-      href: "/admin/owners",
+      href: "/dashboard/owners",
       icon: ICONS.owners,
       resource: "owners",
       hideForAdmin: false, // admin SÍ lo ve
     },
 
     {
-      id: "keys-dashboard",
+      id: "keys",
       name: "Keys",
       href: "/dashboard/keys",
       icon: ICONS.keys,
       resource: "keys",
-      hideForAdmin: true,
     },
     {
       id: "tenants",
