@@ -17,7 +17,7 @@ export default function JobGallery({
 
   const openFullscreen = (list, index) => {
     const urls = list.map((p) =>
-      publicUrl(p.image_url || p.file_path || p.path)
+      publicUrl(p.image_url || p.file_path || p.path),
     );
     setFullscreenImages(urls);
     setFullscreenIndex(index);
