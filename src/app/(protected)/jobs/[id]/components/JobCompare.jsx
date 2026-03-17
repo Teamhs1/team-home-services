@@ -38,17 +38,50 @@ export default function JobCompare({ beforePhotos, afterPhotos, publicUrl }) {
   }
 
   // Pair by index
-  const minLength = Math.min(beforePhotos.length, afterPhotos.length);
-  const pairs = [];
+  // ✅ FIX SEGURO: evita repetir AFTER + fallback por index
+  const usedAfterIndexes = new Set();
 
-  for (let i = 0; i < minLength; i++) {
-    pairs.push({
-      before: beforePhotos[i],
-      after: afterPhotos[i],
-      key: `pair-${i}`,
-      label: `Comparison ${i + 1}`,
-    });
-  }
+  const pairs = beforePhotos
+    .map((before, index) => {
+      let matchIndex = -1;
+
+      // 🔍 intento 1: match por area/category/label (solo si existen)
+      matchIndex = afterPhotos.findIndex((after, i) => {
+        if (usedAfterIndexes.has(i)) return false;
+
+        return (
+          (before.area && after.area && after.area === before.area) ||
+          (before.category &&
+            after.category &&
+            after.category === before.category) ||
+          (before.label && after.label && after.label === before.label)
+        );
+      });
+
+      // 🔁 fallback: usar mismo index (pero sin repetir)
+      if (matchIndex === -1 && !usedAfterIndexes.has(index)) {
+        matchIndex = index;
+      }
+
+      // 🚫 si no hay match válido
+      if (matchIndex === -1 || !afterPhotos[matchIndex]) return null;
+
+      usedAfterIndexes.add(matchIndex);
+
+      const match = afterPhotos[matchIndex];
+
+      return {
+        before,
+        after: match,
+        key: before.id || `pair-${index}`,
+        label:
+          before.area ||
+          before.category ||
+          before.label ||
+          `Comparison ${index + 1}`,
+      };
+    })
+    .filter(Boolean);
 
   if (!pairs.length) {
     return (
