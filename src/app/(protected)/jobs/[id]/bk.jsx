@@ -67,13 +67,7 @@ export default function JobPhotosPage() {
     const result = await res.json();
 
     const grouped = result.data || { before: [], after: [], general: [] };
-    const all = [...grouped.before, ...grouped.after, ...grouped.general];
-
-    const unique = Array.from(
-      new Map(all.map((p) => [p.image_url, p])).values(),
-    );
-
-    setPhotos(unique);
+    setPhotos([...grouped.before, ...grouped.after, ...grouped.general]);
   };
   // ===============================
 
@@ -220,7 +214,10 @@ export default function JobPhotosPage() {
   );
 
   const generalPhotos = photos.filter(
-    (p) => p.type === "general" && isImage(p.image_url),
+    (p) =>
+      p.type === "after" &&
+      !compareKeys.includes(p.category) && // ⬅️ NO es compare
+      isImage(p.image_url),
   );
 
   if (loading)
