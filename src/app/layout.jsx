@@ -147,7 +147,15 @@ export default function RootLayout({ children }) {
               <main className="relative min-h-screen w-full overflow-x-hidden">
                 {children}
               </main>
-
+              {/* WHATSAPP FLOATING BUTTON */}
+              <a
+                href="https://wa.me/15065888517?text=Hi%20I%20need%20a%20cleaning%20quote%20in%20Moncton"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="fixed bottom-6 right-6 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-full shadow-xl z-50"
+              >
+                💬 Chat with us
+              </a>
               {/* 🎧 STAFF FOCUS MODE */}
               <WorkFocusWrapper />
 
