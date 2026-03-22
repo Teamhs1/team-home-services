@@ -1,3 +1,4 @@
+import WhatsAppButton from "@/components/WhatsAppButton";
 import { ClerkProvider } from "@clerk/nextjs";
 import { SidebarProvider } from "@/components/SidebarContext";
 import { SupabaseProvider } from "@/contexts/SupabaseContext";
@@ -5,7 +6,6 @@ import ConditionalNavbar from "@/components/ConditionalNavbar";
 import { Toaster } from "sonner";
 import "@/app/globals.css";
 import WorkFocusWrapper from "@/components/WorkFocusWrapper";
-
 import MobileBottomNav from "@/components/MobileBottomNav";
 
 export const metadata = {
@@ -26,13 +26,9 @@ export default function RootLayout({ children }) {
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
         <head>
-          {/* Canonical URL */}
           <link rel="canonical" href="https://teamhomeservices.ca" />
-
-          {/* Viewport */}
           <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-          {/* Keywords */}
           <meta
             name="keywords"
             content="
@@ -49,7 +45,6 @@ export default function RootLayout({ children }) {
             "
           />
 
-          {/* Open Graph */}
           <meta property="og:title" content="Team Home Services" />
           <meta
             property="og:description"
@@ -63,7 +58,6 @@ export default function RootLayout({ children }) {
           <meta property="og:type" content="website" />
           <meta property="og:locale" content="en_CA" />
 
-          {/* Twitter */}
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content="Team Home Services" />
           <meta
@@ -71,7 +65,6 @@ export default function RootLayout({ children }) {
             content="https://teamhomeservices.ca/logo.png"
           />
 
-          {/* Preconnect */}
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link
             rel="preconnect"
@@ -79,10 +72,8 @@ export default function RootLayout({ children }) {
             crossOrigin=""
           />
 
-          {/* Preload main logo (LCP optimization) */}
           <link rel="preload" as="image" href="/logo.png" />
 
-          {/* Structured Data */}
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
@@ -139,6 +130,7 @@ export default function RootLayout({ children }) {
             }}
           />
         </head>
+
         <body className="min-h-screen w-full overflow-x-hidden overflow-y-auto antialiased">
           <SidebarProvider>
             <SupabaseProvider>
@@ -147,18 +139,8 @@ export default function RootLayout({ children }) {
               <main className="relative min-h-screen w-full overflow-x-hidden">
                 {children}
               </main>
-              {/* WHATSAPP FLOATING BUTTON */}
-              <a
-                href="https://wa.me/15065888517?text=Hi%20I%20need%20a%20cleaning%20quote%20in%20Moncton"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="fixed bottom-6 right-6 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-full shadow-xl z-50"
-              >
-                💬 Chat with us
-              </a>
-              {/* 🎧 STAFF FOCUS MODE */}
+              <WhatsAppButton />
               <WorkFocusWrapper />
-
               <MobileBottomNav />
               <Toaster position="bottom-right" richColors />
             </SupabaseProvider>
