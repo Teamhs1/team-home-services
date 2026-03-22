@@ -35,7 +35,6 @@ const getStatusStyles = (status) => {
 export default function PropertyDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { getToken } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [property, setProperty] = useState(null);
@@ -46,14 +45,15 @@ export default function PropertyDetailPage() {
   const [nameDraft, setNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
   const { user } = useUser();
-  const isAdmin = user?.publicMetadata?.role === "admin";
+  const role = user?.publicMetadata?.role;
+  const isAdmin = role === "admin" || role === "super_admin";
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressDraft, setAddressDraft] = useState("");
   const [postalDraft, setPostalDraft] = useState("");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [savingDescription, setSavingDescription] = useState(false);
-
+  const basePath = isAdmin ? "/admin" : "/dashboard";
   /* =====================
      LOAD PROPERTY DATA
   ===================== */
@@ -514,7 +514,7 @@ export default function PropertyDetailPage() {
                 if (!res.ok) throw new Error(json.error);
 
                 alert("✅ Property deleted successfully");
-                router.push("/admin/properties");
+                router.push(`${basePath}/properties`);
               } catch (err) {
                 alert(err.message || "Failed to delete property");
               }
@@ -580,7 +580,9 @@ export default function PropertyDetailPage() {
               <button
                 key={u.id}
                 onClick={() =>
-                  router.push(`/admin/properties/${property.id}/units/${u.id}`)
+                  router.push(
+                    `${basePath}/properties/${property.id}/units/${u.id}`,
+                  )
                 }
                 className="text-left border rounded-xl p-4 bg-white hover:shadow-md hover:border-primary transition"
               >
@@ -620,7 +622,9 @@ export default function PropertyDetailPage() {
                 {keys.map((k) => (
                   <tr
                     key={k.id}
-                    onClick={() => router.push(`/admin/keys/${k.tag_code}`)}
+                    onClick={() =>
+                      router.push(`${basePath}/keys/${k.tag_code}`)
+                    }
                     className={`border-t hover:bg-gray-50 cursor-pointer ${
                       k.is_reported ? "bg-red-50" : ""
                     }`}

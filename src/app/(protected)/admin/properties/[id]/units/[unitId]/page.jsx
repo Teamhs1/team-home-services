@@ -35,12 +35,13 @@ export default function UnitDetailPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const { user } = useUser();
-  const isAdmin = user?.publicMetadata?.role === "admin";
+  const role = user?.publicMetadata?.role;
+  const isAdmin = role === "admin" || role === "super_admin";
   const [editingPostal, setEditingPostal] = useState(false);
   const [postalDraft, setPostalDraft] = useState("");
   const [unitImages, setUnitImages] = useState([]);
   const descriptionRef = useRef(null);
-
+  const basePath = isAdmin ? "/admin" : "/dashboard";
   /* =======================
      LOAD UNIT
   ======================= */
@@ -70,14 +71,14 @@ export default function UnitDetailPage() {
         );
       } catch (err) {
         toast.error(err.message);
-        router.push(`/admin/properties/${propertyId}`);
+        router.push(`${basePath}/properties/${propertyId}`);
       } finally {
         setLoading(false);
       }
     }
 
     loadUnit();
-  }, [propertyId, unitId, router]);
+  }, [propertyId, unitId, router, basePath]);
   /* =======================
    AUTO RESIZE DESCRIPTION
 ======================= */
@@ -119,7 +120,7 @@ export default function UnitDetailPage() {
       }
 
       toast.success("Unit deleted");
-      router.push(`/admin/properties/${propertyId}`);
+      router.push(`${basePath}/properties/${propertyId}`);
     } catch (err) {
       console.error("❌ Delete unit error:", err);
       toast.error(err.message || "Failed to delete unit");

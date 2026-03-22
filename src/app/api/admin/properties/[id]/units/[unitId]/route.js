@@ -7,8 +7,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
+// 🔥 helper centralizado
+const isAdminRole = (role) => ["admin", "super_admin"].includes(role);
+
 /* =====================
-   GET UNIT (ADMIN)
+   GET UNIT
 ===================== */
 export async function GET(req, { params }) {
   try {
@@ -33,19 +36,18 @@ export async function GET(req, { params }) {
       .from("units")
       .select(
         `
-    *,
-    property:properties (
-      id,
-      address,
-      postal_code,
-      latitude,
-      longitude,
-      company_id,
-      year_built
-    )
-  `,
+        *,
+        property:properties (
+          id,
+          address,
+          postal_code,
+          latitude,
+          longitude,
+          company_id,
+          year_built
+        )
+      `,
       )
-
       .eq("id", unitId)
       .eq("property_id", property_id)
       .single();
@@ -54,9 +56,9 @@ export async function GET(req, { params }) {
       return NextResponse.json({ error: "Unit not found" }, { status: 404 });
     }
 
-    // 🔐 seguridad por company
+    // 🔐 seguridad (UNIFICADA)
     if (
-      profile.role !== "admin" &&
+      profile.role !== "super_admin" &&
       unit.property.company_id !== profile.company_id
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -70,7 +72,7 @@ export async function GET(req, { params }) {
 }
 
 /* =====================
-   DELETE UNIT (ADMIN)
+   DELETE UNIT
 ===================== */
 export async function DELETE(req, { params }) {
   try {
@@ -87,19 +89,34 @@ export async function DELETE(req, { params }) {
       .eq("clerk_id", userId)
       .single();
 
-    if (!profile || profile.role !== "admin") {
+    if (!profile || !isAdminRole(profile.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { data: unit } = await supabase
       .from("units")
-      .select("id")
+      .select(
+        `
+        id,
+        property:properties (
+          company_id
+        )
+      `,
+      )
       .eq("id", unitId)
       .eq("property_id", property_id)
       .single();
 
     if (!unit) {
       return NextResponse.json({ error: "Unit not found" }, { status: 404 });
+    }
+
+    // 🔐 seguridad
+    if (
+      profile.role !== "super_admin" &&
+      unit.property.company_id !== profile.company_id
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { error } = await supabase.from("units").delete().eq("id", unitId);
@@ -119,7 +136,7 @@ export async function DELETE(req, { params }) {
 }
 
 /* =====================
-   PATCH UNIT (ADMIN)
+   PATCH UNIT
 ===================== */
 export async function PATCH(req, { params }) {
   try {
@@ -141,6 +158,10 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
+    if (!isAdminRole(profile.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { data: unit } = await supabase
       .from("units")
       .select(
@@ -149,7 +170,7 @@ export async function PATCH(req, { params }) {
         property:properties (
           company_id
         )
-        `,
+      `,
       )
       .eq("id", unitId)
       .eq("property_id", property_id)
@@ -159,16 +180,16 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: "Unit not found" }, { status: 404 });
     }
 
-    // 🔐 seguridad por company
+    // 🔐 seguridad
     if (
-      profile.role !== "admin" &&
+      profile.role !== "super_admin" &&
       unit.property.company_id !== profile.company_id
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const updates = {};
-    // 📝 DESCRIPTION
+
     if (typeof body.description === "string") {
       updates.description = body.description.trim() || null;
     }
@@ -206,7 +227,6 @@ export async function PATCH(req, { params }) {
     if (body.parking_spots === null || typeof body.parking_spots === "number")
       updates.parking_spots = body.parking_spots;
 
-    // 🟢 CLAVE: no-op PATCH permitido
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ success: true });
     }
