@@ -135,10 +135,11 @@ export default function SoftwarePage() {
 
             {/* Screenshot */}
             <Image
-              src="https://images.unsplash.com/photo-1551288049-bebda4e38f71"
-              alt="test"
+              src="/teamos-dashboard.png"
+              alt="TeamOS dashboard"
               width={1200}
               height={700}
+              className="relative w-full max-w-5xl rounded-xl"
             />
           </div>
         </div>
