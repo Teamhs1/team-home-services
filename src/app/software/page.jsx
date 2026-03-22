@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Sparkles,
   Building2,
@@ -133,9 +134,11 @@ export default function SoftwarePage() {
             <div className="absolute -inset-10 bg-blue-600/10 blur-3xl"></div>
 
             {/* Screenshot */}
-            <img
+            <Image
               src="/images/teamos-dashboard.png"
               alt="TeamOS dashboard"
+              width={1200}
+              height={700}
               className="relative w-full max-w-5xl rounded-xl"
             />
           </div>
