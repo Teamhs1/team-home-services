@@ -135,7 +135,7 @@ export default function SoftwarePage() {
 
             {/* Screenshot */}
             <Image
-              src="/teamos-dashboard.png"
+              src="/teamodash.png"
               alt="TeamOS dashboard"
               width={1200}
               height={700}
