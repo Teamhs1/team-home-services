@@ -51,6 +51,11 @@ export function JobUploadModal({
   const galleryInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const [progress, setProgress] = useState(0);
+  const [totalFiles, setTotalFiles] = useState(0);
+  const [uploadedFiles, setUploadedFiles] = useState(0);
+
+  const [step, setStep] = useState(1);
   const [elapsed, setElapsed] = useState(null);
   const [startTime, setStartTime] = useState(null);
   const [serviceType, setServiceType] = useState(null);
@@ -67,7 +72,11 @@ export function JobUploadModal({
       },
     });
   };
-
+  useEffect(() => {
+    if (serviceType?.includes("hallway")) {
+      setStep(2);
+    }
+  }, [serviceType]);
   useEffect(() => {
     if (!jobId) return;
 
@@ -198,12 +207,22 @@ export function JobUploadModal({
   };
 
   // --------------------------------------------------------
-  // SUBIR TODO
+  // SUBIR TODO (CON PROGRESO)
   // --------------------------------------------------------
   const uploadAllPhotos = async () => {
     const token = await getToken({ template: "supabase" });
 
     if (!token) throw new Error("No Clerk token");
+
+    // 🔥 CONTAR TOTAL DE ARCHIVOS
+    const allFiles = Object.values(localFiles).flat();
+    const total = allFiles.length;
+
+    setTotalFiles(total);
+    setUploadedFiles(0);
+    setProgress(0);
+
+    let uploaded = 0;
 
     for (const category of Object.keys(localFiles)) {
       for (const file of localFiles[category]) {
@@ -231,7 +250,7 @@ export function JobUploadModal({
         formData.append("category", category);
         formData.append("type", folderType);
 
-        // ⏱️ timeout de seguridad (20s)
+        // ⏱️ timeout de seguridad
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 60000);
 
@@ -262,6 +281,12 @@ export function JobUploadModal({
         if (!res.ok) {
           throw new Error(json.error || "Photo upload failed");
         }
+
+        // 🔥 ACTUALIZAR PROGRESO (CLAVE)
+        uploaded++;
+
+        setUploadedFiles(uploaded);
+        setProgress(Math.round((uploaded / total) * 100));
       }
     }
   };
@@ -280,6 +305,10 @@ export function JobUploadModal({
   };
 
   const handleConfirm = async () => {
+    // 🔥 PREVENIR DOBLE CLICK
+    if (uploading) return;
+
+    // 🔥 VALIDACIÓN
     if (!Object.keys(localFiles).length) {
       toast.warning("Please upload at least one photo.");
       return;
@@ -294,7 +323,6 @@ export function JobUploadModal({
       // AFTER → COMPLETE JOB
       // =========================
       if (type === "after") {
-        // 🔥 Guardar unit_type y features usando API segura
         await authFetch("/api/jobs/update-meta", {
           method: "POST",
           body: JSON.stringify({
@@ -306,13 +334,11 @@ export function JobUploadModal({
 
         updateLocalJob?.(jobId, { unit_type: unitType, features });
 
-        // ✅ 2) STOP timer (solo log, NO completa)
         await authFetch("/api/job-activity/stop", {
           method: "POST",
           body: JSON.stringify({ jobId }),
         });
 
-        // ✅ 3) Normalizar fotos (esperar a que termine)
         const normRes = await authFetch("/api/job-photos/normalize-general", {
           method: "POST",
           body: JSON.stringify({ jobId }),
@@ -322,23 +348,32 @@ export function JobUploadModal({
         if (!normRes.ok)
           throw new Error(normJson.error || "Failed to finalize photos");
 
-        // ✅ 4) Completar job (status + completed_at)
-        const statusRes = await updateStatus(jobId, "completed");
-        // (si updateStatus no retorna nada, no pasa nada)
+        await updateStatus(jobId, "completed");
 
-        // ✅ 5) Actualizar UI sí o sí (AQUÍ estaba tu problema)
         updateLocalJob?.(jobId, {
           status: "completed",
           completed_at: new Date().toISOString(),
         });
+
         await fetchJobs?.();
 
+        // 🔥 reemplaza loading por success
         toast.success("Job completed!");
-        onClose();
+
+        // 🔥 primero navega
         router.push(`/jobs/${jobId}`);
+
+        // 🔥 luego cierra modal (evita glitches)
+        setTimeout(() => {
+          onClose();
+        }, 100);
+
         return;
       }
-      // 🔥 GUARDAR unit_type y features ANTES DE START
+
+      // =========================
+      // BEFORE → START JOB
+      // =========================
       await authFetch("/api/jobs/update-meta", {
         method: "POST",
         body: JSON.stringify({
@@ -348,9 +383,6 @@ export function JobUploadModal({
         }),
       });
 
-      // =========================
-      // BEFORE → START JOB (SERVER)
-      // =========================
       const res = await authFetch("/api/job-activity/start", {
         method: "POST",
         body: JSON.stringify({ jobId }),
@@ -362,7 +394,6 @@ export function JobUploadModal({
         throw new Error(json.error || "Failed to start job");
       }
 
-      // 🔥 actualizar UI local (optimistic)
       updateLocalJob?.(jobId, {
         status: "in_progress",
         started_at: new Date().toISOString(),
@@ -373,8 +404,12 @@ export function JobUploadModal({
       await fetchJobs?.();
 
       toast.success("Job started!");
-      onClose();
+
       router.push(`/jobs/${jobId}`);
+
+      setTimeout(() => {
+        onClose();
+      }, 100);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -427,12 +462,15 @@ export function JobUploadModal({
     ...dynamicCompareKeys,
     ...requiredGeneralKeys,
   ];
-
+  const allCompareCategoriesHavePhotos = [
+    ...requiredCompareKeys,
+    ...dynamicCompareKeys,
+  ].every((key) => photosByCategory[key] && photosByCategory[key].length > 0);
   // 🔥 VALIDACIÓN REAL
   const allCategoriesHavePhotos = requiredKeys.every(
     (key) => photosByCategory[key] && photosByCategory[key].length > 0,
   );
-
+  if (serviceType === null) return null;
   // --------------------------------------------------------
   // UI
   // --------------------------------------------------------
@@ -463,7 +501,20 @@ export function JobUploadModal({
                 ? "Upload Photos Before Starting"
                 : "Upload Photos After Completing"}
             </h2>
-
+            {!uploading && (
+              <div className="flex items-center justify-center gap-2 mb-6 mt-2">
+                {[1, 2, type === "after" ? 3 : null, 4]
+                  .filter(Boolean)
+                  .map((s) => (
+                    <div
+                      key={s}
+                      className={`h-2 w-8 rounded-full transition-all ${
+                        step >= s ? "bg-blue-600" : "bg-gray-300"
+                      }`}
+                    />
+                  ))}
+              </div>
+            )}
             {/* UNIT TYPE IN AFTER */}
             {type === "after" && unitType && (
               <div className="text-center mt-2 flex items-center justify-center gap-2">
@@ -490,115 +541,122 @@ export function JobUploadModal({
               </div>
             )}
 
-            {!isHallway && (
-              <select
-                value={unitType || ""}
-                onChange={(e) => setUnitType(e.target.value)}
-                className="w-full border rounded-lg p-3 bg-white dark:bg-gray-800 text-sm pr-10"
-              >
-                <option value="" disabled>
-                  Select unit type...
-                </option>
-                <option value="bachelor">Bachelor</option>
-                <option value="1_bed">1 Bed</option>
-                <option value="2_beds">2 Beds</option>
-                <option value="3_beds">3 Beds</option>
-                <option value="4_beds">4 Beds</option>
-                <option value="studio">Studio</option>
-                <option value="house">House</option>
-              </select>
-            )}
-
-            {/* ====================================================
-                FEATURES
-            ==================================================== */}
-            {!isHallway && (
+            {step === 1 && !isHallway && (
               <>
-                <h3 className="text-lg font-semibold mb-3">
-                  Included Features
-                </h3>
-
-                {type === "before" ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-10">
-                    {FEATURES.map((f) => (
-                      <label
-                        key={f.key}
-                        className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer bg-white dark:bg-gray-800"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={features.includes(f.key)}
-                          onChange={() => toggleFeature(f.key)}
-                          className="w-4 h-4 accent-primary"
-                        />
-                        {f.label}
-                      </label>
+                {!isHallway && (
+                  <select
+                    value={unitType || ""}
+                    onChange={(e) => setUnitType(e.target.value)}
+                    className="w-full border rounded-lg p-3 bg-white dark:bg-gray-800 text-sm pr-10"
+                  >
+                    <option value="" disabled>
+                      Select unit type...
+                    </option>
+                    {UNIT_TYPES.map((u) => (
+                      <option key={u.key} value={u.key}>
+                        {u.label}
+                      </option>
                     ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-3 mb-10">
-                    {orderedSelectedFeatures.map((featKey, idx) => {
-                      const Icon = FEATURE_ICONS[featKey];
-                      const label =
-                        FEATURES.find((f) => f.key === featKey)?.label ||
-                        featKey.replaceAll("_", " ");
-
-                      return (
-                        <span
-                          key={idx}
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl 
-                bg-blue-50 text-blue-700 
-                dark:bg-blue-900/40 dark:text-blue-200 
-                text-sm font-medium shadow-sm border border-blue-200/40 
-                dark:border-blue-800/40"
-                        >
-                          {Icon && (
-                            <Icon
-                              size={16}
-                              className="text-blue-600 dark:text-blue-300"
-                            />
-                          )}
-                          {label}
-                        </span>
-                      );
-                    })}
-
-                    {orderedSelectedFeatures.length === 0 && (
-                      <p className="text-gray-500 text-sm italic">
-                        No features selected.
-                      </p>
-                    )}
-                  </div>
+                  </select>
                 )}
+
+                {!isHallway && (
+                  <>
+                    <h3 className="text-lg font-semibold mb-3 mt-6">
+                      Included Features
+                    </h3>
+
+                    {type === "before" ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-10">
+                        {FEATURES.map((f) => (
+                          <label
+                            key={f.key}
+                            className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={features.includes(f.key)}
+                              onChange={() => toggleFeature(f.key)}
+                            />
+                            {f.label}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mb-10">
+                        {/* tu código actual de features */}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <Button
+                  className="w-full mt-4"
+                  disabled={!isHallway && !unitType}
+                  onClick={() => setStep(2)}
+                >
+                  Continue
+                </Button>
               </>
             )}
 
             {/* COMPARE */}
-            <h3 className="text-lg font-semibold mb-3">Compare Photos</h3>
+            {step === 2 && (
+              <>
+                <h3 className="text-lg font-semibold mb-3">Compare Photos</h3>
 
-            {type === "before" && unitType === null && !isHallway ? (
-              <p className="text-sm text-red-500 mb-4">
-                ❗ Please select a Unit Type first.
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-10">
-                {dynamicCompareCategories.map((c) => (
-                  <CategoryBlock
-                    key={c.key}
-                    icon={c.icon}
-                    label={c.label}
-                    categoryKey={c.key}
-                    photos={photosByCategory[c.key]}
-                    setPhotosByCategory={setPhotosByCategory}
-                    setLocalFiles={setLocalFiles}
-                    onClick={() => handleCategoryClick(c.key)}
-                  />
-                ))}
-              </div>
+                {type === "before" && unitType === null && !isHallway ? (
+                  <p className="text-sm text-red-500 mb-4">
+                    ❗ Please select a Unit Type first.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-10">
+                    {dynamicCompareCategories.map((c) => (
+                      <CategoryBlock
+                        key={c.key}
+                        icon={c.icon}
+                        label={c.label}
+                        categoryKey={c.key}
+                        photos={photosByCategory[c.key]}
+                        setPhotosByCategory={setPhotosByCategory}
+                        setLocalFiles={setLocalFiles}
+                        onClick={() => handleCategoryClick(c.key)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setStep(1)}>
+                    Back
+                  </Button>
+
+                  <Button
+                    className={`flex-1 transition-all ${
+                      !allCompareCategoriesHavePhotos
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:scale-[1.02]"
+                    }`}
+                    disabled={!allCompareCategoriesHavePhotos}
+                    onClick={() => {
+                      if (!allCompareCategoriesHavePhotos) return;
+
+                      if (isHallway) {
+                        setStep(4);
+                      } else {
+                        setStep(type === "after" ? 3 : 4);
+                      }
+                    }}
+                  >
+                    {!allCompareCategoriesHavePhotos
+                      ? "Upload All Required Photos"
+                      : "Continue"}
+                  </Button>
+                </div>
+              </>
             )}
 
-            {/* GENERAL AREAS */}
-            {type === "after" && !isHallway && (
+            {step === 3 && type === "after" && !isHallway && (
               <>
                 <h3 className="text-lg font-semibold mb-3">General Areas</h3>
 
@@ -615,6 +673,32 @@ export function JobUploadModal({
                       onClick={() => handleCategoryClick(c.key)}
                     />
                   ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setStep(2)}>
+                    Back
+                  </Button>
+
+                  <Button
+                    className={`flex-1 transition-all ${
+                      !allCategoriesHavePhotos
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:scale-[1.02]"
+                    }`}
+                    disabled={!allCategoriesHavePhotos}
+                    onClick={() => {
+                      if (allCategoriesHavePhotos) {
+                        handleConfirm(); // 🔥 termina directo
+                      }
+                    }}
+                  >
+                    {!allCategoriesHavePhotos
+                      ? "Upload All Required Photos"
+                      : type === "before"
+                        ? "Confirm & Start Job"
+                        : "Confirm & Complete Job"}
+                  </Button>
                 </div>
               </>
             )}
@@ -648,33 +732,70 @@ export function JobUploadModal({
           </div>
 
           {/* FOOTER */}
-          <div className="sticky bottom-0 w-full bg-white dark:bg-gray-900 border-t p-4">
-            <Button
-              className={`w-full transition-all ${
-                uploading ||
-                requiredKeys.length === 0 ||
-                !allCategoriesHavePhotos
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }`}
-              disabled={
-                uploading ||
-                requiredKeys.length === 0 ||
-                !allCategoriesHavePhotos
-              }
-              onClick={handleConfirm}
-            >
-              {uploading
-                ? "Uploading..."
-                : requiredKeys.length === 0
-                  ? "No Categories Available"
-                  : !allCategoriesHavePhotos
-                    ? "Upload All Required Photos"
-                    : type === "before"
-                      ? "Confirm & Start Job"
-                      : "Confirm & Complete Job"}
-            </Button>
-          </div>
+          {step === 4 && (
+            <div className="sticky bottom-0 w-full bg-white dark:bg-gray-900 border-t p-4 space-y-3">
+              {/* 🔥 REVIEW INFO */}
+              <div className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                <p>📸 {Object.keys(localFiles).length} categories uploaded</p>
+
+                {elapsed !== null && <p>⏱ Duration: {formatTime(elapsed)}</p>}
+
+                {unitType && (
+                  <p>
+                    {isHallway ? "🏢 Hallway:" : "🏠 Unit:"}{" "}
+                    {getUnitTypeLabel(unitType)}
+                  </p>
+                )}
+              </div>
+
+              {/* 🔥 MAIN BUTTON */}
+              <Button
+                className={`w-full flex items-center justify-center gap-2 transition-all ${
+                  uploading ||
+                  requiredKeys.length === 0 ||
+                  !allCategoriesHavePhotos
+                    ? "opacity-70 cursor-not-allowed"
+                    : "hover:scale-[1.02]"
+                }`}
+                disabled={
+                  uploading ||
+                  requiredKeys.length === 0 ||
+                  !allCategoriesHavePhotos
+                }
+                onClick={handleConfirm}
+              >
+                {uploading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Processing...
+                  </>
+                ) : requiredKeys.length === 0 ? (
+                  "No Categories Available"
+                ) : !allCategoriesHavePhotos ? (
+                  "Upload All Required Photos"
+                ) : type === "before" ? (
+                  "Confirm & Start Job"
+                ) : (
+                  "Confirm & Complete Job"
+                )}
+              </Button>
+
+              {/* 🔥 BACK BUTTON */}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  if (isHallway) {
+                    setStep(2);
+                  } else {
+                    setStep(type === "after" ? 3 : 2);
+                  }
+                }}
+              >
+                Back
+              </Button>
+            </div>
+          )}
 
           {/* PICKER */}
           <AnimatePresence>
@@ -739,6 +860,30 @@ export function JobUploadModal({
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* 🔥 PROGRESS OVERLAY (AQUÍ ADENTRO) */}
+          {uploading && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-[280px] text-center shadow-xl">
+                <p className="text-sm text-gray-500 mb-2">
+                  {type === "before" ? "Starting job..." : "Completing job..."}
+                </p>
+
+                <p className="text-lg font-semibold mb-4">
+                  {uploadedFiles} / {totalFiles} photos
+                </p>
+
+                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+
+                <p className="text-sm mt-3 text-gray-600">{progress}%</p>
+              </div>
+            </div>
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>

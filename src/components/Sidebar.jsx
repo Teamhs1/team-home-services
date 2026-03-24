@@ -723,7 +723,7 @@ export default function Sidebar() {
     >
       {/* HEADER */}
       <div className="relative">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700/50">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
           <Link href="/dashboard" className="flex items-center gap-3">
             <motion.div animate={{ rotate: isOpen ? 0 : 360 }}>
               <Image
@@ -782,7 +782,7 @@ export default function Sidebar() {
               <Link
                 key={item.id}
                 href={item.href}
-                className={`flex items-center gap-3 px-6 py-2.5 text-sm transition-all ${
+                className={`flex items-center gap-2 px-4 py-1.5 text-[13px] leading-tight transition-all ${
                   active
                     ? `${SIDEBAR_THEMES[sidebarTheme].active} border-r-4`
                     : SIDEBAR_THEMES[sidebarTheme].hover
@@ -797,10 +797,10 @@ export default function Sidebar() {
 
         {/* ADMIN DIVIDER */}
         {(superAdminNavItems.length > 0 || companyAdminNavItems.length > 0) && (
-          <div className="mt-4 mb-2">
+          <div className="mt-3 mb-1">
             <div className="mx-6 border-t border-slate-700/60" />
             {isOpen && (
-              <span className="block px-6 mt-3 text-[11px] uppercase tracking-wider text-slate-400">
+              <span className="block px-4 mt-2 text-[10px] uppercase tracking-wide text-slate-500">
                 Admin Tools
               </span>
             )}
@@ -808,7 +808,7 @@ export default function Sidebar() {
         )}
 
         {/* ADMIN NAV */}
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           {superAdminNavItems.map((item) => {
             const Icon = item.icon;
             const active =
@@ -818,13 +818,13 @@ export default function Sidebar() {
               <Link
                 key={item.id}
                 href={item.href}
-                className={`flex items-center gap-3 px-6 py-2.5 text-sm transition-all ${
+                className={`flex items-center gap-2 px-4 py-1.5 text-[13px] leading-tight transition-all ${
                   active
                     ? `${SIDEBAR_THEMES[sidebarTheme].active} border-r-4`
                     : SIDEBAR_THEMES[sidebarTheme].hover
                 }`}
               >
-                <Icon size={18} />
+                <Icon size={16} />
                 {isOpen && <span>{item.name}</span>}
               </Link>
             );

@@ -103,7 +103,13 @@ export async function PATCH(req, context) {
     const body = await req.json();
 
     // 🔒 Campos permitidos
-    const allowedFields = ["title", "property_address"];
+    const allowedFields = [
+      "title",
+      "property_address",
+      "status",
+      "started_at",
+      "completed_at",
+    ];
 
     const updates = Object.fromEntries(
       Object.entries(body).filter(([key]) => allowedFields.includes(key)),

@@ -210,13 +210,16 @@ export default function JobPhotosPage() {
   );
 
   const afterPhotos = photos.filter(
-    (p) => p.type === "after" && isImage(p.image_url),
+    (p) =>
+      p.type === "after" &&
+      compareKeys.includes(p.category) &&
+      isImage(p.image_url),
   );
 
   const generalPhotos = photos.filter(
     (p) =>
       p.type === "after" &&
-      !compareKeys.includes(p.category) && // ⬅️ NO es compare
+      !compareKeys.includes(p.category) &&
       isImage(p.image_url),
   );
 

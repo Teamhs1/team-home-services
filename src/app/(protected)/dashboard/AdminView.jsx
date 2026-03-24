@@ -1,4 +1,5 @@
 "use client";
+import ImportBuildiumModal from "@/components/buildium/ImportBuildiumModal";
 import { useRouter } from "next/navigation";
 import Slider from "@/components/Slider";
 import { useUser } from "@clerk/nextjs";
@@ -41,9 +42,9 @@ export default function AdminDashboard() {
   const [jobs, setJobs] = useState([]);
 
   const [loading, setLoading] = useState(true);
-
+  const [openImport, setOpenImport] = useState(false);
   // ✅ Cliente Supabase autenticado con Clerk
-
+  const ENABLE_BUILDIUM_IMPORT = false; // Mostrar o no el boton para importar desde Buildium true= mostrar
   // 🧾 Cargar trabajos con fotos
   const fetchJobs = async () => {
     try {
@@ -114,155 +115,173 @@ export default function AdminDashboard() {
     );
 
   return (
-    <main className="pt-24 md:pt-28 max-w-7xl mx-auto px-4 space-y-10">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex items-center justify-between flex-wrap gap-3"
-      >
-        <h2 className="text-3xl font-bold flex items-center gap-2">
-          <BarChart3 className="w-7 h-7 text-primary" /> Dashboard Overview
-        </h2>
-      </motion.div>
+    <>
+      <main className="pt-24 md:pt-28 max-w-7xl mx-auto px-4 space-y-10">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="flex items-center justify-between flex-wrap gap-3"
+        >
+          <h2 className="text-3xl font-bold flex items-center gap-2">
+            <BarChart3 className="w-7 h-7 text-primary" /> Dashboard Overview
+          </h2>
 
-      {/* Métricas */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
-      >
-        <StatCard
-          title="Total Jobs"
-          value={stats.total}
-          desc="All jobs"
-          href="/jobs"
-        />
-
-        <StatCard
-          title="Pending"
-          value={stats.pending}
-          desc="Awaiting start"
-          color="text-yellow-600"
-          href="/jobs?status=pending"
-        />
-
-        <StatCard
-          title="In Progress"
-          value={stats.inProgress}
-          desc="Currently active"
-          color="text-blue-600"
-          href="/jobs?status=in_progress"
-        />
-
-        <StatCard
-          title="Completed"
-          value={stats.completed}
-          desc="Finished successfully"
-          color="text-green-600"
-          href="/jobs?status=completed"
-        />
-      </motion.div>
-
-      {/* Weekly Performance */}
-      <Card className="border border-border/50 shadow-sm">
-        <CardHeader>
-          <CardTitle>Weekly Activity</CardTitle>
-          <CardDescription>Job flow over time</CardDescription>
-        </CardHeader>
-
-        <CardContent className="h-[260px]">
-          {weeklyData.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-              No activity yet
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={weeklyData}
-                margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient
-                    id="completedGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.5} />
-                    <stop
-                      offset="100%"
-                      stopColor="#22c55e"
-                      stopOpacity={0.05}
-                    />
-                  </linearGradient>
-
-                  <linearGradient
-                    id="pendingGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="0%" stopColor="#facc15" stopOpacity={0.5} />
-                    <stop
-                      offset="100%"
-                      stopColor="#facc15"
-                      stopOpacity={0.05}
-                    />
-                  </linearGradient>
-                </defs>
-
-                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-
-                <YAxis
-                  allowDecimals={false}
-                  tick={{ fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-
-                <Tooltip
-                  contentStyle={{
-                    fontSize: "12px",
-                    borderRadius: "8px",
-                  }}
-                />
-
-                <Area
-                  type="monotone"
-                  dataKey="completed"
-                  stroke="#22c55e"
-                  fill="url(#completedGradient)"
-                  strokeWidth={2}
-                />
-
-                <Area
-                  type="monotone"
-                  dataKey="pending"
-                  stroke="#facc15"
-                  fill="url(#pendingGradient)"
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          {/* 🔥 BOTÓN NUEVO */}
+          {ENABLE_BUILDIUM_IMPORT && (
+            <button
+              onClick={() => setOpenImport(true)}
+              className="bg-primary text-white px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition"
+            >
+              Import from Buildium
+            </button>
           )}
-        </CardContent>
-      </Card>
+        </motion.div>
 
-      {/* Trabajos recientes */}
-      <RecentJobs jobs={jobs} />
-    </main>
+        {/* Métricas */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+        >
+          <StatCard
+            title="Total Jobs"
+            value={stats.total}
+            desc="All jobs"
+            href="/jobs"
+          />
+
+          <StatCard
+            title="Pending"
+            value={stats.pending}
+            desc="Awaiting start"
+            color="text-yellow-600"
+            href="/jobs?status=pending"
+          />
+
+          <StatCard
+            title="In Progress"
+            value={stats.inProgress}
+            desc="Currently active"
+            color="text-blue-600"
+            href="/jobs?status=in_progress"
+          />
+
+          <StatCard
+            title="Completed"
+            value={stats.completed}
+            desc="Finished successfully"
+            color="text-green-600"
+            href="/jobs?status=completed"
+          />
+        </motion.div>
+
+        {/* Weekly Performance */}
+        <Card className="border border-border/50 shadow-sm">
+          <CardHeader>
+            <CardTitle>Weekly Activity</CardTitle>
+            <CardDescription>Job flow over time</CardDescription>
+          </CardHeader>
+
+          <CardContent className="h-[260px]">
+            {weeklyData.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                No activity yet
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={weeklyData}
+                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="completedGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="0%" stopColor="#22c55e" stopOpacity={0.5} />
+                      <stop
+                        offset="100%"
+                        stopColor="#22c55e"
+                        stopOpacity={0.05}
+                      />
+                    </linearGradient>
+
+                    <linearGradient
+                      id="pendingGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="0%" stopColor="#facc15" stopOpacity={0.5} />
+                      <stop
+                        offset="100%"
+                        stopColor="#facc15"
+                        stopOpacity={0.05}
+                      />
+                    </linearGradient>
+                  </defs>
+
+                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+
+                  <Tooltip
+                    contentStyle={{
+                      fontSize: "12px",
+                      borderRadius: "8px",
+                    }}
+                  />
+
+                  <Area
+                    type="monotone"
+                    dataKey="completed"
+                    stroke="#22c55e"
+                    fill="url(#completedGradient)"
+                    strokeWidth={2}
+                  />
+
+                  <Area
+                    type="monotone"
+                    dataKey="pending"
+                    stroke="#facc15"
+                    fill="url(#pendingGradient)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Trabajos recientes */}
+        <RecentJobs jobs={jobs} />
+      </main>
+
+      {/* 🔥 MODAL (FUERA DEL MAIN PERO DENTRO DEL RETURN) */}
+      <ImportBuildiumModal
+        isOpen={openImport}
+        onClose={() => setOpenImport(false)}
+      />
+    </>
   );
 }
 

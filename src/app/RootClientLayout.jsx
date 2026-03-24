@@ -1,5 +1,5 @@
 "use client";
-
+import ScrollToTop from "@/components/ScrollToTop";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "@/components/SidebarContext";
@@ -37,6 +37,9 @@ export default function RootClientLayout({ children }) {
       >
         {children}
       </main>
+
+      {/* ✅ AQUÍ */}
+      <ScrollToTop />
     </div>
   );
 }

@@ -244,7 +244,7 @@ export default function JobPhotosPage() {
             }))
           }
           onReopen={refreshJobData}
-          onStart={(patch) => {
+          onStart={async (patch) => {
             setJob((prev) =>
               prev
                 ? {
@@ -256,23 +256,59 @@ export default function JobPhotosPage() {
                 : prev,
             );
 
-            // 🔄 respaldo backend (opcional pero recomendado)
-            refreshJobData();
+            const token = await getToken({ template: "supabase" });
+
+            const supabase = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+              {
+                global: {
+                  headers: { Authorization: `Bearer ${token}` },
+                },
+              },
+            );
+
+            await supabase
+              .from("cleaning_jobs")
+              .update({
+                status: "in_progress",
+                started_at: new Date().toISOString(),
+              })
+              .eq("id", id);
           }}
-          onComplete={(patch) => {
+          onComplete={async (patch) => {
+            const completedAt = new Date().toISOString();
+
             setJob((prev) =>
               prev
                 ? {
                     ...prev,
                     ...(patch || {}),
                     status: "completed",
-                    completed_at: new Date().toISOString(),
+                    completed_at: completedAt,
                   }
                 : prev,
             );
 
-            // 🔄 respaldo desde backend (por si algo cambió)
-            refreshJobData();
+            const token = await getToken({ template: "supabase" });
+
+            const supabase = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+              {
+                global: {
+                  headers: { Authorization: `Bearer ${token}` },
+                },
+              },
+            );
+
+            await supabase
+              .from("cleaning_jobs")
+              .update({
+                status: "completed",
+                completed_at: completedAt,
+              })
+              .eq("id", id);
           }}
         />
 
