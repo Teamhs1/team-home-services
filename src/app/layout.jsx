@@ -1,3 +1,4 @@
+import { CompanyProvider } from "@/context/CompanyContext";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { ClerkProvider } from "@clerk/nextjs";
 import { SidebarProvider } from "@/components/SidebarContext";
@@ -134,15 +135,17 @@ export default function RootLayout({ children }) {
         <body className="min-h-screen w-full overflow-x-hidden overflow-y-auto antialiased">
           <SidebarProvider>
             <SupabaseProvider>
-              <ConditionalNavbar />
+              <CompanyProvider>
+                <ConditionalNavbar />
 
-              <main className="relative min-h-screen w-full overflow-x-hidden">
-                {children}
-              </main>
-              <WhatsAppButton />
-              <WorkFocusWrapper />
-              <MobileBottomNav />
-              <Toaster position="bottom-right" richColors />
+                <main className="relative min-h-screen w-full overflow-x-hidden">
+                  {children}
+                </main>
+                <WhatsAppButton />
+                <WorkFocusWrapper />
+                <MobileBottomNav />
+                <Toaster position="bottom-right" richColors />
+              </CompanyProvider>
             </SupabaseProvider>
           </SidebarProvider>
         </body>

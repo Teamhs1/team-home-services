@@ -1,5 +1,6 @@
 "use client";
 
+import { useCompany } from "@/context/CompanyContext";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
@@ -52,6 +53,7 @@ export default function ExpensesPage() {
   /* =====================
      ROLE (REAL SOURCE)
   ===================== */
+  const { selectedCompanyId } = useCompany();
   const [role, setRole] = useState(null);
   const [profileId, setProfileId] = useState(null);
 
@@ -211,9 +213,14 @@ export default function ExpensesPage() {
   useEffect(() => {
     async function loadBilling() {
       try {
-        const res = await fetch("/api/company/billing", {
-          credentials: "include",
-        });
+        const res = await fetch(
+          `/api/company/billing${
+            selectedCompanyId ? `?company_id=${selectedCompanyId}` : ""
+          }`,
+          {
+            credentials: "include",
+          },
+        );
 
         const text = await res.text();
         const data = text ? JSON.parse(text) : {};
@@ -230,7 +237,7 @@ export default function ExpensesPage() {
     }
 
     loadBilling();
-  }, []);
+  }, [selectedCompanyId]);
   /* =====================
    CHECK EXPENSE PERMISSION
 ===================== */
@@ -352,11 +359,20 @@ export default function ExpensesPage() {
     if (!canViewExpenses) return;
 
     loadExpenses();
-  }, [isLoaded, profileId, role, canViewExpenses]);
+  }, [isLoaded, profileId, role, canViewExpenses, selectedCompanyId]);
 
   async function loadExpenses() {
     try {
-      const res = await fetch("/api/expenses/list", {
+      let url = "/api/expenses/list";
+
+      // 🔥 MISMA LÓGICA DEL DASHBOARD
+      if (selectedCompanyId && selectedCompanyId !== "all") {
+        url += `?company_id=${selectedCompanyId}`;
+      }
+
+      console.log("📡 Fetching expenses:", url);
+
+      const res = await fetch(url, {
         credentials: "include",
       });
 

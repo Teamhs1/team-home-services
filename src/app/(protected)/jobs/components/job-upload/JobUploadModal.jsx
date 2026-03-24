@@ -348,7 +348,11 @@ export function JobUploadModal({
         if (!normRes.ok)
           throw new Error(normJson.error || "Failed to finalize photos");
 
-        await updateStatus(jobId, "completed");
+        try {
+          await updateStatus(jobId, "completed");
+        } catch (err) {
+          console.warn("⚠️ updateStatus failed but continuing:", err);
+        }
 
         updateLocalJob?.(jobId, {
           status: "completed",
@@ -360,12 +364,12 @@ export function JobUploadModal({
         // 🔥 reemplaza loading por success
         toast.success("Job completed!");
 
-        // 🔥 primero navega
-        router.push(`/jobs/${jobId}`);
+        // 🔥 primero cierra SIEMPRE
+        onClose();
 
-        // 🔥 luego cierra modal (evita glitches)
+        // 🔥 luego navega
         setTimeout(() => {
-          onClose();
+          router.push(`/jobs/${jobId}`);
         }, 100);
 
         return;

@@ -9,7 +9,8 @@ export async function GET(req) {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
+    const { searchParams } = new URL(req.url);
+    const companyId = searchParams.get("company_id");
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -63,7 +64,28 @@ export async function GET(req) {
        Ve TODO el sistema
     ========================== */
     if (profile.role === "super_admin") {
+      // 🔥 Si viene company_id → filtrar
+      if (companyId && companyId !== "all") {
+        const { data: properties } = await supabase
+          .from("properties")
+          .select("id")
+          .eq("company_id", companyId);
+
+        const propertyIds = properties?.map((p) => p.id) ?? [];
+
+        if (propertyIds.length === 0) {
+          return NextResponse.json([]);
+        }
+
+        const { data, error } = await baseQuery.in("property_id", propertyIds);
+
+        if (error) throw error;
+        return NextResponse.json(data ?? []);
+      }
+
+      // 🔥 ALL → devuelve todo
       const { data, error } = await baseQuery;
+
       if (error) throw error;
       return NextResponse.json(data ?? []);
     }
@@ -73,14 +95,19 @@ export async function GET(req) {
        Ve todo pero SOLO de su company
     ========================== */
     if (profile.role === "admin") {
-      if (!profile.active_company_id) {
+      const companyToUse =
+        companyId && companyId !== "all"
+          ? companyId
+          : profile.active_company_id;
+
+      if (!companyToUse) {
         return NextResponse.json([]);
       }
 
       const { data: properties } = await supabase
         .from("properties")
         .select("id")
-        .eq("company_id", profile.active_company_id);
+        .eq("company_id", companyToUse);
 
       const propertyIds = properties?.map((p) => p.id) ?? [];
 

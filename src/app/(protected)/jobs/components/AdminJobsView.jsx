@@ -1,6 +1,5 @@
 "use client";
 import ViewToggleButton from "@/components/ViewToggleButton";
-
 import AdminEditDuration from "@/components/jobs/AdminEditDuration";
 import React, { useEffect, useState } from "react";
 import {
@@ -599,13 +598,6 @@ export default function AdminJobsView({
 
   return (
     <main className="px-2 sm:px-6 py-4 sm:py-10 max-w-[1600px] mx-auto space-y-6 sm:space-y-10 overflow-x-hidden">
-      {/* EMPTY STATE */}
-      {paginatedJobs.length === 0 && (
-        <div className="text-center text-gray-500 py-20">
-          No jobs match current filters.
-        </div>
-      )}
-
       {/* HEADER */}
       <div>
         {/* TÍTULO + TOGGLE (MOBILE) */}
@@ -877,271 +869,291 @@ export default function AdminJobsView({
               </thead>
 
               <tbody>
-                {paginatedJobs.map((job, index) => (
-                  <tr
-                    key={job.id}
-                    className={`border-t cursor-pointer transition ${
-                      isSelected(job.id) ? "bg-blue-50" : "hover:bg-gray-50"
-                    }`}
-                    onClick={(e) => {
-                      const tag = e.target.tagName.toLowerCase();
-
-                      // 🔹 Ignorar clicks en elementos interactivos
-                      if (
-                        [
-                          "button",
-                          "select",
-                          "option",
-                          "svg",
-                          "path",
-                          "input",
-                        ].includes(tag)
-                      ) {
-                        return;
-                      }
-
-                      // 🔹 Si NO hay selección activa → navegar
-                      if (selectedJobs.size === 0) {
-                        window.location.href = `/jobs/${job.id}`;
-                        return;
-                      }
-
-                      // 🔹 Si ya hay selección activa → toggle
-                      const index = paginatedJobs.findIndex(
-                        (j) => j.id === job.id,
-                      );
-                      handleRowSelection(e, job.id, index);
-                    }}
-                  >
+                {paginatedJobs.length === 0 ? (
+                  <tr>
                     <td
-                      className="px-3 py-3 align-middle"
-                      onClick={(e) => e.stopPropagation()}
+                      colSpan="10"
+                      className="py-16 text-center text-gray-500"
                     >
-                      <input
-                        type="checkbox"
-                        checked={isSelected(job.id)}
-                        readOnly
-                        onClick={(e) => handleRowSelection(e, job.id, index)}
-                      />
+                      <div className="flex flex-col items-center gap-2">
+                        <span className="text-sm font-medium">
+                          No jobs match current filters
+                        </span>
+                        <span className="text-xs opacity-70">
+                          Try adjusting filters or create a new job
+                        </span>
+                      </div>
                     </td>
+                  </tr>
+                ) : (
+                  paginatedJobs.map((job, index) => (
+                    <tr
+                      key={job.id}
+                      className={`border-t cursor-pointer transition ${
+                        isSelected(job.id) ? "bg-blue-50" : "hover:bg-gray-50"
+                      }`}
+                      onClick={(e) => {
+                        const tag = e.target.tagName.toLowerCase();
 
-                    <td className="px-3 py-3 align-middle">{job.title}</td>
-                    <td className="px-3 py-3 align-middle max-w-[260px] truncate text-gray-600">
-                      {job.property_address || "—"}
-                    </td>
-
-                    <td className="px-3 py-3 align-middle">
-                      {job.scheduled_date}
-                    </td>
-                    <td className="px-3 py-3 align-middle max-w-[150px] truncate capitalize">
-                      {job.service_type.replaceAll("_", " ")}
-                    </td>
-
-                    {/* STAFF */}
-                    <td className="px-3 py-3 align-middle w-[220px]">
-                      <select
-                        className="border rounded-md p-1 text-sm w-full min-w-0"
-                        value={job.assigned_to || ""}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) =>
-                          assignToStaff(job.id, e.target.value || null)
+                        // 🔹 Ignorar clicks en elementos interactivos
+                        if (
+                          [
+                            "button",
+                            "select",
+                            "option",
+                            "svg",
+                            "path",
+                            "input",
+                          ].includes(tag)
+                        ) {
+                          return;
                         }
-                      >
-                        <option value="">Unassigned</option>
-                        {staffList.map((staff) => (
-                          <option
-                            key={`staff-${staff.clerk_id}`}
-                            value={staff.clerk_id}
-                          >
-                            {staff.full_name || staff.email}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
 
-                    {/* CLIENT */}
-                    <td className="px-3 py-3 align-middle">
-                      <select
-                        className="border rounded-md p-1 text-sm w-full min-w-0 bg-white"
-                        value={job.client_profile_id || ""}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) =>
-                          assignToClient(job.id, e.target.value || null)
+                        // 🔹 Si NO hay selección activa → navegar
+                        if (selectedJobs.size === 0) {
+                          window.location.href = `/jobs/${job.id}`;
+                          return;
                         }
-                      >
-                        <option value="">No client</option>
 
-                        {loadedClients.map((c) => (
-                          <option key={`client-${c.id}`} value={c.id}>
-                            {c.full_name || c.email}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-
-                    <td className="px-3 py-3 align-middle">
-                      <span
-                        className={`px-2 py-1 rounded-full text-sm font-semibold ${
-                          job.status === "pending"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : job.status === "in_progress"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        {job.status.replace("_", " ")}
-                      </span>
-                    </td>
-
-                    <td
-                      className="px-4 py-2 whitespace-nowrap"
-                      onClick={(e) => e.stopPropagation()}
+                        // 🔹 Si ya hay selección activa → toggle
+                        const index = paginatedJobs.findIndex(
+                          (j) => j.id === job.id,
+                        );
+                        handleRowSelection(e, job.id, index);
+                      }}
                     >
-                      {job.status === "completed" &&
-                        (editingDurationJobId === job.id ? (
-                          <div
-                            className="flex items-center gap-1"
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <input
-                              type="number"
-                              min={0}
-                              className="w-14 border rounded px-1 py-0.5 text-sm"
-                              value={editHours}
-                              onChange={(e) => setEditHours(e.target.value)}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onKeyDown={(e) => e.stopPropagation()}
-                            />
+                      <td
+                        className="px-3 py-3 align-middle"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected(job.id)}
+                          readOnly
+                          onClick={(e) => handleRowSelection(e, job.id, index)}
+                        />
+                      </td>
 
-                            <input
-                              type="number"
-                              min={0}
-                              max={59}
-                              className="w-14 border rounded px-1 py-0.5 text-sm"
-                              value={editMinutes}
-                              onChange={(e) => setEditMinutes(e.target.value)}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onKeyDown={(e) => e.stopPropagation()}
-                            />
+                      <td className="px-3 py-3 align-middle">{job.title}</td>
+                      <td className="px-3 py-3 align-middle max-w-[260px] truncate text-gray-600">
+                        {job.property_address || "—"}
+                      </td>
 
-                            <span className="text-xs text-gray-500">m</span>
+                      <td className="px-3 py-3 align-middle">
+                        {job.scheduled_date}
+                      </td>
+                      <td className="px-3 py-3 align-middle max-w-[150px] truncate capitalize">
+                        {job.service_type.replaceAll("_", " ")}
+                      </td>
 
-                            <Button
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                saveInlineDuration(job.id);
-                              }}
+                      {/* STAFF */}
+                      <td className="px-3 py-3 align-middle w-[220px]">
+                        <select
+                          className="border rounded-md p-1 text-sm w-full min-w-0"
+                          value={job.assigned_to || ""}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) =>
+                            assignToStaff(job.id, e.target.value || null)
+                          }
+                        >
+                          <option value="">Unassigned</option>
+                          {staffList.map((staff) => (
+                            <option
+                              key={`staff-${staff.clerk_id}`}
+                              value={staff.clerk_id}
                             >
-                              Save
-                            </Button>
+                              {staff.full_name || staff.email}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
 
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingDurationJobId(null);
-                              }}
+                      {/* CLIENT */}
+                      <td className="px-3 py-3 align-middle">
+                        <select
+                          className="border rounded-md p-1 text-sm w-full min-w-0 bg-white"
+                          value={job.client_profile_id || ""}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) =>
+                            assignToClient(job.id, e.target.value || null)
+                          }
+                        >
+                          <option value="">No client</option>
+
+                          {loadedClients.map((c) => (
+                            <option key={`client-${c.id}`} value={c.id}>
+                              {c.full_name || c.email}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      <td className="px-3 py-3 align-middle">
+                        <span
+                          className={`px-2 py-1 rounded-full text-sm font-semibold ${
+                            job.status === "pending"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : job.status === "in_progress"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {job.status.replace("_", " ")}
+                        </span>
+                      </td>
+
+                      <td
+                        className="px-4 py-2 whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {job.status === "completed" &&
+                          (editingDurationJobId === job.id ? (
+                            <div
+                              className="flex items-center gap-1"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              Cancel
-                            </Button>
-                          </div>
-                        ) : (
-                          <div
-                            className="flex flex-col gap-0.5 cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditDuration(job);
-                            }}
-                          >
-                            <span className="font-semibold text-green-700">
-                              ⏱️ {formatDuration(job.duration_minutes)}
-                            </span>
-                            <span className="text-gray-400 text-[11px]">
-                              Done on{" "}
-                              {job.completed_at
-                                ? new Date(
-                                    job.completed_at,
-                                  ).toLocaleDateString()
-                                : "—"}
-                            </span>
-                          </div>
-                        ))}
-                    </td>
+                              <input
+                                type="number"
+                                min={0}
+                                className="w-14 border rounded px-1 py-0.5 text-sm"
+                                value={editHours}
+                                onChange={(e) => setEditHours(e.target.value)}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              />
 
-                    {/* ACTIONS */}
-                    <td className="px-4 py-2 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 p-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
+                              <input
+                                type="number"
+                                min={0}
+                                max={59}
+                                className="w-14 border rounded px-1 py-0.5 text-sm"
+                                value={editMinutes}
+                                onChange={(e) => setEditMinutes(e.target.value)}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              />
 
-                        <DropdownMenuContent align="end">
-                          {/* ⏱️ EDIT DURATION */}
-                          {job.status === "completed" && (
-                            <DropdownMenuItem
+                              <span className="text-xs text-gray-500">m</span>
+
+                              <Button
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  saveInlineDuration(job.id);
+                                }}
+                              >
+                                Save
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingDurationJobId(null);
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <div
+                              className="flex flex-col gap-0.5 cursor-pointer"
                               onClick={(e) => {
-                                e.preventDefault();
                                 e.stopPropagation();
                                 startEditDuration(job);
                               }}
                             >
-                              ⏱️ Edit duration
+                              <span className="font-semibold text-green-700">
+                                ⏱️ {formatDuration(job.duration_minutes)}
+                              </span>
+                              <span className="text-gray-400 text-[11px]">
+                                Done on{" "}
+                                {job.completed_at
+                                  ? new Date(
+                                      job.completed_at,
+                                    ).toLocaleDateString()
+                                  : "—"}
+                              </span>
+                            </div>
+                          ))}
+                      </td>
+
+                      {/* ACTIONS */}
+                      <td className="px-4 py-2 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+
+                          <DropdownMenuContent align="end">
+                            {/* ⏱️ EDIT DURATION */}
+                            {job.status === "completed" && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  startEditDuration(job);
+                                }}
+                              >
+                                ⏱️ Edit duration
+                              </DropdownMenuItem>
+                            )}
+
+                            {/* 🔄 RESET */}
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                resetJob(job.id);
+                              }}
+                            >
+                              <RefreshCcw className="mr-2 h-4 w-4" />
+                              Reset Job
                             </DropdownMenuItem>
-                          )}
 
-                          {/* 🔄 RESET */}
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              resetJob(job.id);
-                            }}
-                          >
-                            <RefreshCcw className="mr-2 h-4 w-4" />
-                            Reset Job
-                          </DropdownMenuItem>
+                            {/* 🗑️ DELETE */}
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={(e) => {
+                                e.stopPropagation();
 
-                          {/* 🗑️ DELETE */}
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                                if (selectedJobs.size > 1) {
+                                  toast.info(
+                                    "Use bulk actions to delete multiple jobs",
+                                  );
+                                  return;
+                                }
 
-                              if (selectedJobs.size > 1) {
-                                toast.info(
-                                  "Use bulk actions to delete multiple jobs",
-                                );
-                                return;
-                              }
+                                if (
+                                  selectedJobs.size === 1 &&
+                                  !selectedJobs.has(job.id)
+                                ) {
+                                  toast.info(
+                                    "This job is not the selected one",
+                                  );
+                                  return;
+                                }
 
-                              if (
-                                selectedJobs.size === 1 &&
-                                !selectedJobs.has(job.id)
-                              ) {
-                                toast.info("This job is not the selected one");
-                                return;
-                              }
-
-                              deleteJob(job.id);
-                            }}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
+                                deleteJob(job.id);
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

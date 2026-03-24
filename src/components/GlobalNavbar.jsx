@@ -1,5 +1,5 @@
 "use client";
-
+import { useCompany } from "@/context/CompanyContext";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -13,6 +13,8 @@ import { createClient } from "@supabase/supabase-js";
 import { formatDistanceToNow } from "date-fns";
 
 export default function GlobalNavbar() {
+  const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
+  const companyRef = useRef(null);
   const pathname = usePathname();
   const router = useRouter();
   const { isSidebarOpen } = useSidebar?.() || {};
@@ -29,6 +31,19 @@ export default function GlobalNavbar() {
   const [darkMode, setDarkMode] = useState(false);
   const dropdownRef = useRef(null);
   const [rentalsEnabled, setRentalsEnabled] = useState(false);
+  const { selectedCompanyId, setSelectedCompanyId } = useCompany();
+  const [companies, setCompanies] = useState([]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (companyRef.current && !companyRef.current.contains(e.target)) {
+        setCompanyDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     async function loadAppSettings() {
@@ -42,6 +57,21 @@ export default function GlobalNavbar() {
     }
 
     loadAppSettings();
+  }, []);
+
+  useEffect(() => {
+    async function loadCompanies() {
+      try {
+        const res = await fetch("/api/my-companies");
+        const data = await res.json();
+
+        if (res.ok) setCompanies(data);
+      } catch (err) {
+        console.error("Failed to load companies", err);
+      }
+    }
+
+    loadCompanies();
   }, []);
 
   // 🔑 Load profile UUID (required for jobs filters)
@@ -91,7 +121,9 @@ export default function GlobalNavbar() {
   }, []);
 
   const role = isLoaded ? user?.publicMetadata?.role || "user" : "user";
-
+  console.log("ROLE:", role);
+  // 🔥 CONTROL DEL SELECTOR (AQUÍ)
+  const canUseCompanySelector = companies.length > 1;
   // ✅ Crear cliente autenticado con Clerk
   async function getSupabaseClient() {
     const token = await getToken({ template: "supabase" });
@@ -385,6 +417,73 @@ ${
           className="flex items-center gap-4 ml-auto justify-end"
           ref={dropdownRef}
         >
+          {/* 🏢 COMPANY SELECTOR */}
+          {isPrivatePage && canUseCompanySelector && (
+            <div className="relative mr-2" ref={companyRef}>
+              {/* BOTÓN */}
+              <button
+                onClick={() => setCompanyDropdownOpen(!companyDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-white hover:bg-gray-50 transition text-sm shadow-sm"
+              >
+                <span className="font-medium">
+                  {companies.find((c) => c.id === selectedCompanyId)?.name ||
+                    "All Companies"}
+                </span>
+
+                <span className="text-xs">▾</span>
+              </button>
+
+              {/* DROPDOWN */}
+              <AnimatePresence>
+                {companyDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-56 bg-white border rounded-xl shadow-lg z-[999] overflow-hidden"
+                  >
+                    {/* ALL */}
+                    <div
+                      onClick={() => {
+                        setSelectedCompanyId("all");
+                        setCompanyDropdownOpen(false);
+                      }}
+                      className={`px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 transition ${
+                        !selectedCompanyId
+                          ? "bg-blue-50 text-blue-600 font-semibold"
+                          : ""
+                      }`}
+                    >
+                      All Companies
+                    </div>
+
+                    {/* LIST */}
+                    {companies.map((c) => (
+                      <div
+                        key={c.id}
+                        onClick={() => {
+                          setSelectedCompanyId(c.id);
+                          setCompanyDropdownOpen(false);
+                        }}
+                        className={`px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 transition flex items-center justify-between ${
+                          selectedCompanyId === c.id
+                            ? "bg-blue-50 text-blue-600 font-semibold"
+                            : ""
+                        }`}
+                      >
+                        {c.name}
+
+                        {selectedCompanyId === c.id && (
+                          <span className="text-xs">✓</span>
+                        )}
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
           {/* 🔔 Notificaciones para todos los roles */}
           {(role === "admin" || role === "staff" || role === "client") && (
             <div className="relative">

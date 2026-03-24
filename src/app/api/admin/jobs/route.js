@@ -13,13 +13,17 @@ function isAdminRole(role) {
   return ["admin", "super_admin"].includes(role);
 }
 
-export async function GET() {
+export async function GET(req) {
   try {
     const { userId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // 🔥 obtener company_id desde query
+    const { searchParams } = new URL(req.url);
+    const selectedCompanyId = searchParams.get("company_id");
 
     /* =========================
        🔐 Obtener perfil
@@ -40,11 +44,11 @@ export async function GET() {
     }
 
     /* =========================
-       👑 SUPER ADMIN → ve TODO
+       👑 SUPER ADMIN
     ========================= */
 
     if (profile.role === "super_admin") {
-      const { data, error } = await supabase
+      let query = supabase
         .from("cleaning_jobs")
         .select(
           `
@@ -69,6 +73,13 @@ export async function GET() {
         `,
         )
         .order("created_at", { ascending: false });
+
+      // 🔥 aplicar filtro si seleccionó company
+      if (selectedCompanyId) {
+        query = query.eq("company_id", selectedCompanyId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -111,7 +122,6 @@ export async function GET() {
       }
 
       const managedIds = managedCompanies?.map((c) => c.id) || [];
-
       allowedCompanyIds = [company.id, ...managedIds];
     }
 
@@ -119,7 +129,7 @@ export async function GET() {
        📦 Obtener jobs filtrados
     ========================= */
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("cleaning_jobs")
       .select(
         `
@@ -143,8 +153,21 @@ export async function GET() {
         )
       `,
       )
-      .in("company_id", allowedCompanyIds)
       .order("created_at", { ascending: false });
+
+    // 🔥 si seleccionó company → validar y filtrar
+    if (selectedCompanyId) {
+      if (!allowedCompanyIds.includes(selectedCompanyId)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      query = query.eq("company_id", selectedCompanyId);
+    } else {
+      // fallback: todas las permitidas
+      query = query.in("company_id", allowedCompanyIds);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

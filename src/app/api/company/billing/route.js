@@ -5,6 +5,8 @@ import { getAuth } from "@clerk/nextjs/server";
 export async function GET(req) {
   try {
     const { userId } = getAuth(req);
+    const { searchParams } = new URL(req.url);
+    const companyIdParam = searchParams.get("company_id");
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -15,36 +17,40 @@ export async function GET(req) {
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    // 1️⃣ Obtener profile
-    const { data: profile, error: profileError } = await supabase
+    // 🔹 Profile
+    const { data: profile } = await supabase
       .from("profiles")
-      .select("active_company_id")
+      .select("active_company_id, role")
       .eq("clerk_id", userId)
       .single();
 
-    if (profileError || !profile?.active_company_id) {
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    let companyId = profile.active_company_id;
+
+    // 👑 SUPER ADMIN → puede elegir company
+    if (profile.role === "super_admin" && companyIdParam) {
+      companyId = companyIdParam;
+    }
+
+    if (!companyId) {
       return NextResponse.json({ error: "Company not found" }, { status: 403 });
     }
 
-    // 2️⃣ Obtener billing status
-    const { data: company, error: companyError } = await supabase
+    const { data: company } = await supabase
       .from("companies")
       .select("billing_enabled")
-      .eq("id", profile.active_company_id)
+      .eq("id", companyId)
       .single();
 
-    if (companyError || !company) {
-      return NextResponse.json({ error: "Company not found" }, { status: 403 });
-    }
-
     return NextResponse.json({
-      billing_enabled: company.billing_enabled,
+      billing_enabled: company?.billing_enabled ?? true,
+      company_id: companyId,
     });
   } catch (err) {
-    console.error("BILLING API ERROR:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+    console.error(err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

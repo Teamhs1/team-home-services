@@ -20,11 +20,15 @@ export default function RootClientLayout({ children }) {
 
   if (!mounted) return null;
 
-  // 🔹 Detectar rutas protegidas
+  // 🔹 Detectar rutas protegidas (APP / DASHBOARD)
   const isDashboard =
     pathname?.startsWith("/dashboard") ||
     pathname?.startsWith("/jobs") ||
-    pathname?.startsWith("/profile");
+    pathname?.startsWith("/profile") ||
+    pathname?.startsWith("/admin");
+
+  // 🔹 Páginas públicas (marketing)
+  const isPublicPage = !isDashboard;
 
   return (
     <div className="min-h-screen bg-inherit transition-all duration-300">
@@ -38,8 +42,8 @@ export default function RootClientLayout({ children }) {
         {children}
       </main>
 
-      {/* ✅ AQUÍ */}
-      <ScrollToTop />
+      {/* ✅ SOLO en páginas públicas */}
+      {isPublicPage && <ScrollToTop />}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { useCompany } from "@/context/CompanyContext";
 import { useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -20,6 +21,8 @@ export default function InvoicesPage() {
   const isCompanyAdmin = role === "admin";
   const isAdminLevel = isSuperAdmin || isCompanyAdmin;
 
+  const { selectedCompanyId } = useCompany();
+
   const isSelected = (id) => selected.includes(id);
 
   const toggleOne = (id) => {
@@ -39,13 +42,24 @@ export default function InvoicesPage() {
   useEffect(() => {
     async function loadData() {
       try {
+        setLoading(true);
+
         const token = await getToken({ template: "supabase" });
+
+        // 🔥 construir URL dinámico (CLAVE)
+        let invoicesUrl = "/api/invoices";
+
+        if (selectedCompanyId && selectedCompanyId !== "all") {
+          invoicesUrl += `?company_id=${selectedCompanyId}`;
+        }
+
+        console.log("📡 Fetching invoices:", invoicesUrl);
 
         const [billingRes, invoicesRes, profileRes] = await Promise.all([
           fetch("/api/company/billing", {
             credentials: "include",
           }),
-          fetch("/api/invoices", {
+          fetch(invoicesUrl, {
             cache: "no-store",
             credentials: "include",
           }),
@@ -82,7 +96,7 @@ export default function InvoicesPage() {
     }
 
     loadData();
-  }, []);
+  }, [selectedCompanyId]); // 🔥 CLAVE
 
   async function archiveSelected() {
     if (selected.length === 0) return;

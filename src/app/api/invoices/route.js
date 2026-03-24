@@ -116,13 +116,17 @@ export async function POST(req) {
 /* =====================================================
    LIST INVOICES (GET)
 ===================================================== */
-export async function GET() {
+export async function GET(req) {
   try {
     const { userId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // 🔥 NUEVO: leer company_id
+    const { searchParams } = new URL(req.url);
+    const companyId = searchParams.get("company_id");
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -158,7 +162,10 @@ export async function GET() {
        👑 SUPER ADMIN
     ========================= */
     if (profile.role === "super_admin") {
-      // ve todo
+      // 🔥 aplicar filtro si viene company
+      if (companyId && companyId !== "all") {
+        query = query.eq("company_id", companyId);
+      }
     } else {
       /* =========================
          🔐 Obtener companies desde company_members
@@ -205,7 +212,12 @@ export async function GET() {
         companyIds = [...new Set([...companyIds, ...managedIds])];
       }
 
-      query = query.in("company_id", companyIds);
+      // 🔥 NUEVO: respetar selector si viene
+      if (companyId && companyId !== "all") {
+        query = query.eq("company_id", companyId);
+      } else {
+        query = query.in("company_id", companyIds);
+      }
     }
 
     const { data: invoices, error } = await query;

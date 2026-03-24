@@ -1,4 +1,5 @@
 "use client";
+import { useCompany } from "@/context/CompanyContext";
 import ImportBuildiumModal from "@/components/buildium/ImportBuildiumModal";
 import { useRouter } from "next/navigation";
 import Slider from "@/components/Slider";
@@ -40,7 +41,7 @@ export default function AdminDashboard() {
   const { isLoaded, user } = useUser();
 
   const [jobs, setJobs] = useState([]);
-
+  const { selectedCompanyId } = useCompany();
   const [loading, setLoading] = useState(true);
   const [openImport, setOpenImport] = useState(false);
   // ✅ Cliente Supabase autenticado con Clerk
@@ -50,7 +51,19 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
 
-      const res = await fetch("/api/admin/jobs", {
+      // 🔥 Construir URL dinámico
+      let url = "/api/admin/jobs";
+
+      // 🔥 SOLO filtra si NO es ALL
+      if (selectedCompanyId && selectedCompanyId !== "all") {
+        url += `?company_id=${selectedCompanyId}`;
+      }
+
+      console.log("📡 Fetching:", url);
+
+      console.log("📡 Fetching:", url);
+
+      const res = await fetch(url, {
         cache: "no-store",
       });
 
@@ -70,8 +83,39 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!isLoaded) return;
-    fetchJobs();
-  }, [isLoaded]);
+
+    const loadJobs = async () => {
+      try {
+        setLoading(true);
+
+        let url = "/api/admin/jobs";
+
+        if (selectedCompanyId && selectedCompanyId !== "all") {
+          url += `?company_id=${selectedCompanyId}`;
+        }
+
+        console.log("📡 Fetching:", url);
+
+        const res = await fetch(url, {
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch jobs");
+        }
+
+        const data = await res.json();
+        setJobs(data || []);
+      } catch (err) {
+        console.error("❌ Error fetching jobs:", err);
+        toast.error("Error loading jobs");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadJobs();
+  }, [selectedCompanyId, isLoaded]);
 
   // 💬 Cargar mensajes autenticado con Clerk
 
@@ -107,12 +151,39 @@ export default function AdminDashboard() {
     );
   }, [jobs]);
 
-  if (!isLoaded || loading)
+  // 🔹 Esperando Clerk
+  if (!isLoaded) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="animate-spin w-8 h-8 text-primary" />
       </div>
     );
+  }
+  // 🔹 No company seleccionada (o modo inicial)
+  if (selectedCompanyId === null || selectedCompanyId === undefined) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-center px-4">
+        <div className="bg-muted/40 p-6 rounded-xl shadow-sm">
+          <p className="text-sm font-medium text-gray-700">
+            Select a company to view dashboard
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Use the selector in the top right
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 🔹 Loading de data (más pro que spinner solo)
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-3">
+        <Loader2 className="animate-spin w-7 h-7 text-primary" />
+        <p className="text-xs text-gray-500">Loading dashboard...</p>
+      </div>
+    );
+  }
 
   return (
     <>
