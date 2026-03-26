@@ -30,12 +30,14 @@ export async function GET(req, { params }) {
   available_from,
   description,
   images,
-  property:properties (
-    address,
-    postal_code,
-    latitude,
-    longitude
-  )
+property:properties (
+  id,
+  address,
+  postal_code,
+  latitude,
+  longitude,
+  company_id
+)
 `,
     )
 

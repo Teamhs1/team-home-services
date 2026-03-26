@@ -603,10 +603,30 @@ export default function Sidebar() {
           icon: ICONS.content,
         },
         {
+          id: "admin-rent",
+          name: "Rent",
+          href: "/admin/rent",
+          icon: ICONS.invoices,
+        },
+        {
           id: "admin-companies",
           name: "Companies",
           href: "/admin/companies",
           icon: ICONS.companies,
+        },
+
+        // 👇🔥 NUEVO
+        {
+          id: "admin-tenant-applications",
+          name: "Applications",
+          href: "/admin/tenant-applications",
+          icon: ICONS.tenants,
+        },
+        {
+          id: "admin-leases",
+          name: "Leases",
+          href: "/admin/leases",
+          icon: ICONS.properties,
         },
         {
           id: "admin-sync-logs",

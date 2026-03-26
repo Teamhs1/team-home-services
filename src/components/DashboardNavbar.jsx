@@ -49,6 +49,8 @@ export default function DashboardNavbar() {
     if (pathname === "/admin/permissions") return "admin_permissions";
 
     // 👇 RESTO DE ADMIN (fallback)
+    if (pathname.startsWith("/admin/tenant-applications"))
+      return "admin_applications";
     if (pathname.startsWith("/admin")) return "admin";
 
     if (pathname.startsWith("/dashboard/company")) return "dashboard_company";
@@ -121,6 +123,7 @@ export default function DashboardNavbar() {
     admin: [
       { label: "Theme Preview", href: "/admin/theme-preview" },
       { label: "Staff Applications", href: "/admin/staff-applications" },
+      { label: "Tenant Applications", href: "/admin/tenant-applications" },
     ],
 
     admin_properties: [
@@ -151,6 +154,11 @@ export default function DashboardNavbar() {
           },
         ]
       : [],
+
+    // 🔥 NUEVO: APPLICATIONS MODULE
+    admin_applications: [
+      { label: "Applications", href: "/admin/tenant-applications" },
+    ],
   };
 
   const activeTabs = subNav[section] || [];
