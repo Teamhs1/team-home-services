@@ -10,27 +10,32 @@ export async function POST(req) {
   try {
     const { application_id } = await req.json();
 
-    // 1. Obtener application
+    // 🔹 1. Obtener application + unit
     const { data: app, error: appError } = await supabase
       .from("tenant_applications")
-      .select("*")
+      .select(
+        `
+        *,
+        unit:units (
+          id,
+          rent_price
+        )
+      `,
+      )
       .eq("id", application_id)
       .single();
 
     if (appError) throw appError;
+    if (!app) throw new Error("Application not found");
 
-    if (!app) {
-      throw new Error("Application not found");
-    }
-
-    // 🔒 Evitar duplicados
+    // 🔒 evitar duplicados
     if (app.status === "approved") {
       return NextResponse.json({
         message: "Application already approved",
       });
     }
 
-    // 2. Crear tenant
+    // 🔹 2. Crear tenant
     const { data: tenant, error: tenantError } = await supabase
       .from("tenants")
       .insert({
@@ -46,7 +51,7 @@ export async function POST(req) {
 
     if (tenantError) throw tenantError;
 
-    // 🔥 3. Crear lease automático (SIN ROMPER SI FALLA)
+    // 🔹 3. Crear lease (MEJORADO 🔥)
     let lease = null;
 
     try {
@@ -56,9 +61,10 @@ export async function POST(req) {
           company_id: app.company_id,
           tenant_id: tenant.id,
           unit_id: app.unit_id,
-          rent_amount: 1200, // luego lo haces dinámico
+          application_id: app.id, // 🔥 tracking
+          rent_amount: app.unit?.rent_price || 0,
           start_date: new Date().toISOString(),
-          status: "active",
+          status: "draft", // 🔥 flujo correcto (NO active aún)
         })
         .select()
         .single();
@@ -72,7 +78,7 @@ export async function POST(req) {
       console.warn("Lease error:", err.message);
     }
 
-    // 4. Actualizar application
+    // 🔹 4. Actualizar application
     await supabase
       .from("tenant_applications")
       .update({ status: "approved" })
@@ -80,7 +86,7 @@ export async function POST(req) {
 
     return NextResponse.json({
       tenant,
-      lease, // 👈 opcional (puede ser null)
+      lease,
     });
   } catch (err) {
     console.error("APPROVE ERROR:", err.message);

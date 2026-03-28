@@ -163,21 +163,18 @@ export default function JobPhotosPage() {
   const compareKeys = useMemo(() => {
     if (!job) return [];
 
-    const isHallway =
-      job.service_type === "hallway_standard" ||
-      job.service_type === "hallway_deep";
+    const isHallway = job.service_type === "hallway_cleaning";
+
+    const isLight = job.service_type === "light_cleaning";
 
     if (isHallway) {
       return [
-        // BEFORE hallway
         "floor_condition",
         "baseboards_condition",
         "walls_condition",
         "handrails_condition",
         "corners_condition",
         "lights_condition",
-
-        // AFTER hallway
         "floor_cleaned",
         "baseboards_cleaned",
         "walls_cleaned",
@@ -186,7 +183,23 @@ export default function JobPhotosPage() {
       ];
     }
 
-    // normal units
+    // 🔥 LIGHT CLEANING
+    if (isLight) {
+      const keys = ["general_floor", "general_kitchen", "general_bathroom"];
+
+      if (job.unit_type) {
+        const match = job.unit_type.match(/\d+/);
+        const count = match ? parseInt(match[0]) : 0;
+
+        for (let i = 1; i <= count; i++) {
+          keys.push(`room_${i}`);
+        }
+      }
+
+      return keys;
+    }
+
+    // 🧽 DEEP CLEANING (default)
     return [
       ...staticCompare.map((c) => c.key),
       ...compareFromFeatures(job.features || []).map((c) => c.key),

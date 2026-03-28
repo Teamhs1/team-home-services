@@ -4,7 +4,13 @@ import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import {
+  X,
+  Droplet,
+  Armchair,
+  UtensilsCrossed,
+  ShowerHead,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -145,6 +151,30 @@ export function JobUploadModal({
     );
   };
 
+  const getLightCleaningCompare = (unitType) => {
+    const base = [
+      { key: "general_floor", label: "Floor", icon: Droplet },
+      { key: "general_kitchen", label: "Kitchen Area", icon: UtensilsCrossed },
+      { key: "general_bathroom", label: "Bathroom Area", icon: ShowerHead },
+    ];
+
+    // 🔥 habitaciones dinámicas
+    if (unitType) {
+      const match = unitType.match(/\d+/); // "2_beds" → 2
+      const count = match ? parseInt(match[0]) : 0;
+
+      for (let i = 1; i <= count; i++) {
+        base.push({
+          key: `room_${i}`,
+          label: `Room ${i}`,
+          icon: Armchair,
+        });
+      }
+    }
+
+    return base;
+  };
+
   // --------------------------------------------------------
   // CATEGORY LISTS
   // --------------------------------------------------------
@@ -166,15 +196,30 @@ export function JobUploadModal({
     ],
   };
 
-  const isHallway = serviceType?.includes("hallway");
+  const isHallway = serviceType === "hallway_cleaning";
 
-  const dynamicCompareCategories = isHallway
-    ? hallwayCategories[type] || []
-    : [...staticCompare, ...compareFromFeatures(features)];
+  const isLight = serviceType === "light_cleaning";
+
+  const filteredStaticCompare = isLight
+    ? staticCompare.filter(
+        (c) => !["stove_back", "fridge_back"].includes(c.key),
+      )
+    : staticCompare;
 
   const normalizedUnitType = unitType?.toLowerCase()?.replace(/\s+/g, "_");
 
-  const generalCategories = generalAreas(features, type, normalizedUnitType);
+  const dynamicCompareCategories = isHallway
+    ? hallwayCategories[type] || []
+    : isLight
+      ? getLightCleaningCompare(normalizedUnitType)
+      : [...filteredStaticCompare, ...compareFromFeatures(features)];
+
+  const generalCategories = generalAreas(
+    features,
+    type,
+    normalizedUnitType,
+    serviceType,
+  );
 
   const handleCategoryClick = (key) => {
     setSelectedCategory(key);
@@ -449,7 +494,9 @@ export function JobUploadModal({
   // 🔥 SIEMPRE OBLIGATORIAS (BASE)
   const requiredCompareKeys = isHallway
     ? hallwayCategories[type]?.map((c) => c.key) || []
-    : staticCompare.map((c) => c.key);
+    : isLight
+      ? getLightCleaningCompare(normalizedUnitType).map((c) => c.key)
+      : staticCompare.map((c) => c.key);
 
   // 🔥 Dinámicas solo si existen
   const dynamicCompareKeys = isHallway
@@ -461,11 +508,9 @@ export function JobUploadModal({
     type === "after" && !isHallway ? generalCategories.map((c) => c.key) : [];
 
   // 🔥 Unir todas las requeridas
-  const requiredKeys = [
-    ...requiredCompareKeys,
-    ...dynamicCompareKeys,
-    ...requiredGeneralKeys,
-  ];
+  const requiredKeys = isLight
+    ? [...requiredCompareKeys] // 🔥 SOLO compare
+    : [...requiredCompareKeys, ...dynamicCompareKeys, ...requiredGeneralKeys];
   const allCompareCategoriesHavePhotos = [
     ...requiredCompareKeys,
     ...dynamicCompareKeys,
@@ -607,7 +652,7 @@ export function JobUploadModal({
             {/* COMPARE */}
             {step === 2 && (
               <>
-                <h3 className="text-lg font-semibold mb-3">Compare Photos</h3>
+                <h3 className="text-lg font-semibold mb-3">Main Areas</h3>
 
                 {type === "before" && unitType === null && !isHallway ? (
                   <p className="text-sm text-red-500 mb-4">
@@ -648,7 +693,7 @@ export function JobUploadModal({
                       if (isHallway) {
                         setStep(4);
                       } else {
-                        setStep(type === "after" ? 3 : 4);
+                        setStep(isLight ? 4 : type === "after" ? 3 : 4);
                       }
                     }}
                   >
@@ -660,7 +705,7 @@ export function JobUploadModal({
               </>
             )}
 
-            {step === 3 && type === "after" && !isHallway && (
+            {step === 3 && type === "after" && !isHallway && !isLight && (
               <>
                 <h3 className="text-lg font-semibold mb-3">General Areas</h3>
 

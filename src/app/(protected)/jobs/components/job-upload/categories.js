@@ -95,7 +95,22 @@ export function compareFromFeatures(features) {
 // ================================
 // GENERAL AREAS
 // ================================
-export function generalAreas(features, type, unitType) {
+export function generalAreas(features, type, unitType, serviceType) {
+  const isLight = serviceType?.includes("light");
+
+  // 🔥 LIGHT CLEANING (lo básico)
+  if (isLight) {
+    return [
+      { key: "floor", label: "Floors", icon: Droplet },
+      { key: "general", label: "General Area", icon: Armchair },
+
+      { key: "toilet", label: "Toilet", icon: Toilet },
+      { key: "sink", label: "Sink", icon: Droplet },
+      { key: "mirror", label: "Mirror", icon: ShowerHead },
+    ];
+  }
+
+  // 🔥 DEEP CLEANING (todo incluido)
   const base = [
     { key: "kitchen", label: "Kitchen", icon: UtensilsCrossed },
     { key: "bathroom", label: "Bathroom", icon: ShowerHead },
@@ -139,7 +154,7 @@ export function generalAreas(features, type, unitType) {
     unitType &&
     ["1_bed", "2_beds", "3_beds", "4_beds"].includes(unitType)
   ) {
-    const count = parseInt(unitType); // "1_bed" -> 1
+    const count = parseInt(unitType);
 
     for (let i = 1; i <= count; i++) {
       base.push({

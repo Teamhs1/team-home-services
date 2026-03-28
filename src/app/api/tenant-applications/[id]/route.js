@@ -17,35 +17,35 @@ export async function GET(req, { params }) {
       );
     }
 
-    // 🔥 QUERY SIMPLE (SIN FK NAMES)
+    // 🔥 QUERY CORREGIDA (USANDO FK EXPLÍCITO)
     const { data, error } = await supabase
       .from("tenant_applications")
       .select(
         `
         *,
-        unit:units (
+        unit:units!tenant_applications_unit_id_fkey (
           id,
           unit,
           rent_price
         ),
-        property:properties (
+        property:properties!tenant_applications_property_id_fkey (
           id,
           address,
           postal_code
         ),
-        company:companies (
+        company:companies!tenant_applications_company_id_fkey (
           id,
           name
         )
       `,
       )
       .eq("id", id)
-      .maybeSingle(); // 🔥 más seguro que single()
+      .maybeSingle(); // 🔥 seguro
 
     if (error) {
       console.error("❌ GET ERROR:", error);
 
-      // 🔥 fallback para no romper
+      // 🔥 fallback seguro
       const fallback = await supabase
         .from("tenant_applications")
         .select("*")
